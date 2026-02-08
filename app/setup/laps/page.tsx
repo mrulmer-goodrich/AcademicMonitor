@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { addDays, format, startOfWeek } from "date-fns";
@@ -20,7 +20,7 @@ type Standard = { code: string; description: string };
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
-export default function LapsSetupPage() {
+function LapsSetupPageInner() {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -255,5 +255,13 @@ export default function LapsSetupPage() {
       )}
 
     </div>
+  );
+}
+
+export default function LapsSetupPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl px-6 py-6">Loading…</div>}>
+      <LapsSetupPageInner />
+    </Suspense>
   );
 }
