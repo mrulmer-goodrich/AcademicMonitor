@@ -234,12 +234,7 @@ Demo login:
 
 ## Contact Form Delivery
 
-Contact form submissions are sent via **Resend**. Set these env vars in Vercel:
-
-- `RESEND_API_KEY`
-- `CONTACT_EMAIL` (recipient address)
-
-If these are not set, the contact form will return an error.
+The contact page uses a simple `mailto:` link that opens the visitor’s email app. No backend or env vars required.
 
 ---
 
