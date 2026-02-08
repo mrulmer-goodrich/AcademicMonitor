@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { format, startOfWeek } from "date-fns";
 
 type Block = { id: string; blockNumber: number; blockName: string };
@@ -50,6 +51,8 @@ const colorCycle: Performance["color"][] = ["GREEN", "YELLOW", "RED"];
 const attendanceCycle: Attendance["status"][] = ["PRESENT", "ABSENT", "TARDY", "LEFT_EARLY"];
 
 export default function MonitorPage() {
+  const searchParams = useSearchParams();
+  const requestedBlockId = searchParams.get("blockId");
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockId, setBlockId] = useState<string>("");
   const [desks, setDesks] = useState<Desk[]>([]);
@@ -92,7 +95,10 @@ export default function MonitorPage() {
     }
     const data = await res.json();
     setBlocks(data.blocks || []);
-    if (!blockId && data.blocks?.length) setBlockId(data.blocks[0].id);
+    if (!blockId && data.blocks?.length) {
+      const match = requestedBlockId && data.blocks.some((block: Block) => block.id === requestedBlockId);
+      setBlockId(match ? (requestedBlockId as string) : data.blocks[0].id);
+    }
   }
 
   async function loadDesks() {

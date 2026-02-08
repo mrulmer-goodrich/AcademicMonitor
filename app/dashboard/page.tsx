@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import LogoutButton from "@/components/LogoutButton";
+import MonitorSnapshotCard from "@/components/MonitorSnapshotCard";
 
 export default function DashboardPage({ searchParams }: { searchParams?: { error?: string } }) {
   const user = getSessionUser();
@@ -8,7 +9,7 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
   const error = searchParams?.error || null;
   const greetings = user
     ? [
-        `Welcome back, ${user.displayName}.`,
+        `Welcome back, ${user.displayName}`,
         "Ready for the next lap?",
         "Let’s check today’s seats."
       ]
@@ -17,10 +18,9 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
   const greeting = greetings[greetingIndex];
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="small-header text-black/60">Dashboard</div>
           <h1 className="section-title">{greeting}</h1>
         </div>
         <div className="flex gap-3">
@@ -81,32 +81,23 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
       )}
 
       {isAuthed && (
-        <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
-          <Link href="/monitor" className="feature-card" style={{ minHeight: 220 }}>
-            <div className="text-2xl font-semibold">Monitor</div>
-            <p className="text-sm text-black/70">Jump into today’s seating view and capture laps fast</p>
-            <div className="mt-auto text-sm font-semibold text-ocean">Open today’s class</div>
-          </Link>
-          <div className="grid gap-4">
-            <Link href="/setup/blocks" className="feature-card">
-              <div className="text-lg font-semibold">Blocks</div>
-              <p className="text-sm text-black/70">Create and manage blocks</p>
+        <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
+          <MonitorSnapshotCard />
+          <div className="grid gap-3">
+            <Link href="/setup/blocks" className="feature-card items-center justify-center text-center py-4">
+              <div className="text-lg font-semibold">Setup / Manage Blocks</div>
             </Link>
-            <Link href="/setup/students" className="feature-card">
-              <div className="text-lg font-semibold">Students</div>
-              <p className="text-sm text-black/70">Add and edit student rosters</p>
+            <Link href="/setup/students" className="feature-card items-center justify-center text-center py-4">
+              <div className="text-lg font-semibold">Setup / Manage Students</div>
             </Link>
-            <Link href="/setup/seating" className="feature-card">
-              <div className="text-lg font-semibold">Seating</div>
-              <p className="text-sm text-black/70">Arrange desks and groups</p>
+            <Link href="/setup/seating" className="feature-card items-center justify-center text-center py-4">
+              <div className="text-lg font-semibold">Setup / Manage Seating Chart</div>
             </Link>
-            <Link href="/setup/laps" className="feature-card">
-              <div className="text-lg font-semibold">Laps</div>
-              <p className="text-sm text-black/70">Plan weekly laps</p>
+            <Link href="/setup/laps" className="feature-card items-center justify-center text-center py-4">
+              <div className="text-lg font-semibold">Name Your Laps</div>
             </Link>
-            <Link href="/report" className="feature-card">
-              <div className="text-lg font-semibold">Report</div>
-              <p className="text-sm text-black/70">Filter and export CSV/XLSX</p>
+            <Link href="/report" className="feature-card items-center justify-center text-center py-4">
+              <div className="text-lg font-semibold">Reporting</div>
             </Link>
           </div>
         </div>

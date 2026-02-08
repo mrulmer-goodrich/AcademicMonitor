@@ -24,7 +24,7 @@ type Student = {
 const categories = [
   { key: "ml", label: "ML", color: "#9ecae1" },
   { key: "mlNew", label: "ML New", color: "#9ecae1" },
-  { key: "iep504", label: "IEP/504", color: "#f5a9b8" },
+  { key: "iep504", label: "IEP / 504", color: "#f5a9b8" },
   { key: "ec", label: "EC", color: "#f7d774" },
   { key: "ca", label: "CA", color: "#ffffff" },
   { key: "hiit", label: "HIIT", color: "#b18ad8" }
@@ -135,10 +135,9 @@ export default function StudentsSetupPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
+    <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
       <div className="space-y-2">
-        <div className="small-header text-black/60">Setup</div>
-        <h1 className="section-title">Students</h1>
+        <h1 className="section-title">Set up / manage students</h1>
         <p className="text-black/70 text-sm">
           Import or edit students. Each student has a seat number that never gets reused within a school year.
         </p>
@@ -185,12 +184,12 @@ export default function StudentsSetupPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>Seat #</th>
-              <th>Student Name</th>
-              <th>Status</th>
-              <th>Categories</th>
-              <th>EOG</th>
-              <th>Save</th>
+              <th className="text-center">Seat #</th>
+              <th className="text-center">Student Name</th>
+              <th className="text-center">Status</th>
+              <th className="text-center">Categories</th>
+              <th className="text-center">EOG</th>
+              <th className="text-center">Save</th>
             </tr>
           </thead>
           <tbody>
@@ -249,7 +248,7 @@ export default function StudentsSetupPage() {
                           key={cat.key}
                           type="button"
                           disabled={!isEditing}
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-black/70 text-[9px]"
+                          className="flex h-10 w-10 items-center justify-center rounded-full border border-black/70 text-[10px] font-bold text-center leading-tight whitespace-normal break-words px-1"
                           style={{ background: active ? cat.color : "#e8e8e8" }}
                           onClick={() =>
                             setDraft((prev) => ({
@@ -258,7 +257,7 @@ export default function StudentsSetupPage() {
                             }))
                           }
                         >
-                          {cat.label === "ML New" ? "ML" : cat.label}
+                          {cat.label}
                         </button>
                       );
                     })}

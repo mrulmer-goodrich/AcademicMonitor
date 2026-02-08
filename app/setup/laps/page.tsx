@@ -92,10 +92,9 @@ export default function LapsSetupPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
+    <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
       <div className="space-y-2">
-        <div className="small-header text-black/60">Setup</div>
-        <h1 className="section-title">Laps</h1>
+        <h1 className="section-title">Name Your Laps</h1>
         <p className="text-black/70 text-sm">
           Three laps per day. Each lap can optionally reference a standard. Scroll to future weeks to plan ahead.
         </p>
@@ -141,8 +140,8 @@ export default function LapsSetupPage() {
                 <th></th>
                 {weekdays.map((day, index) => (
                   <th key={day} className="text-center">
-                    <div className="font-semibold text-base">{day}</div>
-                    <div className="text-sm text-black/60">{format(addDays(weekStart, index), "MM/dd")}</div>
+                    <div className="font-semibold text-[15px]">{day}</div>
+                    <div className="text-[13px] text-black/60">{format(addDays(weekStart, index), "MM/dd")}</div>
                   </th>
                 ))}
               </tr>
@@ -150,7 +149,7 @@ export default function LapsSetupPage() {
             <tbody>
               {[1, 2, 3].map((lapNumber) => (
                 <tr key={lapNumber}>
-                  <td className="font-semibold text-base">Lap {lapNumber}</td>
+                  <td className="font-semibold text-[15px] text-center">Lap {lapNumber}</td>
                   {weekdays.map((_day, dayIndex) => {
                     const lap = getLap(dayIndex, lapNumber);
                     return (

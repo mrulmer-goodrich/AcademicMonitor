@@ -65,10 +65,9 @@ export default function BlocksSetupPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10 space-y-6">
+    <div className="mx-auto max-w-5xl px-6 py-6 space-y-6">
       <div className="space-y-2">
-        <div className="small-header text-black/60">Setup</div>
-        <h1 className="section-title">Blocks</h1>
+        <h1 className="section-title">Set up / manage blocks</h1>
         <p className="text-black/70 text-sm">Create, modify, archive, or delete blocks for the current school year.</p>
       </div>
       <SetupNav />

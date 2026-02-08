@@ -2,9 +2,8 @@ import Link from "next/link";
 
 export default function SetupHomePage() {
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12 space-y-6">
+    <div className="mx-auto max-w-5xl px-6 py-6 space-y-6">
       <div>
-        <div className="small-header text-black/60">Setup</div>
         <h1 className="section-title">Choose a setup task</h1>
       </div>
       <div className="hero-card p-6">

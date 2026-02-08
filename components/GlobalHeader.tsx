@@ -23,9 +23,9 @@ export default function GlobalHeader() {
 
   return (
     <div className="topbar">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-1">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-0.5">
         <Link href={logoHref} className="flex items-center gap-2" aria-label="Academic Monitor home">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden -my-3">
             <Image
               src="/logo.png"
               alt="Academic Monitor logo"

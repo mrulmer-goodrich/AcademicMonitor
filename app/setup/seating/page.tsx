@@ -304,10 +304,9 @@ export default function SeatingSetupPage() {
 
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
+    <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
       <div className="space-y-2">
-        <div className="small-header text-black/60">Setup</div>
-        <h1 className="section-title">Seating Chart</h1>
+        <h1 className="section-title">Set up / manage seating chart</h1>
         <p className="text-black/70 text-sm">
           Drag desks to arrange the room. Desks snap together when close and can move as grouped clusters.
         </p>
