@@ -6,12 +6,17 @@ import { format, startOfWeek } from "date-fns";
 
 type Block = { id: string; blockNumber: number; blockName: string };
 
-type Desk = {
-  id: string;
-  type: "STUDENT" | "TEACHER";
-  studentId: string | null;
-  seatNumber: number | null;
-  student?: {
+  type Desk = {
+    id: string;
+    type: "STUDENT" | "TEACHER";
+    studentId: string | null;
+    seatNumber: number | null;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation: number;
+    student?: {
     displayName: string;
     ml: boolean;
     mlNew: boolean;
@@ -296,7 +301,7 @@ export default function MonitorPage() {
           {attendanceMode ? "Tap desks to mark Present/Absent/Tardy/Left Early" : "Tap desks to log lap performance"}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 relative">
+        <div className="hero-card h-[560px] p-4 relative overflow-hidden">
           {!readyForDisplay && !attendanceMode && (
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/75 text-sm font-semibold">
               Complete attendance and name laps to unlock SeatDisplay.
@@ -315,6 +320,16 @@ export default function MonitorPage() {
                 : status === "LEFT_EARLY"
                 ? "bg-orange-300"
                 : "bg-slate-200";
+            const statusBg =
+              attendanceMode && status
+                ? status === "PRESENT"
+                  ? "bg-emerald-100"
+                  : status === "ABSENT"
+                  ? "bg-red-100"
+                  : status === "TARDY"
+                  ? "bg-yellow-100"
+                  : "bg-orange-100"
+                : "bg-white";
             const categories = showCategories && desk.student
               ? [
                   desk.student.ml ? { label: "ML", color: "#9ecae1" } : null,
@@ -349,9 +364,16 @@ export default function MonitorPage() {
             return (
               <div
                 key={desk.id}
-                className={`relative rounded-2xl border border-black/10 bg-white px-4 py-4 text-center shadow ${
+                className={`absolute rounded-2xl border border-black/10 px-4 py-4 text-center shadow ${statusBg} ${
                   isAbsent ? "opacity-50" : ""
                 }`}
+                style={{
+                  left: desk.x,
+                  top: desk.y,
+                  width: desk.width,
+                  height: desk.height,
+                  transform: `rotate(${desk.rotation}deg)`
+                }}
                 onClick={() => {
                   if (attendanceMode && desk.studentId) {
                     cycleAttendance(desk.studentId);
@@ -491,8 +513,23 @@ export default function MonitorPage() {
         </div>
 
         {!readyForDisplay && (
-          <div className="text-sm text-black/60">
+          <div className="text-sm text-black/60 flex flex-wrap items-center gap-3">
             Seat display unlocks after attendance is taken and three laps are named. Select at least one lap to begin.
+            {!attendanceComplete && (
+              <button className="btn btn-ghost" type="button" onClick={() => setAttendancePanel(true)}>
+                Go to Attendance
+              </button>
+            )}
+            {!lapsNamed && (
+              <Link href="/setup/laps" className="btn btn-ghost">
+                Go to Laps Setup
+              </Link>
+            )}
+            {desks.length === 0 && (
+              <Link href="/setup/seating" className="btn btn-ghost">
+                Go to Seating Setup
+              </Link>
+            )}
           </div>
         )}
       </div>

@@ -59,17 +59,17 @@ export default function HomePage() {
           {[
             {
               title: "Setup",
-              body: "Create blocks, students, seating, and laps. One screen per task.",
+              body: "Create blocks, students, seating, and laps. One screen per task",
               href: "/setup"
             },
             {
               title: "Monitor",
-              body: "Take attendance and tap seats to log lap performance.",
+              body: "Take attendance and tap seats to log lap performance",
               href: "/monitor"
             },
             {
               title: "Report",
-              body: "Filter by laps, blocks, students, and download CSV/XLSX.",
+              body: "Filter by laps, blocks, students, and download CSV/XLSX",
               href: "/report"
             }
           ].map((card) => (

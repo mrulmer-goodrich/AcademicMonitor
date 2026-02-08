@@ -48,8 +48,17 @@ export default function SeatingSetupPage() {
   const [snapDistance, setSnapDistance] = useState(SNAP_DISTANCE);
   const [deskSize, setDeskSize] = useState({ width: 120, height: 90 });
   const [snapTargetId, setSnapTargetId] = useState<string | null>(null);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [teacherName, setTeacherName] = useState<string>("Teacher");
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const dragRef = useRef<{
+    id: string;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    groupPositions?: Record<string, { x: number; y: number }>;
+  } | null>(null);
 
   useEffect(() => {
     loadBlocks();
@@ -59,8 +68,17 @@ export default function SeatingSetupPage() {
     if (blockId) {
       loadDesks();
       loadUnassigned();
+      loadTeacher();
     }
   }, [blockId]);
+
+  async function loadTeacher() {
+    const res = await fetch("/api/me");
+    if (res.ok) {
+      const data = await res.json();
+      setTeacherName(data.user?.teacherName || "Teacher");
+    }
+  }
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -105,7 +123,10 @@ export default function SeatingSetupPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ blockId, type: "TEACHER", x: 80, y: 80, width: 160, height: 100 })
     });
-    if (res.ok) await loadDesks();
+    if (res.ok) {
+      setLastSaved("Saved");
+      await loadDesks();
+    }
   }
 
   async function updateDesk(id: string, updates: Partial<Desk>) {
@@ -114,6 +135,7 @@ export default function SeatingSetupPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates)
     });
+    setLastSaved("Saved");
   }
 
   async function deleteDesk() {
@@ -135,18 +157,27 @@ export default function SeatingSetupPage() {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     setSelectedDeskId(desk.id);
+    const groupPositions =
+      desk.groupId
+        ? Object.fromEntries(
+            desks
+              .filter((d) => d.groupId === desk.groupId)
+              .map((d) => [d.id, { x: d.x, y: d.y }])
+          )
+        : undefined;
     dragRef.current = {
       id: desk.id,
       startX: event.clientX,
       startY: event.clientY,
       originX: desk.x,
-      originY: desk.y
+      originY: desk.y,
+      groupPositions
     };
   }
 
   function onPointerMove(event: React.PointerEvent) {
     if (!dragRef.current) return;
-    const { id, startX, startY, originX, originY } = dragRef.current;
+    const { id, startX, startY, originX, originY, groupPositions } = dragRef.current;
     const dx = event.clientX - startX;
     const dy = event.clientY - startY;
     const container = containerRef.current?.getBoundingClientRect();
@@ -163,12 +194,16 @@ export default function SeatingSetupPage() {
             ? {
                 ...desk,
                 x: clamp(
-                  snapToGrid ? Math.round((desk.x + dx) / gridSize) * gridSize : desk.x + dx,
+                  snapToGrid
+                    ? Math.round(((groupPositions?.[desk.id]?.x ?? desk.x) + dx) / gridSize) * gridSize
+                    : (groupPositions?.[desk.id]?.x ?? desk.x) + dx,
                   0,
                   maxX
                 ),
                 y: clamp(
-                  snapToGrid ? Math.round((desk.y + dy) / gridSize) * gridSize : desk.y + dy,
+                  snapToGrid
+                    ? Math.round(((groupPositions?.[desk.id]?.y ?? desk.y) + dy) / gridSize) * gridSize
+                    : (groupPositions?.[desk.id]?.y ?? desk.y) + dy,
                   0,
                   maxY
                 )
@@ -233,6 +268,7 @@ export default function SeatingSetupPage() {
     const updates: Partial<Desk> = { x: desk.x, y: desk.y, groupId };
     await updateDesk(desk.id, updates);
     setDesks((prev) => prev.map((d) => (d.id === desk.id ? { ...d, groupId } : d)));
+    setTimeout(() => setLastSaved(null), 1500);
   }
 
   function rotateSelected(delta: number) {
@@ -310,6 +346,21 @@ export default function SeatingSetupPage() {
       y: (d.y - minY) * scale + padding,
       width: d.width * scale,
       height: d.height * scale
+    }));
+    await Promise.all(next.map((d) => updateDesk(d.id, d)));
+    await loadDesks();
+  }
+
+  async function alignBottom() {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const studentDesks = desks.filter((d) => d.type === "STUDENT");
+    if (studentDesks.length === 0) return;
+    const maxY = Math.max(...studentDesks.map((d) => d.y + d.height));
+    const delta = rect.height - maxY - 12;
+    const next = studentDesks.map((d) => ({
+      id: d.id,
+      y: Math.max(d.y + delta, 0)
     }));
     await Promise.all(next.map((d) => updateDesk(d.id, d)));
     await loadDesks();
@@ -429,6 +480,10 @@ export default function SeatingSetupPage() {
         <button className="btn btn-ghost" type="button" onClick={autoFit}>
           Auto Fit
         </button>
+        <button className="btn btn-ghost" type="button" onClick={alignBottom}>
+          Align Bottom
+        </button>
+        <div className="text-sm text-black/60">{lastSaved ? lastSaved : "Autosave enabled"}</div>
       </div>
 
       <div
@@ -471,17 +526,17 @@ export default function SeatingSetupPage() {
             }}
             onPointerDown={(event) => onPointerDown(event, desk)}
           >
-            <div className="mt-2 font-semibold">
-              {desk.type === "TEACHER" ? "Teacher" : desk.student?.displayName || "Student"}
+            <div className="mt-2 text-base font-semibold">
+              {desk.type === "TEACHER" ? teacherName : desk.student?.displayName || "Student"}
             </div>
             {desk.type === "STUDENT" && desk.seatNumber && (
-              <div className="text-[10px] text-black/60">Seat {desk.seatNumber}</div>
+              <div className="text-[10px] text-black/60 sr-only">Seat {desk.seatNumber}</div>
             )}
             {desk.type === "STUDENT" && desk.student && (
               <>
                 {desk.student.hiit && (
                   <span
-                    className="absolute left-2 top-2 flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                    className="absolute left-2 top-2 flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
                     style={{ background: "#b18ad8" }}
                   >
                     H
@@ -489,7 +544,7 @@ export default function SeatingSetupPage() {
                 )}
                 {desk.student.eog && (
                   <span
-                    className="absolute right-2 top-2 flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px] text-white"
+                    className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px] text-white"
                     style={{
                       background:
                         desk.student.eog === "FIVE"
@@ -513,7 +568,7 @@ export default function SeatingSetupPage() {
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-1 px-2">
                   {desk.student.ml && (
                     <span
-                      className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
                       style={{ background: "#9ecae1" }}
                     >
                       ML
@@ -521,7 +576,7 @@ export default function SeatingSetupPage() {
                   )}
                   {desk.student.mlNew && (
                     <span
-                      className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
                       style={{
                         background:
                           "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)"
@@ -532,7 +587,7 @@ export default function SeatingSetupPage() {
                   )}
                   {desk.student.iep504 && (
                     <span
-                      className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
                       style={{ background: "#f5a9b8" }}
                     >
                       I
@@ -540,7 +595,7 @@ export default function SeatingSetupPage() {
                   )}
                   {desk.student.ec && (
                     <span
-                      className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
                       style={{ background: "#f7d774" }}
                     >
                       EC
@@ -548,7 +603,7 @@ export default function SeatingSetupPage() {
                   )}
                   {desk.student.ca && (
                     <span
-                      className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
                       style={{ background: "#ffffff" }}
                     >
                       CA

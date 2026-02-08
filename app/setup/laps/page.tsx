@@ -168,46 +168,55 @@ export default function LapsSetupPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-6 gap-3 text-sm">
-          <div></div>
-          {weekdays.map((day, index) => (
-            <div key={day} className="text-center font-semibold">
-              {day}
-              <div className="text-[11px] text-black/60">{format(addDays(weekStart, index), "MM/dd")}</div>
-            </div>
-          ))}
-          {[1, 2, 3].map((lapNumber) => (
-            <div key={lapNumber} className="grid grid-cols-6 gap-3 items-center">
-              <div className="font-semibold">Lap {lapNumber}</div>
-              {weekdays.map((_day, dayIndex) => {
-                const lap = getLap(dayIndex, lapNumber);
-                return (
-                  <button
-                    key={`${dayIndex}-${lapNumber}`}
-                    className="h-12 rounded-xl border border-black/10 bg-white text-xs text-black/60"
-                    type="button"
-                    onClick={() =>
-                      setEditing({
-                        dayIndex,
-                        lapNumber,
-                        name: lap?.name || "",
-                        standardCode: lap?.standardCode || null
-                      })
-                    }
-                  >
-                    {lap ? (
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-black">{lap.name}</span>
-                        {lap.standardCode && <span className="text-[10px]">{lap.standardCode}</span>}
-                      </div>
-                    ) : (
-                      "+"
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+        <div className="overflow-auto">
+          <table className="table table-compact min-w-[720px]">
+            <thead>
+              <tr>
+                <th></th>
+                {weekdays.map((day, index) => (
+                  <th key={day} className="text-center">
+                    <div className="font-semibold">{day}</div>
+                    <div className="text-[11px] text-black/60">{format(addDays(weekStart, index), "MM/dd")}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[1, 2, 3].map((lapNumber) => (
+                <tr key={lapNumber}>
+                  <td className="font-semibold">Lap {lapNumber}</td>
+                  {weekdays.map((_day, dayIndex) => {
+                    const lap = getLap(dayIndex, lapNumber);
+                    return (
+                      <td key={`${dayIndex}-${lapNumber}`}>
+                        <button
+                          className="w-full h-16 rounded-xl border border-black/10 bg-white text-sm text-black/60"
+                          type="button"
+                          onClick={() =>
+                            setEditing({
+                              dayIndex,
+                              lapNumber,
+                              name: lap?.name || "",
+                              standardCode: lap?.standardCode || null
+                            })
+                          }
+                        >
+                          {lap ? (
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-black">{lap.name}</span>
+                              {lap.standardCode && <span className="text-[11px]">{lap.standardCode}</span>}
+                            </div>
+                          ) : (
+                            "+"
+                          )}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {standards.length > 0 && (

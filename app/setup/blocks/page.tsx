@@ -16,6 +16,8 @@ export default function BlocksSetupPage() {
   const [blockNumber, setBlockNumber] = useState(1);
   const [blockName, setBlockName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Record<string, Block>>({});
 
   useEffect(() => {
     loadBlocks();
@@ -43,6 +45,7 @@ export default function BlocksSetupPage() {
       return;
     }
     setBlockName("");
+    setBlockNumber((prev) => prev + 1);
     await loadBlocks();
   }
 
@@ -91,6 +94,9 @@ export default function BlocksSetupPage() {
             value={blockName}
             onChange={(e) => setBlockName(e.target.value)}
             placeholder="Block name"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addBlock();
+            }}
           />
           <button className="btn btn-primary" type="button" onClick={addBlock}>
             Add Block
@@ -107,36 +113,64 @@ export default function BlocksSetupPage() {
             </tr>
           </thead>
           <tbody>
-            {blocks.map((block) => (
+            {blocks.map((block) => {
+              const isEditing = editingId === block.id;
+              const draftRow = draft[block.id] || block;
+              return (
               <tr key={block.id}>
                 <td>
                   <input
                     className="form-control max-w-[120px]"
                     type="number"
-                    value={block.blockNumber}
+                    value={draftRow.blockNumber}
+                    disabled={!isEditing}
                     onChange={(e) =>
-                      setBlocks((prev) =>
-                        prev.map((b) =>
-                          b.id === block.id ? { ...b, blockNumber: Number(e.target.value) } : b
-                        )
-                      )
+                      setDraft((prev) => ({
+                        ...prev,
+                        [block.id]: { ...draftRow, blockNumber: Number(e.target.value) }
+                      }))
                     }
                   />
                 </td>
                 <td>
                   <input
                     className="form-control"
-                    value={block.blockName}
+                    value={draftRow.blockName}
+                    disabled={!isEditing}
                     onChange={(e) =>
-                      setBlocks((prev) => prev.map((b) => (b.id === block.id ? { ...b, blockName: e.target.value } : b)))
+                      setDraft((prev) => ({
+                        ...prev,
+                        [block.id]: { ...draftRow, blockName: e.target.value }
+                      }))
                     }
                   />
                 </td>
                 <td>{block.archived ? "Archived" : "Active"}</td>
                 <td className="text-sm text-ocean space-x-3">
-                  <button type="button" onClick={() => updateBlock(block.id, block)}>
-                    Save
-                  </button>
+                  {!isEditing && (
+                    <button type="button" onClick={() => {
+                      setEditingId(block.id);
+                      setDraft((prev) => ({ ...prev, [block.id]: block }));
+                    }}>
+                      Edit
+                    </button>
+                  )}
+                  {isEditing && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await updateBlock(block.id, draftRow);
+                          setEditingId(null);
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button type="button" onClick={() => setEditingId(null)}>
+                        Cancel
+                      </button>
+                    </>
+                  )}
                   <button type="button" onClick={() => updateBlock(block.id, { archived: !block.archived })}>
                     {block.archived ? "Unarchive" : "Archive"}
                   </button>
@@ -145,7 +179,7 @@ export default function BlocksSetupPage() {
                   </button>
                 </td>
               </tr>
-            ))}
+            )})}
             {blocks.length === 0 && (
               <tr>
                 <td colSpan={4} className="text-sm text-black/60">

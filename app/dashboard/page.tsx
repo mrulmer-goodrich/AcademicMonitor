@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
+import LogoutButton from "@/components/LogoutButton";
 
 export default function DashboardPage({ searchParams }: { searchParams?: { error?: string } }) {
   const user = getSessionUser();
@@ -14,13 +15,14 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
           <h1 className="section-title">{isAuthed ? `Welcome back, ${user?.displayName}` : "Welcome"}</h1>
         </div>
         <div className="flex gap-3">
-          {isAuthed && (
-            <form action="/api/auth/logout" method="post">
-              <button className="btn btn-ghost" type="submit">Log out</button>
-            </form>
-          )}
+          {isAuthed && <LogoutButton />}
         </div>
       </div>
+      {isAuthed && (
+        <div className="text-sm text-black/60">
+          <Link href="/" className="underline">Home</Link>
+        </div>
+      )}
 
       {!isAuthed && (
         <div id="login" className="hero-card p-6">
@@ -76,17 +78,29 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
 
       {isAuthed && (
         <div className="grid gap-4 md:grid-cols-3">
-          <Link href="/setup" className="feature-card">
-            <div className="text-lg font-semibold">Setup</div>
-            <p className="text-sm text-black/70">Blocks, students, seating, laps.</p>
+          <Link href="/setup/blocks" className="feature-card">
+            <div className="text-lg font-semibold">Blocks</div>
+            <p className="text-sm text-black/70">Create and manage blocks</p>
+          </Link>
+          <Link href="/setup/students" className="feature-card">
+            <div className="text-lg font-semibold">Students</div>
+            <p className="text-sm text-black/70">Add and edit student rosters</p>
+          </Link>
+          <Link href="/setup/seating" className="feature-card">
+            <div className="text-lg font-semibold">Seating</div>
+            <p className="text-sm text-black/70">Arrange desks and groups</p>
+          </Link>
+          <Link href="/setup/laps" className="feature-card">
+            <div className="text-lg font-semibold">Laps</div>
+            <p className="text-sm text-black/70">Plan weekly laps</p>
           </Link>
           <Link href="/monitor" className="feature-card">
             <div className="text-lg font-semibold">Monitor</div>
-            <p className="text-sm text-black/70">Take attendance and tap lap performance.</p>
+            <p className="text-sm text-black/70">Attendance and lap performance</p>
           </Link>
           <Link href="/report" className="feature-card">
             <div className="text-lg font-semibold">Report</div>
-            <p className="text-sm text-black/70">Filter and export CSV/XLSX.</p>
+            <p className="text-sm text-black/70">Filter and export CSV/XLSX</p>
           </Link>
         </div>
       )}

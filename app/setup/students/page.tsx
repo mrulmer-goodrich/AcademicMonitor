@@ -39,6 +39,9 @@ export default function StudentsSetupPage() {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [importText, setImportText] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Record<string, Student>>({});
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadBlocks();
@@ -87,7 +90,11 @@ export default function StudentsSetupPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     });
-    if (res.ok) await loadStudents();
+    if (res.ok) {
+      setStatusMessage("Saved");
+      setTimeout(() => setStatusMessage(null), 1500);
+      await loadStudents();
+    }
   }
 
   async function importStudents() {
@@ -150,22 +157,30 @@ export default function StudentsSetupPage() {
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="Student name"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addStudent();
+            }}
           />
           <button className="btn btn-primary" type="button" onClick={addStudent}>
             Add Student
           </button>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
-          <textarea
-            className="form-control min-h-[120px]"
-            placeholder="Paste student names (one per line). Optionally add block number after comma: Jane Doe,2"
-            value={importText}
-            onChange={(e) => setImportText(e.target.value)}
-          />
-          <button className="btn btn-ghost h-12" type="button" onClick={importStudents}>
-            Import List
-          </button>
+        <div className="grid gap-3 md:grid-cols-[3fr_1fr]">
+          <div className="text-sm text-black/60">
+            {statusMessage ? statusMessage : "Rows are read‑only until you click Edit."}
+          </div>
+          <div className="flex flex-col gap-2">
+            <textarea
+              className="form-control min-h-[90px]"
+              placeholder="Paste names (one per line). Optional block number after comma: Jane Doe,2"
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+            />
+            <button className="btn btn-ghost" type="button" onClick={importStudents}>
+              Import List
+            </button>
+          </div>
         </div>
 
         <table className="table">
@@ -180,17 +195,33 @@ export default function StudentsSetupPage() {
             </tr>
           </thead>
           <tbody>
-            {students.map((student) => (
+            {students.map((student) => {
+              const isEditing = editingId === student.id;
+              const draftRow = draft[student.id] || student;
+              const hasChanges =
+                draftRow.displayName !== student.displayName ||
+                draftRow.active !== student.active ||
+                draftRow.ml !== student.ml ||
+                draftRow.mlNew !== student.mlNew ||
+                draftRow.iep504 !== student.iep504 ||
+                draftRow.ec !== student.ec ||
+                draftRow.ca !== student.ca ||
+                draftRow.hiit !== student.hiit ||
+                draftRow.eog !== student.eog;
+
+              return (
               <tr key={student.id}>
                 <td>{student.seatNumber}</td>
                 <td>
                   <input
                     className="form-control"
-                    value={student.displayName}
+                    value={draftRow.displayName}
+                    disabled={!isEditing}
                     onChange={(e) =>
-                      setStudents((prev) =>
-                        prev.map((s) => (s.id === student.id ? { ...s, displayName: e.target.value } : s))
-                      )
+                      setDraft((prev) => ({
+                        ...prev,
+                        [student.id]: { ...draftRow, displayName: e.target.value }
+                      }))
                     }
                   />
                 </td>
@@ -198,26 +229,34 @@ export default function StudentsSetupPage() {
                   <button
                     className="btn btn-ghost"
                     type="button"
-                    onClick={() => updateStudent(student.id, { active: !student.active })}
+                    disabled={!isEditing}
+                    onClick={() =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        [student.id]: { ...draftRow, active: !draftRow.active }
+                      }))
+                    }
                   >
-                    {student.active ? "Active" : "Inactive"}
+                    {draftRow.active ? "Active" : "Inactive"}
                   </button>
                 </td>
                 <td>
                   <div className="flex gap-2 flex-wrap">
                     {categories.map((cat) => {
                       const key = cat.key as keyof Student;
-                      const active = Boolean(student[key]);
+                      const active = Boolean(draftRow[key]);
                       return (
                         <button
                           key={cat.key}
                           type="button"
+                          disabled={!isEditing}
                           className="flex h-7 w-7 items-center justify-center rounded-full border border-black/70 text-[9px]"
                           style={{ background: active ? cat.color : "#e8e8e8" }}
                           onClick={() =>
-                            setStudents((prev) =>
-                              prev.map((s) => (s.id === student.id ? { ...s, [key]: !active } : s))
-                            )
+                            setDraft((prev) => ({
+                              ...prev,
+                              [student.id]: { ...draftRow, [key]: !active }
+                            }))
                           }
                         >
                           {cat.label === "ML New" ? "ML" : cat.label}
@@ -229,15 +268,13 @@ export default function StudentsSetupPage() {
                 <td>
                   <select
                     className="form-control max-w-[120px]"
-                    value={student.eog || ""}
+                    value={draftRow.eog || ""}
+                    disabled={!isEditing}
                     onChange={(e) =>
-                      setStudents((prev) =>
-                        prev.map((s) =>
-                          s.id === student.id
-                            ? { ...s, eog: (e.target.value || null) as Student["eog"] }
-                            : s
-                        )
-                      )
+                      setDraft((prev) => ({
+                        ...prev,
+                        [student.id]: { ...draftRow, eog: (e.target.value || null) as Student["eog"] }
+                      }))
                     }
                   >
                     {eogOptions.map((opt) => (
@@ -248,12 +285,39 @@ export default function StudentsSetupPage() {
                   </select>
                 </td>
                 <td>
-                  <button className="btn btn-primary" type="button" onClick={() => updateStudent(student.id, student)}>
-                    Save
-                  </button>
+                  {!isEditing && (
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      onClick={() => {
+                        setEditingId(student.id);
+                        setDraft((prev) => ({ ...prev, [student.id]: student }));
+                      }}
+                    >
+                      Edit
+                    </button>
+                  )}
+                  {isEditing && (
+                    <div className="flex gap-2">
+                      <button
+                        className="btn btn-primary"
+                        type="button"
+                        disabled={!hasChanges}
+                        onClick={() => updateStudent(student.id, draftRow)}
+                      >
+                        Save
+                      </button>
+                      <button className="btn btn-ghost" type="button" onClick={() => setEditingId(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                  {isEditing && hasChanges && (
+                    <div className="text-[11px] text-amber-700 mt-1">Unsaved changes</div>
+                  )}
                 </td>
               </tr>
-            ))}
+            )})}
             {students.length === 0 && (
               <tr>
                 <td colSpan={6} className="text-sm text-black/60">
