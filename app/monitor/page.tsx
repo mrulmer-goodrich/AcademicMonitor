@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { format, startOfWeek } from "date-fns";
@@ -50,7 +50,7 @@ type Performance = {
 const colorCycle: Performance["color"][] = ["GREEN", "YELLOW", "RED"];
 const attendanceCycle: Attendance["status"][] = ["PRESENT", "ABSENT", "TARDY", "LEFT_EARLY"];
 
-export default function MonitorPage() {
+function MonitorPageInner() {
   const searchParams = useSearchParams();
   const requestedBlockId = searchParams.get("blockId");
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -664,5 +664,13 @@ export default function MonitorPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MonitorPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl px-6 py-10">Loading…</div>}>
+      <MonitorPageInner />
+    </Suspense>
   );
 }
