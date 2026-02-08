@@ -33,6 +33,7 @@ export default function ReportPage() {
   const [weekStart, setWeekStart] = useState<string>(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().slice(0, 10)
   );
+  const [weeksRange, setWeeksRange] = useState(1);
   const [columns, setColumns] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -87,6 +88,7 @@ export default function ReportPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         weekStart,
+        weeksRange,
         days: selectedDays,
         laps: selectedLaps,
         blocks: selectedBlocks,
@@ -193,6 +195,17 @@ export default function ReportPage() {
         <div className="feature-card space-y-3">
           <div className="font-semibold">Week</div>
           <input className="form-control" type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} />
+          <label className="flex items-center gap-2 text-sm">
+            Range (weeks)
+            <input
+              className="form-control max-w-[100px]"
+              type="number"
+              min={1}
+              max={4}
+              value={weeksRange}
+              onChange={(e) => setWeeksRange(Number(e.target.value))}
+            />
+          </label>
           <div className="flex flex-wrap gap-2 text-sm">
             {dayLabels.map((label, index) => (
               <label key={label} className="flex items-center gap-2">

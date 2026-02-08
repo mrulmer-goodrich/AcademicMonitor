@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import SetupNav from "@/components/SetupNav";
 
 type Block = { id: string; blockNumber: number; blockName: string };
 
@@ -127,6 +128,7 @@ export default function StudentsSetupPage() {
           Import or edit students. Each student has a seat number that never gets reused within a school year.
         </p>
       </div>
+      <SetupNav />
 
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">

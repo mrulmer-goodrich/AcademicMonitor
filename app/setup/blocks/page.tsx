@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import SetupNav from "@/components/SetupNav";
 
 type Block = {
   id: string;
@@ -67,6 +68,7 @@ export default function BlocksSetupPage() {
         <h1 className="section-title">Blocks</h1>
         <p className="text-black/70 text-sm">Create, modify, archive, or delete blocks for the current school year.</p>
       </div>
+      <SetupNav />
 
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">

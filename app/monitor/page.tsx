@@ -240,6 +240,12 @@ export default function MonitorPage() {
         </div>
       )}
 
+      {blocks.length === 0 && (
+        <div className="hero-card p-4 text-sm text-black/70">
+          No blocks yet. Create a block first in Setup.
+        </div>
+      )}
+
       <div className="hero-card p-4 text-sm text-black/70 flex flex-wrap items-center gap-3">
         <div className="font-semibold">Simulate date</div>
         <input
@@ -339,6 +345,7 @@ export default function MonitorPage() {
                 : desk.student?.eog === "NP"
                 ? "#e74c3c"
                 : null;
+            const compactDots = selectedLaps.length >= 2;
             return (
               <div
                 key={desk.id}
@@ -358,7 +365,9 @@ export default function MonitorPage() {
                   <>
                     {desk.student.hiit && (
                       <span
-                        className="absolute left-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                        className={`absolute left-3 top-3 flex items-center justify-center rounded-full border border-black text-[7px] ${
+                          compactDots ? "h-3 w-3" : "h-4 w-4"
+                        }`}
                         style={{ background: "#b18ad8" }}
                       >
                         H
@@ -366,16 +375,20 @@ export default function MonitorPage() {
                     )}
                     {eogLabel && (
                       <span
-                        className="absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                        className={`absolute right-3 top-3 flex items-center justify-center rounded-full border border-black text-[7px] ${
+                          compactDots ? "h-3 w-3" : "h-4 w-4"
+                        }`}
                         style={{ background: eogColor || "#ffffff", color: "#fff" }}
                       >
                         {eogLabel}
                       </span>
                     )}
-                    <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
+                    <div className="mt-2 flex items-center justify-center gap-1 flex-nowrap">
                       {desk.student.ml && (
                         <span
-                          className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                          className={`flex items-center justify-center rounded-full border border-black text-[7px] ${
+                            compactDots ? "h-3 w-3" : "h-4 w-4"
+                          }`}
                           style={{ background: "#9ecae1" }}
                         >
                           ML
@@ -383,7 +396,9 @@ export default function MonitorPage() {
                       )}
                       {desk.student.mlNew && (
                         <span
-                          className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                          className={`flex items-center justify-center rounded-full border border-black text-[7px] ${
+                            compactDots ? "h-3 w-3" : "h-4 w-4"
+                          }`}
                           style={{
                             background:
                               "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 4px,#ffffff 4px,#ffffff 8px)"
@@ -394,7 +409,9 @@ export default function MonitorPage() {
                       )}
                       {desk.student.iep504 && (
                         <span
-                          className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                          className={`flex items-center justify-center rounded-full border border-black text-[7px] ${
+                            compactDots ? "h-3 w-3" : "h-4 w-4"
+                          }`}
                           style={{ background: "#f5a9b8" }}
                         >
                           I
@@ -402,7 +419,9 @@ export default function MonitorPage() {
                       )}
                       {desk.student.ec && (
                         <span
-                          className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                          className={`flex items-center justify-center rounded-full border border-black text-[7px] ${
+                            compactDots ? "h-3 w-3" : "h-4 w-4"
+                          }`}
                           style={{ background: "#f7d774" }}
                         >
                           EC
@@ -410,7 +429,9 @@ export default function MonitorPage() {
                       )}
                       {desk.student.ca && (
                         <span
-                          className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                          className={`flex items-center justify-center rounded-full border border-black text-[7px] ${
+                            compactDots ? "h-3 w-3" : "h-4 w-4"
+                          }`}
                           style={{ background: "#ffffff" }}
                         >
                           CA

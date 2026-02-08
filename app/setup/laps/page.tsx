@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { addDays, format, startOfWeek } from "date-fns";
+import SetupNav from "@/components/SetupNav";
 
 type Block = { id: string; blockNumber: number; blockName: string };
 
@@ -119,6 +120,7 @@ export default function LapsSetupPage() {
           Three laps per day. Each lap can optionally reference a standard. Scroll to future weeks to plan ahead.
         </p>
       </div>
+      <SetupNav />
 
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">

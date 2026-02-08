@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import SetupNav from "@/components/SetupNav";
 
 type Block = { id: string; blockNumber: number; blockName: string };
 
@@ -46,6 +47,7 @@ export default function SeatingSetupPage() {
   const [gridSize, setGridSize] = useState(20);
   const [snapDistance, setSnapDistance] = useState(SNAP_DISTANCE);
   const [deskSize, setDeskSize] = useState({ width: 120, height: 90 });
+  const [snapTargetId, setSnapTargetId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number } | null>(null);
 
@@ -147,31 +149,66 @@ export default function SeatingSetupPage() {
     const { id, startX, startY, originX, originY } = dragRef.current;
     const dx = event.clientX - startX;
     const dy = event.clientY - startY;
+    const container = containerRef.current?.getBoundingClientRect();
 
     setDesks((prev) => {
       const current = prev.find((d) => d.id === id);
       if (!current) return prev;
+      const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+      const maxX = container ? container.width - current.width : Infinity;
+      const maxY = container ? container.height - current.height : Infinity;
       if (current.groupId) {
         return prev.map((desk) =>
           desk.groupId === current.groupId
             ? {
                 ...desk,
-                x: snapToGrid ? Math.round((desk.x + dx) / gridSize) * gridSize : desk.x + dx,
-                y: snapToGrid ? Math.round((desk.y + dy) / gridSize) * gridSize : desk.y + dy
+                x: clamp(
+                  snapToGrid ? Math.round((desk.x + dx) / gridSize) * gridSize : desk.x + dx,
+                  0,
+                  maxX
+                ),
+                y: clamp(
+                  snapToGrid ? Math.round((desk.y + dy) / gridSize) * gridSize : desk.y + dy,
+                  0,
+                  maxY
+                )
               }
             : desk
         );
       }
-      const nextX = snapToGrid ? Math.round((originX + dx) / gridSize) * gridSize : originX + dx;
-      const nextY = snapToGrid ? Math.round((originY + dy) / gridSize) * gridSize : originY + dy;
+      const nextX = clamp(
+        snapToGrid ? Math.round((originX + dx) / gridSize) * gridSize : originX + dx,
+        0,
+        maxX
+      );
+      const nextY = clamp(
+        snapToGrid ? Math.round((originY + dy) / gridSize) * gridSize : originY + dy,
+        0,
+        maxY
+      );
       return prev.map((desk) => (desk.id === id ? { ...desk, x: nextX, y: nextY } : desk));
     });
+
+    const current = desks.find((d) => d.id === id);
+    if (current) {
+      const nearest = desks
+        .filter((d) => d.id !== current.id)
+        .map((d) => {
+          const dx = d.x - current.x;
+          const dy = d.y - current.y;
+          return { desk: d, dist: Math.hypot(dx, dy) };
+        })
+        .sort((a, b) => a.dist - b.dist)[0];
+      const threshold = snapDistance || SNAP_DISTANCE;
+      setSnapTargetId(nearest && nearest.dist < threshold ? nearest.desk.id : null);
+    }
   }
 
   async function onPointerUp() {
     if (!dragRef.current) return;
     const id = dragRef.current.id;
     dragRef.current = null;
+    setSnapTargetId(null);
 
     const desk = desks.find((d) => d.id === id);
     if (!desk) return;
@@ -210,6 +247,18 @@ export default function SeatingSetupPage() {
     () => blocks.map((block) => ({ id: block.id, label: `Block ${block.blockNumber} · ${block.blockName}` })),
     [blocks]
   );
+
+  const selectedGroupBounds = useMemo(() => {
+    const selected = desks.find((d) => d.id === selectedDeskId);
+    if (!selected?.groupId) return null;
+    const group = desks.filter((d) => d.groupId === selected.groupId);
+    if (group.length < 2) return null;
+    const minX = Math.min(...group.map((d) => d.x));
+    const minY = Math.min(...group.map((d) => d.y));
+    const maxX = Math.max(...group.map((d) => d.x + d.width));
+    const maxY = Math.max(...group.map((d) => d.y + d.height));
+    return { x: minX - 8, y: minY - 8, width: maxX - minX + 16, height: maxY - minY + 16 };
+  }, [desks, selectedDeskId]);
 
   async function applyDeskSize() {
     const studentDesks = desks.filter((d) => d.type === "STUDENT");
@@ -275,6 +324,7 @@ export default function SeatingSetupPage() {
           Drag desks to arrange the room. Desks snap together when close and can move as grouped clusters.
         </p>
       </div>
+      <SetupNav />
 
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">
@@ -395,12 +445,23 @@ export default function SeatingSetupPage() {
           backgroundSize: snapToGrid ? `${gridSize}px ${gridSize}px` : undefined
         }}
       >
+        {selectedGroupBounds && (
+          <div
+            className="absolute rounded-2xl border border-dashed border-ocean/60 bg-ocean/5"
+            style={{
+              left: selectedGroupBounds.x,
+              top: selectedGroupBounds.y,
+              width: selectedGroupBounds.width,
+              height: selectedGroupBounds.height
+            }}
+          />
+        )}
         {desks.map((desk) => (
           <div
             key={desk.id}
             className={`absolute rounded-2xl border border-black/20 bg-white/90 text-center text-xs shadow ${
               desk.id === selectedDeskId ? "ring-2 ring-ocean" : ""
-            }`}
+            } ${desk.id === snapTargetId ? "ring-2 ring-coral" : ""}`}
             style={{
               left: desk.x,
               top: desk.y,

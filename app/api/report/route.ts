@@ -10,7 +10,10 @@ export async function POST(req: Request) {
   const body = await req.json();
   const viewMode = String(body.viewMode || "class");
 
-  const weekStart = body.weekStart ? startOfWeek(parseISO(body.weekStart), { weekStartsOn: 1 }) : startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekStart = body.weekStart
+    ? startOfWeek(parseISO(body.weekStart), { weekStartsOn: 1 })
+    : startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weeksRange = Math.min(Math.max(Number(body.weeksRange || 1), 1), 4);
   const days: number[] = Array.isArray(body.days) ? body.days : [0, 1, 2, 3, 4];
   const laps: number[] = Array.isArray(body.laps) ? body.laps : [1, 2, 3];
   const blockIds: string[] = Array.isArray(body.blocks) ? body.blocks : [];
@@ -26,16 +29,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "no_blocks" }, { status: 400 });
   }
 
-  const dateMap = days.map((day) => ({
-    dayIndex: day,
-    date: normalizeDate(addDays(weekStart, day))
-  }));
+  const dateMap = Array.from({ length: weeksRange }).flatMap((_, weekOffset) => {
+    const base = addDays(weekStart, weekOffset * 7);
+    return days.map((day) => ({
+      dayIndex: day,
+      date: normalizeDate(addDays(base, day))
+    }));
+  });
 
   const lapDefinitions = await prisma.lapDefinition.findMany({
     where: {
       schoolYearId: schoolYear.id,
       blockId: { in: blockIds },
-      weekStart,
+      weekStart: { in: Array.from({ length: weeksRange }).map((_, i) => addDays(weekStart, i * 7)) },
       dayIndex: { in: days },
       lapNumber: { in: laps }
     }
@@ -47,14 +53,20 @@ export async function POST(req: Request) {
 
   const columns = dateMap.flatMap((d) =>
     laps.map((lapNumber) => {
-      const sample = lapDefinitions.find((lap) => lap.dayIndex === d.dayIndex && lap.lapNumber === lapNumber);
+      const dateWeekStart = startOfWeek(d.date, { weekStartsOn: 1 });
+      const sample = lapDefinitions.find(
+        (lap) =>
+          lap.dayIndex === d.dayIndex &&
+          lap.lapNumber === lapNumber &&
+          lap.weekStart.toISOString().slice(0, 10) === dateWeekStart.toISOString().slice(0, 10)
+      );
       const standardSuffix = sample?.standardCode ? ` (${sample.standardCode})` : "";
       return {
         dayIndex: d.dayIndex,
         date: d.date,
         lapNumber,
         standardCode: sample?.standardCode || null,
-        label: `${d.date.getMonth() + 1}/${d.date.getDate()} Lap ${lapNumber}${standardSuffix}`
+        label: `${d.date.toISOString().slice(0, 10)} Lap ${lapNumber}${standardSuffix}`
       };
     })
   );
