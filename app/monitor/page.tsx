@@ -510,7 +510,7 @@ export default function MonitorPage() {
                     </button>
                   ))}
                 </div>
-                {attendanceMode && (
+                {!readyForDisplay && (
                   <div className="mt-3 w-full rounded-lg border border-black/20 py-2 text-xs">
                     {status ? `Status: ${status.replace("_", " ")}` : "Tap desk to mark attendance"}
                   </div>
