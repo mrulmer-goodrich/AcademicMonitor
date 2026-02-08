@@ -136,6 +136,13 @@ a {
   font-size: 14px;
 }
 
+.table-compact th,
+.table-compact td {
+  padding: 6px 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .sticky-head {
   position: sticky;
   top: 0;

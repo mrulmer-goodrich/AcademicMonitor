@@ -354,22 +354,71 @@ export default function MonitorPage() {
                 <div className="text-sm text-black/60">Seat {desk.seatNumber}</div>
                 <div className="text-lg font-semibold">{desk.student?.displayName}</div>
                 <div className={`mx-auto mt-2 h-2 w-10 rounded-full ${statusColor}`} />
-                <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
-                  {categories.map((cat, index) => (
-                    <span
-                      key={`cat-${desk.id}-${index}`}
-                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
-                      style={{ background: (cat as { color: string }).color }}
-                    >
-                      {(cat as { label: string }).label}
-                    </span>
-                  ))}
-                  {eogLabel && (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]" style={{ background: eogColor || "#ffffff", color: "#fff" }}>
-                      {eogLabel}
-                    </span>
-                  )}
-                </div>
+                {showCategories && desk.student && (
+                  <>
+                    {desk.student.hiit && (
+                      <span
+                        className="absolute left-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                        style={{ background: "#b18ad8" }}
+                      >
+                        H
+                      </span>
+                    )}
+                    {eogLabel && (
+                      <span
+                        className="absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                        style={{ background: eogColor || "#ffffff", color: "#fff" }}
+                      >
+                        {eogLabel}
+                      </span>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
+                      {desk.student.ml && (
+                        <span
+                          className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                          style={{ background: "#9ecae1" }}
+                        >
+                          ML
+                        </span>
+                      )}
+                      {desk.student.mlNew && (
+                        <span
+                          className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                          style={{
+                            background:
+                              "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 4px,#ffffff 4px,#ffffff 8px)"
+                          }}
+                        >
+                          ML
+                        </span>
+                      )}
+                      {desk.student.iep504 && (
+                        <span
+                          className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                          style={{ background: "#f5a9b8" }}
+                        >
+                          I
+                        </span>
+                      )}
+                      {desk.student.ec && (
+                        <span
+                          className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                          style={{ background: "#f7d774" }}
+                        >
+                          EC
+                        </span>
+                      )}
+                      {desk.student.ca && (
+                        <span
+                          className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                          style={{ background: "#ffffff" }}
+                        >
+                          CA
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
                 <div className="mt-3 flex h-12 overflow-hidden rounded-lg border border-black/20">
                   {selectedLaps.map((lapNumber) => {
                     const color = desk.studentId ? performanceMap.get(`${desk.studentId}-${lapNumber}`) : undefined;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { EogLevel } from "@prisma/client";
 import { requireUser } from "@/lib/server";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
@@ -21,6 +22,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   ];
   for (const field of fields) {
     if (body[field] !== undefined) data[field] = body[field];
+  }
+
+  if (body.eog !== undefined) {
+    const eogValue = body.eog ? String(body.eog) : null;
+    data.eog =
+      eogValue && Object.values(EogLevel).includes(eogValue as EogLevel) ? (eogValue as EogLevel) : null;
   }
 
   const student = await prisma.student.update({

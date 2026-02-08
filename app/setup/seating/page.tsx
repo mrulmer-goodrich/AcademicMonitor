@@ -417,40 +417,18 @@ export default function SeatingSetupPage() {
               <div className="text-[10px] text-black/60">Seat {desk.seatNumber}</div>
             )}
             {desk.type === "STUDENT" && desk.student && (
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-1 px-2">
+              <>
                 {desk.student.hiit && (
-                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "#b18ad8" }}>
+                  <span
+                    className="absolute left-2 top-2 flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                    style={{ background: "#b18ad8" }}
+                  >
                     H
-                  </span>
-                )}
-                {desk.student.ml && (
-                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "#9ecae1" }}>
-                    ML
-                  </span>
-                )}
-                {desk.student.mlNew && (
-                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)" }}>
-                    ML
-                  </span>
-                )}
-                {desk.student.iep504 && (
-                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "#f5a9b8" }}>
-                    I
-                  </span>
-                )}
-                {desk.student.ec && (
-                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "#f7d774" }}>
-                    EC
-                  </span>
-                )}
-                {desk.student.ca && (
-                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "#ffffff" }}>
-                    CA
                   </span>
                 )}
                 {desk.student.eog && (
                   <span
-                    className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px] text-white"
+                    className="absolute right-2 top-2 flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px] text-white"
                     style={{
                       background:
                         desk.student.eog === "FIVE"
@@ -471,7 +449,52 @@ export default function SeatingSetupPage() {
                       : "NP"}
                   </span>
                 )}
-              </div>
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-1 px-2">
+                  {desk.student.ml && (
+                    <span
+                      className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                      style={{ background: "#9ecae1" }}
+                    >
+                      ML
+                    </span>
+                  )}
+                  {desk.student.mlNew && (
+                    <span
+                      className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                      style={{
+                        background:
+                          "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)"
+                      }}
+                    >
+                      ML
+                    </span>
+                  )}
+                  {desk.student.iep504 && (
+                    <span
+                      className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                      style={{ background: "#f5a9b8" }}
+                    >
+                      I
+                    </span>
+                  )}
+                  {desk.student.ec && (
+                    <span
+                      className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                      style={{ background: "#f7d774" }}
+                    >
+                      EC
+                    </span>
+                  )}
+                  {desk.student.ca && (
+                    <span
+                      className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]"
+                      style={{ background: "#ffffff" }}
+                    >
+                      CA
+                    </span>
+                  )}
+                </div>
+              </>
             )}
           </div>
         ))}

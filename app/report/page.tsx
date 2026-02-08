@@ -344,7 +344,7 @@ export default function ReportPage() {
           Color legend: GREEN = Proficient, YELLOW = Developing, RED = Nothing Written.
         </div>
         <div className="overflow-auto">
-          <table className="table min-w-[720px]">
+          <table className="table table-compact min-w-[720px]">
             <thead>
               <tr>
                 {columns.map((col, index) => (

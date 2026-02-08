@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { EogLevel } from "@prisma/client";
 import { getActiveSchoolYear, requireUser } from "@/lib/server";
 
 export async function GET(req: Request) {
@@ -35,6 +36,9 @@ export async function POST(req: Request) {
   });
   const seatNumber = (maxSeat._max.seatNumber || 0) + 1;
 
+  const eogValue = body.eog ? String(body.eog) : null;
+  const eog = eogValue && Object.values(EogLevel).includes(eogValue as EogLevel) ? (eogValue as EogLevel) : null;
+
   const student = await prisma.student.create({
     data: {
       schoolYearId: schoolYear.id,
@@ -48,7 +52,7 @@ export async function POST(req: Request) {
       ec: Boolean(body.ec),
       ca: Boolean(body.ca),
       hiit: Boolean(body.hiit),
-      eog: body.eog || null
+      eog
     }
   });
   return NextResponse.json({ student });
