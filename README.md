@@ -200,7 +200,7 @@ Category circles always tied to student seat and shown wherever the student name
 ## 13. Architecture & Stack
 
 - **Next.js** App Router
-- **Prisma** ORM + **SQLite** for dev (swap to Postgres for production)
+- **Prisma** ORM + **Postgres** (Railway/Vercel Postgres)
 - **Tailwind CSS** for UI
 
 ---
@@ -210,6 +210,7 @@ Category circles always tied to student seat and shown wherever the student name
 ```bash
 npm install
 cp .env.example .env
+# set DATABASE_URL in .env to your Railway Postgres URL
 npm run db:generate
 npm run db:push
 npm run db:seed
@@ -226,7 +227,7 @@ Demo login:
 
 1. Push to GitHub.
 2. Create a Vercel project.
-3. Set `DATABASE_URL` (SQLite for dev; Postgres recommended for production).
+3. Set `DATABASE_URL` to your Postgres URL.
 4. Run Prisma migrations in CI or via `prisma db push`.
 
 ---
