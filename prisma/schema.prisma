@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  TARDY
+  LEFT_EARLY
+}
+
+enum PerformanceColor {
+  GREEN
+  YELLOW
+  RED
+}
+
+enum EogLevel {
+  FIVE
+  FOUR
+  THREE
+  NP
+}
+
+enum DeskType {
+  STUDENT
+  TEACHER
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  teacherName  String
+  displayName  String
+  createdAt    DateTime     @default(now())
+  schoolYears  SchoolYear[]
+}
+
+model SchoolYear {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String
+  active    Boolean  @default(true)
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  blocks    Block[]
+  students  Student[]
+  desks     Desk[]
+  laps      LapDefinition[]
+  attendance AttendanceRecord[]
+  lapPerformance LapPerformance[]
+
+  @@unique([userId, label])
+}
+
+model Block {
+  id           String   @id @default(cuid())
+  schoolYearId String
+  blockNumber  Int
+  blockName    String
+  archived     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+  students     Student[]
+  desks        Desk[]
+  laps         LapDefinition[]
+  attendance   AttendanceRecord[]
+  lapPerformance LapPerformance[]
+
+  @@unique([schoolYearId, blockNumber])
+}
+
+model Student {
+  id            String   @id @default(cuid())
+  schoolYearId  String
+  blockId       String
+  seatNumber    Int
+  displayName   String
+  active        Boolean  @default(true)
+  ml            Boolean  @default(false)
+  mlNew         Boolean  @default(false)
+  iep504        Boolean  @default(false)
+  ec            Boolean  @default(false)
+  ca            Boolean  @default(false)
+  hiit          Boolean  @default(false)
+  eog           EogLevel?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  schoolYear    SchoolYear @relation(fields: [schoolYearId], references: [id])
+  block         Block      @relation(fields: [blockId], references: [id])
+  desks         Desk[]
+  attendance    AttendanceRecord[]
+  lapPerformance LapPerformance[]
+
+  @@unique([schoolYearId, seatNumber])
+  @@unique([blockId, displayName])
+}
+
+model Desk {
+  id           String   @id @default(cuid())
+  schoolYearId String
+  blockId      String
+  type         DeskType
+  studentId    String?
+  seatNumber   Int?
+  x            Float    @default(0)
+  y            Float    @default(0)
+  width        Float    @default(120)
+  height       Float    @default(90)
+  rotation     Float    @default(0)
+  groupId      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+  block        Block      @relation(fields: [blockId], references: [id])
+  student      Student?   @relation(fields: [studentId], references: [id])
+}
+
+model LapDefinition {
+  id           String   @id @default(cuid())
+  schoolYearId String
+  blockId      String
+  weekStart    DateTime
+  dayIndex     Int
+  lapNumber    Int
+  name         String
+  standardCode String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+  block        Block      @relation(fields: [blockId], references: [id])
+
+  @@unique([blockId, weekStart, dayIndex, lapNumber])
+}
+
+model AttendanceRecord {
+  id           String   @id @default(cuid())
+  schoolYearId String
+  blockId      String
+  studentId    String
+  date         DateTime
+  status       AttendanceStatus
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+  block        Block      @relation(fields: [blockId], references: [id])
+  student      Student    @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, date])
+}
+
+model LapPerformance {
+  id           String   @id @default(cuid())
+  schoolYearId String
+  blockId      String
+  studentId    String
+  date         DateTime
+  lapNumber    Int
+  color        PerformanceColor
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+  block        Block      @relation(fields: [blockId], references: [id])
+  student      Student    @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, date, lapNumber])
+}

@@ -1,0 +1,419 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+
+type Block = { id: string; blockNumber: number; blockName: string };
+
+type Student = {
+  id: string;
+  displayName: string;
+  seatNumber: number;
+  ml?: boolean;
+  mlNew?: boolean;
+  iep504?: boolean;
+  ec?: boolean;
+  ca?: boolean;
+  hiit?: boolean;
+  eog?: "FIVE" | "FOUR" | "THREE" | "NP" | null;
+};
+
+type Desk = {
+  id: string;
+  type: "STUDENT" | "TEACHER";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  groupId: string | null;
+  studentId: string | null;
+  student?: Student | null;
+  seatNumber?: number | null;
+};
+
+const SNAP_DISTANCE = 40;
+
+export default function SeatingSetupPage() {
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [blockId, setBlockId] = useState<string>("");
+  const [desks, setDesks] = useState<Desk[]>([]);
+  const [unassigned, setUnassigned] = useState<Student[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
+  const [selectedDeskId, setSelectedDeskId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [gridSize, setGridSize] = useState(20);
+  const [deskSize, setDeskSize] = useState({ width: 120, height: 90 });
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number } | null>(null);
+
+  useEffect(() => {
+    loadBlocks();
+  }, []);
+
+  useEffect(() => {
+    if (blockId) {
+      loadDesks();
+      loadUnassigned();
+    }
+  }, [blockId]);
+
+  async function loadBlocks() {
+    const res = await fetch("/api/blocks");
+    if (res.status === 401) {
+      setError("Please login first.");
+      return;
+    }
+    const data = await res.json();
+    setBlocks(data.blocks || []);
+    if (!blockId && data.blocks?.length) setBlockId(data.blocks[0].id);
+  }
+
+  async function loadDesks() {
+    const res = await fetch(`/api/desks?blockId=${blockId}`);
+    const data = await res.json();
+    setDesks(data.desks || []);
+  }
+
+  async function loadUnassigned() {
+    const res = await fetch(`/api/desks?blockId=${blockId}&unassigned=1`);
+    const data = await res.json();
+    setUnassigned(data.students || []);
+    if (data.students?.length) setSelectedStudentId(data.students[0].id);
+  }
+
+  async function addStudentDesk() {
+    if (!selectedStudentId) return;
+    const res = await fetch("/api/desks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ blockId, type: "STUDENT", studentId: selectedStudentId, x: 40, y: 40 })
+    });
+    if (res.ok) {
+      await loadDesks();
+      await loadUnassigned();
+    }
+  }
+
+  async function addTeacherDesk() {
+    const res = await fetch("/api/desks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ blockId, type: "TEACHER", x: 80, y: 80, width: 160, height: 100 })
+    });
+    if (res.ok) await loadDesks();
+  }
+
+  async function updateDesk(id: string, updates: Partial<Desk>) {
+    await fetch(`/api/desks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates)
+    });
+  }
+
+  async function deleteDesk() {
+    if (!selectedDeskId) return;
+    await fetch(`/api/desks/${selectedDeskId}`, { method: "DELETE" });
+    setSelectedDeskId(null);
+    await loadDesks();
+    await loadUnassigned();
+  }
+
+  async function ungroupDesk() {
+    if (!selectedDeskId) return;
+    await updateDesk(selectedDeskId, { groupId: null });
+    setDesks((prev) => prev.map((d) => (d.id === selectedDeskId ? { ...d, groupId: null } : d)));
+  }
+
+  function onPointerDown(event: React.PointerEvent, desk: Desk) {
+    event.preventDefault();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setSelectedDeskId(desk.id);
+    dragRef.current = {
+      id: desk.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: desk.x,
+      originY: desk.y
+    };
+  }
+
+  function onPointerMove(event: React.PointerEvent) {
+    if (!dragRef.current) return;
+    const { id, startX, startY, originX, originY } = dragRef.current;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+
+    setDesks((prev) => {
+      const current = prev.find((d) => d.id === id);
+      if (!current) return prev;
+      if (current.groupId) {
+        return prev.map((desk) =>
+          desk.groupId === current.groupId
+            ? {
+                ...desk,
+                x: snapToGrid ? Math.round((desk.x + dx) / gridSize) * gridSize : desk.x + dx,
+                y: snapToGrid ? Math.round((desk.y + dy) / gridSize) * gridSize : desk.y + dy
+              }
+            : desk
+        );
+      }
+      const nextX = snapToGrid ? Math.round((originX + dx) / gridSize) * gridSize : originX + dx;
+      const nextY = snapToGrid ? Math.round((originY + dy) / gridSize) * gridSize : originY + dy;
+      return prev.map((desk) => (desk.id === id ? { ...desk, x: nextX, y: nextY } : desk));
+    });
+  }
+
+  async function onPointerUp() {
+    if (!dragRef.current) return;
+    const id = dragRef.current.id;
+    dragRef.current = null;
+
+    const desk = desks.find((d) => d.id === id);
+    if (!desk) return;
+
+    let groupId: string | null = desk.groupId || null;
+    const nearest = desks
+      .filter((d) => d.id !== desk.id)
+      .map((d) => {
+        const dx = d.x - desk.x;
+        const dy = d.y - desk.y;
+        return { desk: d, dist: Math.hypot(dx, dy) };
+      })
+      .sort((a, b) => a.dist - b.dist)[0];
+
+    if (nearest && nearest.dist < SNAP_DISTANCE) {
+      groupId = nearest.desk.groupId || crypto.randomUUID();
+    } else if (desk.groupId) {
+      groupId = null;
+    }
+
+    const updates: Partial<Desk> = { x: desk.x, y: desk.y, groupId };
+    await updateDesk(desk.id, updates);
+    setDesks((prev) => prev.map((d) => (d.id === desk.id ? { ...d, groupId } : d)));
+  }
+
+  function rotateSelected(delta: number) {
+    const desk = desks.find((d) => d.id === selectedDeskId);
+    if (!desk) return;
+    const rotation = (desk.rotation + delta) % 360;
+    setDesks((prev) => prev.map((d) => (d.id === desk.id ? { ...d, rotation } : d)));
+    updateDesk(desk.id, { rotation });
+  }
+
+  const blockOptions = useMemo(
+    () => blocks.map((block) => ({ id: block.id, label: `Block ${block.blockNumber} · ${block.blockName}` })),
+    [blocks]
+  );
+
+  async function applyDeskSize() {
+    const studentDesks = desks.filter((d) => d.type === "STUDENT");
+    await Promise.all(
+      studentDesks.map((desk) =>
+        updateDesk(desk.id, { width: deskSize.width, height: deskSize.height })
+      )
+    );
+    await loadDesks();
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
+      <div>
+        <div className="small-header text-black/60">Setup</div>
+        <h1 className="section-title">Seating Chart</h1>
+        <p className="text-black/70 text-sm">
+          Drag desks to arrange the room. Desks snap together when close and can move as grouped clusters.
+        </p>
+      </div>
+
+      {error && (
+        <div className="hero-card p-4 text-sm text-red-700">
+          {error} <Link className="underline" href="/dashboard">Go to login</Link>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <select className="form-control max-w-[260px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
+          {blockOptions.map((block) => (
+            <option key={block.id} value={block.id}>
+              {block.label}
+            </option>
+          ))}
+        </select>
+        <select
+          className="form-control max-w-[220px]"
+          value={selectedStudentId}
+          onChange={(e) => setSelectedStudentId(e.target.value)}
+        >
+          {unassigned.map((student) => (
+            <option key={student.id} value={student.id}>
+              {student.displayName} (Seat {student.seatNumber})
+            </option>
+          ))}
+        </select>
+        <button className="btn btn-primary" type="button" onClick={addStudentDesk}>
+          Add Student Desk
+        </button>
+        <button className="btn btn-ghost" type="button" onClick={addTeacherDesk}>
+          Add Teacher Desk
+        </button>
+        <button className="btn btn-ghost" type="button" onClick={() => rotateSelected(15)}>
+          Rotate +15°
+        </button>
+        <button className="btn btn-ghost" type="button" onClick={() => rotateSelected(-15)}>
+          Rotate -15°
+        </button>
+        <button className="btn btn-ghost" type="button" onClick={ungroupDesk} disabled={!selectedDeskId}>
+          Ungroup
+        </button>
+        <button className="btn btn-ghost" type="button" onClick={deleteDesk} disabled={!selectedDeskId}>
+          Delete Desk
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={snapToGrid} onChange={(e) => setSnapToGrid(e.target.checked)} />
+          Snap to grid
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          Grid
+          <input
+            className="form-control max-w-[90px]"
+            type="number"
+            value={gridSize}
+            min={10}
+            max={60}
+            onChange={(e) => setGridSize(Number(e.target.value))}
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          Desk W
+          <input
+            className="form-control max-w-[90px]"
+            type="number"
+            value={deskSize.width}
+            min={80}
+            max={240}
+            onChange={(e) => setDeskSize((prev) => ({ ...prev, width: Number(e.target.value) }))}
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          Desk H
+          <input
+            className="form-control max-w-[90px]"
+            type="number"
+            value={deskSize.height}
+            min={60}
+            max={200}
+            onChange={(e) => setDeskSize((prev) => ({ ...prev, height: Number(e.target.value) }))}
+          />
+        </label>
+        <button className="btn btn-ghost" type="button" onClick={applyDeskSize}>
+          Apply Size
+        </button>
+      </div>
+
+      <div
+        className="hero-card h-[560px] p-4 relative overflow-hidden"
+        ref={containerRef}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+        style={{
+          backgroundImage: snapToGrid
+            ? `linear-gradient(to right, rgba(11,27,42,0.06) 1px, transparent 1px),
+               linear-gradient(to bottom, rgba(11,27,42,0.06) 1px, transparent 1px)`
+            : undefined,
+          backgroundSize: snapToGrid ? `${gridSize}px ${gridSize}px` : undefined
+        }}
+      >
+        {desks.map((desk) => (
+          <div
+            key={desk.id}
+            className={`absolute rounded-2xl border border-black/20 bg-white/90 text-center text-xs shadow ${
+              desk.id === selectedDeskId ? "ring-2 ring-ocean" : ""
+            }`}
+            style={{
+              left: desk.x,
+              top: desk.y,
+              width: desk.width,
+              height: desk.height,
+              transform: `rotate(${desk.rotation}deg)`
+            }}
+            onPointerDown={(event) => onPointerDown(event, desk)}
+          >
+            <div className="mt-2 font-semibold">
+              {desk.type === "TEACHER" ? "Teacher" : desk.student?.displayName || "Student"}
+            </div>
+            {desk.type === "STUDENT" && desk.seatNumber && (
+              <div className="text-[10px] text-black/60">Seat {desk.seatNumber}</div>
+            )}
+            {desk.type === "STUDENT" && desk.student && (
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-1 px-2">
+                {desk.student.hiit && (
+                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "#b18ad8" }}>
+                    H
+                  </span>
+                )}
+                {desk.student.ml && (
+                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "#9ecae1" }}>
+                    ML
+                  </span>
+                )}
+                {desk.student.mlNew && (
+                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)" }}>
+                    ML
+                  </span>
+                )}
+                {desk.student.iep504 && (
+                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "#f5a9b8" }}>
+                    I
+                  </span>
+                )}
+                {desk.student.ec && (
+                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "#f7d774" }}>
+                    EC
+                  </span>
+                )}
+                {desk.student.ca && (
+                  <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px]" style={{ background: "#ffffff" }}>
+                    CA
+                  </span>
+                )}
+                {desk.student.eog && (
+                  <span
+                    className="flex h-3 w-3 items-center justify-center rounded-full border border-black text-[6px] text-white"
+                    style={{
+                      background:
+                        desk.student.eog === "FIVE"
+                          ? "#1f4c8f"
+                          : desk.student.eog === "FOUR"
+                          ? "#4caf50"
+                          : desk.student.eog === "THREE"
+                          ? "#f2994a"
+                          : "#e74c3c"
+                    }}
+                  >
+                    {desk.student.eog === "FIVE"
+                      ? "5"
+                      : desk.student.eog === "FOUR"
+                      ? "4"
+                      : desk.student.eog === "THREE"
+                      ? "3"
+                      : "NP"}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+        {desks.length === 0 && (
+          <div className="h-full rounded-2xl border border-dashed border-black/20 bg-white/40 flex items-center justify-center text-black/40">
+            Seating chart canvas placeholder
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

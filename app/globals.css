@@ -1,0 +1,150 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui;
+  color: #0b1b2a;
+  background: radial-gradient(circle at top left, #f5f1e9 0%, #f8f4ee 30%, #fffaf3 60%, #f2efe8 100%);
+  margin: 0;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card {
+  background: #ffffff;
+  border: 1px solid rgba(11, 27, 42, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 12px 30px rgba(11, 27, 42, 0.1);
+}
+
+.glow {
+  background: radial-gradient(circle at top, rgba(224, 122, 95, 0.35), transparent 65%);
+}
+
+.badge {
+  border: 1px solid rgba(11, 27, 42, 0.15);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 12px 20px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(11, 27, 42, 0.12);
+}
+
+.btn-primary {
+  background: #0b1b2a;
+  color: #fffaf3;
+}
+
+.btn-ghost {
+  border: 1px solid rgba(11, 27, 42, 0.2);
+  background: #ffffff;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.feature-card {
+  background: #fffaf3;
+  border: 1px solid rgba(11, 27, 42, 0.08);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
+  font-family: "Space Grotesk", ui-sans-serif, system-ui;
+  font-size: 28px;
+  margin: 0 0 8px 0;
+}
+
+.small-header {
+  font-family: "Space Grotesk", ui-sans-serif, system-ui;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.topbar {
+  background: rgba(255, 250, 243, 0.9);
+  border-bottom: 1px solid rgba(11, 27, 42, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(14px);
+}
+
+.form-control {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(11, 27, 42, 0.18);
+  padding: 10px 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid rgba(11, 27, 42, 0.1);
+  padding: 10px 8px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.sticky-col {
+  position: sticky;
+  left: 0;
+  background: #fffaf3;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .hero-layout {
+    grid-template-columns: 1fr;
+  }
+}
