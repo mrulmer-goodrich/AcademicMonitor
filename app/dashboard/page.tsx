@@ -6,13 +6,22 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
   const user = getSessionUser();
   const isAuthed = Boolean(user);
   const error = searchParams?.error || null;
+  const greetings = user
+    ? [
+        `Welcome back, ${user.displayName}.`,
+        "Ready for the next lap?",
+        "Let’s check today’s seats."
+      ]
+    : ["Welcome"];
+  const greetingIndex = ((user?.displayName?.length || 1) + greetings.length) % greetings.length;
+  const greeting = greetings[greetingIndex];
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="small-header text-black/60">Dashboard</div>
-          <h1 className="section-title">{isAuthed ? `Welcome back, ${user?.displayName}` : "Welcome"}</h1>
+          <h1 className="section-title">{greeting}</h1>
         </div>
         <div className="flex gap-3">
           {isAuthed && <LogoutButton />}

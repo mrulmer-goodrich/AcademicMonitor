@@ -7,20 +7,19 @@ export default function HomePage() {
   const isAuthed = Boolean(user);
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-6xl flex-col gap-8 px-6 py-8">
+    <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-6xl flex-col gap-10 px-6 py-10">
       <section className="grid gap-8 md:grid-cols-[1.1fr_0.9fr] hero-layout items-center">
         <div className="space-y-6">
           <span className="badge">Academic Monitoring</span>
           <h1 className="text-4xl font-bold leading-tight" style={{ fontFamily: "Space Grotesk" }}>
-            Touch-first monitoring for daily classroom decisions.
+            See learning while it’s happening.
           </h1>
           <p className="text-lg text-black/70">
-            Capture lap-level performance in seconds, see patterns instantly, and export clean reports. Built for iPad and
-            Chromebook.
+            Notice patterns before the bell rings. Built for iPad and Chromebook.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link href={isAuthed ? "/dashboard" : "/dashboard?login=1"} className="btn btn-primary">
-              {isAuthed ? "Go to Dashboard" : "Login or Create Account"}
+            <Link href={isAuthed ? "/dashboard" : "/dashboard?login=1"} className="btn btn-hero">
+              {isAuthed ? "Open today’s class" : "Login or Create Account"}
             </Link>
             <Link href="/about" className="btn btn-ghost">
               Why Academic Monitoring
@@ -51,7 +50,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="section-title">Launch Path</h2>
         </div>

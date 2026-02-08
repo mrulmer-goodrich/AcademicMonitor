@@ -193,7 +193,7 @@ export default function MonitorPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-6">
         <div>
           <div className="small-header text-black/60">Monitor</div>
           <h1 className="section-title">Seat Display</h1>

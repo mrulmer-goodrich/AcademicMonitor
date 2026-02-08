@@ -55,11 +55,11 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border-radius: 999px;
+  border-radius: 14px;
   padding: 12px 20px;
-  font-weight: 600;
+  font-weight: 700;
   border: 1px solid transparent;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
 }
 
 .btn:hover {
@@ -70,6 +70,14 @@ a {
 .btn-primary {
   background: #0b1b2a;
   color: #fffaf3;
+}
+
+.btn-hero {
+  background: #0b1b2a;
+  color: #fffaf3;
+  padding: 14px 22px;
+  font-weight: 700;
+  border-radius: 16px;
 }
 
 .btn-ghost {
@@ -92,6 +100,13 @@ a {
   flex-direction: column;
   gap: 12px;
   box-shadow: 0 10px 20px rgba(11, 27, 42, 0.08);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(11, 27, 42, 0.12);
+  background: linear-gradient(145deg, #ffffff, #efe8dc);
 }
 
 .section-title {

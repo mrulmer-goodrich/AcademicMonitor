@@ -113,7 +113,7 @@ export default function LapsSetupPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
-      <div>
+      <div className="space-y-2">
         <div className="small-header text-black/60">Setup</div>
         <h1 className="section-title">Laps</h1>
         <p className="text-black/70 text-sm">
