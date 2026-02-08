@@ -15,7 +15,12 @@
 body {
   font-family: "IBM Plex Sans", ui-sans-serif, system-ui;
   color: #0b1b2a;
-  background: radial-gradient(circle at top left, #f5f1e9 0%, #f8f4ee 30%, #fffaf3 60%, #f2efe8 100%);
+  background-image:
+    url("/BackgroundNeutral.png"),
+    radial-gradient(circle at top left, #f5f1e9 0%, #f8f4ee 30%, #fffaf3 60%, #f2efe8 100%);
+  background-size: cover, auto;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: fixed, fixed;
   margin: 0;
   min-height: 100vh;
 }
