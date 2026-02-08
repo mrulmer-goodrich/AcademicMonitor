@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { AttendanceStatus } from "@prisma/client";
 import { getActiveSchoolYear, normalizeDate, requireUser } from "@/lib/server";
 import { parseISO } from "date-fns";
 
@@ -33,7 +34,10 @@ export async function POST(req: Request) {
   }
 
   if (body.mode === "bulk") {
-    const status = String(body.status || "PRESENT");
+    const statusValue = String(body.status || "PRESENT");
+    const status = Object.values(AttendanceStatus).includes(statusValue as AttendanceStatus)
+      ? (statusValue as AttendanceStatus)
+      : AttendanceStatus.PRESENT;
     const students = await prisma.student.findMany({
       where: { schoolYearId: schoolYear.id, blockId, active: true }
     });
@@ -58,7 +62,10 @@ export async function POST(req: Request) {
   }
 
   const studentId = String(body.studentId || "");
-  const status = String(body.status || "PRESENT");
+  const statusValue = String(body.status || "PRESENT");
+  const status = Object.values(AttendanceStatus).includes(statusValue as AttendanceStatus)
+    ? (statusValue as AttendanceStatus)
+    : AttendanceStatus.PRESENT;
   if (!studentId) return NextResponse.json({ error: "student_required" }, { status: 400 });
 
   const record = await prisma.attendanceRecord.upsert({

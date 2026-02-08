@@ -340,7 +340,7 @@ export default function ReportPage() {
                 {columns.map((col, index) => (
                   <th
                     key={col}
-                    className={index === 0 ? "sticky-col cursor-pointer" : "cursor-pointer"}
+                    className={`${index === 0 ? "sticky-col" : ""} sticky-head cursor-pointer`}
                     onClick={() => {
                       if (sortKey === col) {
                         setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));

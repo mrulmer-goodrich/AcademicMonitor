@@ -136,6 +136,13 @@ a {
   font-size: 14px;
 }
 
+.sticky-head {
+  position: sticky;
+  top: 0;
+  background: #fffaf3;
+  z-index: 2;
+}
+
 .sticky-col {
   position: sticky;
   left: 0;

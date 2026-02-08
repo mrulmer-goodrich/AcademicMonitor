@@ -354,7 +354,7 @@ export default function MonitorPage() {
                     </span>
                   )}
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex h-12 overflow-hidden rounded-lg border border-black/20">
                   {selectedLaps.map((lapNumber) => {
                     const color = desk.studentId ? performanceMap.get(`${desk.studentId}-${lapNumber}`) : undefined;
                     const bg =
@@ -372,9 +372,11 @@ export default function MonitorPage() {
                         type="button"
                         disabled={!readyForDisplay || isAbsent || attendanceMode}
                         onClick={() => desk.studentId && cyclePerformance(desk.studentId, lapNumber)}
-                        className={`flex-1 h-10 rounded-lg border border-black/20 ${bg}`}
-                        title="Tap to cycle"
-                      />
+                        className={`flex-1 ${bg} text-[10px] font-semibold`}
+                        title={`Lap ${lapNumber}`}
+                      >
+                        L{lapNumber}
+                      </button>
                     );
                   })}
                 </div>
