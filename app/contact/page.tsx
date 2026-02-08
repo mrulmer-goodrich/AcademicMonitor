@@ -1,11 +1,11 @@
 export default function ContactPage() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12 space-y-6">
+    <div className="mx-auto max-w-4xl px-6 py-8 space-y-4">
       <div>
         <div className="small-header text-black/60">Contact</div>
         <h1 className="section-title">Let’s talk about your school.</h1>
       </div>
-      <p className="text-base text-black/70">
+      <p className="text-base text-black/70 -mt-1">
         We work with school and district leaders who want clearer, faster classroom data. If you are evaluating Academic
         Monitor for your school, send a quick note and we will follow up with a tailored walkthrough.
       </p>

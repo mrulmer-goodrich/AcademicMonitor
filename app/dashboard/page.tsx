@@ -33,6 +33,9 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
               {error === "invalid" && "Invalid email or password."}
               {error === "register" && "Registration failed. Please try again."}
               {error === "login" && "Login failed. Please try again."}
+              {error === "env" && "Server is missing DATABASE_URL. Set it in Vercel environment variables."}
+              {error === "register_db" && "Registration failed due to a server/database error."}
+              {error === "login_db" && "Login failed due to a server/database error."}
             </div>
           )}
           <div className="grid gap-6 md:grid-cols-2 mt-4">

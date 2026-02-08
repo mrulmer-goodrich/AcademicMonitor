@@ -231,6 +231,27 @@ Demo login:
 
 ---
 
+## Railway Postgres Setup (Recommended if Vercel Postgres is unavailable)
+
+If you’re using Railway for Postgres, follow this once:
+
+1. In Railway, create a new **PostgreSQL** service.
+2. Copy the **DATABASE_URL** (starts with `postgresql://`).
+3. In Vercel → Project → Settings → Environment Variables, add:
+   - Name: `DATABASE_URL`
+   - Value: your Railway Postgres URL
+   - Environment: Production (and Preview if you want)
+4. Run once locally to create tables:
+
+```bash
+DATABASE_URL="paste_railway_url_here" npm run db:push
+```
+
+If you see `${{ Postgres.DATABASE_URL }}` in a guide, that is a provider variable reference.
+For Railway, you should paste the actual URL value from Railway into Vercel’s `DATABASE_URL`.
+
+---
+
 ## 16. Roadmap (Post‑v1.1)
 
 - Robust auth (JWT/NextAuth)

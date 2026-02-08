@@ -14,7 +14,7 @@ export default function AboutPage() {
       <div className="hero-card p-6 space-y-4">
         <div>
           <div className="text-lg font-semibold">Why it matters</div>
-          <p className="text-sm text-black/70">
+          <p className="text-base text-black/70">
             In classrooms, small signals get lost. When teachers can capture quick performance indicators during laps,
             they surface patterns that otherwise disappear. This supports targeted re‑teaching, regrouping, and timely
             feedback without adding extra paperwork.
@@ -22,7 +22,7 @@ export default function AboutPage() {
         </div>
         <div>
           <div className="text-lg font-semibold">Instructional impact</div>
-          <ul className="mt-2 list-disc pl-5 text-black/70">
+          <ul className="mt-2 list-disc pl-5 text-base text-black/70">
             <li>Improves the speed of instructional adjustments.</li>
             <li>Creates consistent data for weekly planning.</li>
             <li>Builds a habit of evidence‑based decision‑making.</li>
@@ -30,7 +30,7 @@ export default function AboutPage() {
         </div>
         <div>
           <div className="text-lg font-semibold">Teacher efficiency</div>
-          <p className="text-sm text-black/70">
+          <p className="text-base text-black/70">
             The system reduces the time between observation and action. Tap‑to‑cycle performance removes the need for
             manual logs, while exports support meetings, parent communication, and MTSS documentation.
           </p>

@@ -5,6 +5,9 @@ import { setSessionCookie } from "@/lib/session";
 
 export async function POST(req: Request) {
   try {
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.redirect(new URL("/dashboard?error=env", req.url));
+    }
     const form = await req.formData();
     const email = String(form.get("email") || "").toLowerCase();
     const password = String(form.get("password") || "");
@@ -48,6 +51,6 @@ export async function POST(req: Request) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   } catch (error) {
     console.error("Login failed", error);
-    return NextResponse.redirect(new URL("/dashboard?error=login", req.url));
+    return NextResponse.redirect(new URL("/dashboard?error=login_db", req.url));
   }
 }
