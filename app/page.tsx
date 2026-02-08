@@ -7,13 +7,8 @@ export default function HomePage() {
   const isAuthed = Boolean(user);
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-12 px-6 py-12">
-      <div className="flex items-center justify-end gap-6 text-sm font-medium text-black/70">
-        <Link href="/about">About</Link>
-        <Link href="/contact">Contact</Link>
-      </div>
-
-      <section className="grid gap-10 md:grid-cols-[1.1fr_0.9fr] hero-layout items-center">
+    <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-6xl flex-col gap-8 px-6 py-8">
+      <section className="grid gap-8 md:grid-cols-[1.1fr_0.9fr] hero-layout items-center">
         <div className="space-y-6">
           <span className="badge">Academic Monitoring</span>
           <h1 className="text-4xl font-bold leading-tight" style={{ fontFamily: "Space Grotesk" }}>
@@ -56,10 +51,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="space-y-6">
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="section-title">Launch Path</h2>
-          <span className="text-sm text-black/60">Fast setup, minimal clicks.</span>
         </div>
         <div className="card-grid">
           {[
@@ -79,7 +73,7 @@ export default function HomePage() {
               href: "/report"
             }
           ].map((card) => (
-            <div key={card.title} className="feature-card">
+            <div key={card.title} className="feature-card hover:shadow-lift transition-all">
               <div className="text-xl font-semibold">{card.title}</div>
               <p className="text-sm text-black/70">{card.body}</p>
               <Link

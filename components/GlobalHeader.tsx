@@ -1,15 +1,20 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function GlobalHeader() {
   return (
     <div className="topbar">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         <Link href="/" className="flex items-center gap-2" aria-label="Academic Monitor home">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-white text-sm font-semibold">
-            UG
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-white text-sm font-semibold overflow-hidden">
+            <Image src="/logo.png" alt="Academic Monitor logo" width={40} height={40} />
           </div>
         </Link>
-        <div className="text-xs text-black/50">Tap icon to return home</div>
+        <nav className="flex items-center gap-4 text-sm font-medium">
+          <Link href="/about">About</Link>
+          <Link href="/contact">Contact</Link>
+          <Link href="/dashboard" className="btn btn-ghost">Dashboard</Link>
+        </nav>
       </div>
     </div>
   );

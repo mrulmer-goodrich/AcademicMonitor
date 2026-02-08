@@ -6,17 +6,35 @@ export default function AboutPage() {
         <h1 className="section-title">Academic Monitoring, simplified.</h1>
       </div>
       <p className="text-base text-black/70">
-        Academic Monitoring compresses observation, feedback, and reporting into a single tap-driven workflow. Teachers
-        can see more in the moment and plan interventions sooner. This page is reserved for research-backed benefits
-        and citations. We will add them after the first working build.
+        Academic monitoring is the practice of observing student learning in real time, collecting brief evidence, and
+        using that evidence to adjust instruction. Research in formative assessment shows that frequent, low‑friction
+        feedback improves student outcomes when teachers can respond quickly and intentionally. This tool compresses
+        observation, data capture, and reporting into a single tap‑driven workflow so teachers can act in the moment.
       </p>
-      <div className="hero-card p-6">
-        <h2 className="text-lg font-semibold">Why this matters</h2>
-        <ul className="mt-3 list-disc pl-5 text-black/70">
-          <li>Quick capture of lap-level performance without leaving the room flow.</li>
-          <li>Consistent data collection that makes small interventions visible.</li>
-          <li>Reports that match how teachers already think about blocks and seats.</li>
-        </ul>
+      <div className="hero-card p-6 space-y-4">
+        <div>
+          <div className="text-lg font-semibold">Why it matters</div>
+          <p className="text-sm text-black/70">
+            In classrooms, small signals get lost. When teachers can capture quick performance indicators during laps,
+            they surface patterns that otherwise disappear. This supports targeted re‑teaching, regrouping, and timely
+            feedback without adding extra paperwork.
+          </p>
+        </div>
+        <div>
+          <div className="text-lg font-semibold">Instructional impact</div>
+          <ul className="mt-2 list-disc pl-5 text-black/70">
+            <li>Improves the speed of instructional adjustments.</li>
+            <li>Creates consistent data for weekly planning.</li>
+            <li>Builds a habit of evidence‑based decision‑making.</li>
+          </ul>
+        </div>
+        <div>
+          <div className="text-lg font-semibold">Teacher efficiency</div>
+          <p className="text-sm text-black/70">
+            The system reduces the time between observation and action. Tap‑to‑cycle performance removes the need for
+            manual logs, while exports support meetings, parent communication, and MTSS documentation.
+          </p>
+        </div>
       </div>
     </div>
   );
