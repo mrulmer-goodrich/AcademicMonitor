@@ -15,13 +15,9 @@ export default function ContactPage() {
         Monitor for your school, send a quick note and we will follow up with a tailored walkthrough.
       </p>
       <div className="hero-card p-6 space-y-4">
-        <div className="text-sm text-black/70">
-          Click the button below to send us an email. Your mail app will open with a pre-filled message.
-        </div>
         <a className="btn btn-primary w-fit" href={mailtoHref}>
           Email us
         </a>
-        <div className="text-xs text-black/60">Email goes to: {contactEmail}</div>
       </div>
     </div>
   );

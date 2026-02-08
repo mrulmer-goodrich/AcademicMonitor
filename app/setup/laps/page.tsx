@@ -107,9 +107,6 @@ function LapsSetupPageInner() {
     <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
       <div className="space-y-2">
         <h1 className="section-title">Name Your Laps</h1>
-        <p className="text-black/70 text-sm">
-          Three laps per day. Each lap can optionally reference a standard. Scroll to future weeks to plan ahead.
-        </p>
       </div>
       <SetupNav />
 
@@ -169,7 +166,7 @@ function LapsSetupPageInner() {
                     return (
                       <td key={`${dayIndex}-${lapNumber}`}>
                         <button
-                          className="w-full h-16 rounded-xl border border-black/10 bg-white text-sm text-black/60 whitespace-normal break-words"
+                          className="w-full h-16 rounded-xl border border-black/10 bg-white text-[11px] leading-snug text-black/70 whitespace-normal break-words px-2"
                           type="button"
                           onClick={() =>
                             setEditing({
@@ -183,7 +180,7 @@ function LapsSetupPageInner() {
                           {lap ? (
                             <div className="flex flex-col">
                               <span className="font-semibold text-black">{lap.name}</span>
-                              {lap.standardCode && <span className="text-[11px]">{lap.standardCode}</span>}
+                              {lap.standardCode && <span className="text-[10px]">{lap.standardCode}</span>}
                             </div>
                           ) : (
                             "+"

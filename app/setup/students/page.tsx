@@ -148,7 +148,7 @@ export default function StudentsSetupPage() {
       )}
 
       <div className="hero-card p-6 space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap lg:flex-nowrap items-center gap-3">
           <select className="form-control max-w-[260px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
             {blockOptions.map((block) => (
               <option key={block.id} value={block.id}>
@@ -157,7 +157,7 @@ export default function StudentsSetupPage() {
             ))}
           </select>
           <input
-            className="form-control w-[240px]"
+            className="form-control w-[220px] shrink-0"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="Student name"

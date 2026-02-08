@@ -336,10 +336,10 @@ export default function SeatingSetupPage() {
           Add Teacher Desk
         </button>
         <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={() => rotateSelected(15)}>
-          Rotate +15°
+          +15°
         </button>
         <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={() => rotateSelected(-15)}>
-          Rotate -15°
+          -15°
         </button>
         <button
           className="btn btn-ghost px-3 py-2 text-sm"
@@ -347,7 +347,7 @@ export default function SeatingSetupPage() {
           onClick={deleteDesk}
           disabled={!selectedDeskId}
         >
-          Delete Desk
+          Delete
         </button>
         <div className="text-sm text-black/60">{lastSaved ? lastSaved : "Autosave enabled"}</div>
       </div>
@@ -372,7 +372,7 @@ export default function SeatingSetupPage() {
             className={`absolute rounded-2xl border border-black/20 bg-white/90 text-center text-xs shadow ${
               desk.id === selectedDeskId ? "ring-2 ring-ocean" : ""
             } ${desk.id === snapTargetId ? "ring-2 ring-coral" : ""} ${
-              desk.type === "TEACHER" ? "flex items-center justify-center" : ""
+              desk.type === "TEACHER" ? "flex items-center justify-center" : "flex flex-col items-center justify-center"
             }`}
             style={{
               left: desk.x,
@@ -383,7 +383,7 @@ export default function SeatingSetupPage() {
             }}
             onPointerDown={(event) => onPointerDown(event, desk)}
           >
-            <div className={desk.type === "TEACHER" ? "text-base font-semibold" : "mt-2 text-base font-semibold"}>
+            <div className={desk.type === "TEACHER" ? "text-base font-semibold" : "text-base font-semibold"}>
               {desk.type === "TEACHER" ? teacherName : desk.student?.displayName || "Student"}
             </div>
             {desk.type === "STUDENT" && desk.student && (

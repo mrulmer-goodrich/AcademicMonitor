@@ -58,6 +58,9 @@ function MonitorPageInner() {
   const [desks, setDesks] = useState<Desk[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [attendancePanel, setAttendancePanel] = useState(false);
+  const [showAttendanceOverlay, setShowAttendanceOverlay] = useState(true);
+  const [showAttendanceComplete, setShowAttendanceComplete] = useState(false);
+  const [activeMode, setActiveMode] = useState<"attendance" | "performance">("attendance");
   const [laps, setLaps] = useState<Lap[]>([]);
   const [selectedLaps, setSelectedLaps] = useState<number[]>([]);
   const [performance, setPerformance] = useState<Performance[]>([]);
@@ -65,7 +68,6 @@ function MonitorPageInner() {
   const [activeStudents, setActiveStudents] = useState<string[]>([]);
   const [editingLap, setEditingLap] = useState<Lap | null>(null);
   const [editingName, setEditingName] = useState("");
-  const [showCategories] = useState(true);
 
   const [simulateDate, setSimulateDate] = useState<string>("");
   const dateToUse = simulateDate ? new Date(`${simulateDate}T09:00:00`) : new Date();
@@ -216,22 +218,32 @@ function MonitorPageInner() {
 
   const lapsNamed = todayLaps.length === 3;
   const readyForPerformance = lapsNamed && attendanceComplete && selectedLaps.length > 0;
-  const returnTo = blockId ? `/monitor?blockId=${blockId}` : "/monitor";
+  const lapButtons = lapsNamed
+    ? todayLaps.map((lap) => ({ lapNumber: lap.lapNumber, name: lap.name }))
+    : [1, 2, 3].map((lapNumber) => ({ lapNumber, name: `Lap ${lapNumber}` }));
 
   useEffect(() => {
     if (attendanceComplete && attendancePanel) {
       setAttendancePanel(false);
     }
+    if (attendanceComplete) {
+      setActiveMode("performance");
+      setShowAttendanceComplete(true);
+      const timeout = setTimeout(() => setShowAttendanceComplete(false), 1500);
+      return () => clearTimeout(timeout);
+    }
   }, [attendanceComplete, attendancePanel]);
+
+  useEffect(() => {
+    setShowAttendanceOverlay(true);
+    setShowAttendanceComplete(false);
+    setActiveMode("attendance");
+  }, [blockId, simulateDate]);
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-6">
-        <div>
-          <div className="small-header text-black/60">Monitor</div>
-          <h1 className="section-title">Monitor</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
           <select className="form-control max-w-[240px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
             {blocks.map((block) => (
               <option key={block.id} value={block.id}>
@@ -239,25 +251,35 @@ function MonitorPageInner() {
               </option>
             ))}
           </select>
-          <button className="btn btn-ghost" type="button" onClick={() => setAttendancePanel(true)} disabled={!blockId}>
-            Attendance Panel
-          </button>
           <button
-            className="btn btn-primary"
+            className={`btn ${activeMode === "attendance" ? "btn-primary" : "btn-ghost"}`}
             type="button"
-            onClick={() => bulkAttendance("PRESENT")}
+            onClick={() =>
+              setActiveMode((prev) => (prev === "attendance" ? (readyForPerformance ? "performance" : prev) : "attendance"))
+            }
             disabled={!blockId}
           >
-            Mark All Present
+            Update Attendance
           </button>
-          <button
-            className="btn btn-ghost"
-            type="button"
-            onClick={() => bulkAttendance("ABSENT")}
-            disabled={!blockId}
-          >
-            Mark All Absent
-          </button>
+          {lapButtons.map((lap) => (
+            <button
+              key={`lap-select-${lap.lapNumber}`}
+              className={`btn ${selectedLaps.includes(lap.lapNumber) ? "btn-primary" : "btn-ghost"} ${
+                lapsNamed ? "" : "ring-2 ring-amber-300"
+              }`}
+              type="button"
+              onClick={() =>
+                setSelectedLaps((prev) =>
+                  prev.includes(lap.lapNumber)
+                    ? prev.filter((n) => n !== lap.lapNumber)
+                    : [...prev, lap.lapNumber].sort((a, b) => a - b)
+                )
+              }
+              disabled={!lapsNamed}
+            >
+              {lap.name}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -288,47 +310,48 @@ function MonitorPageInner() {
       </div>
 
       <div className="hero-card p-6 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="text-sm text-black/60">Date: {format(dateToUse, "MM/dd/yyyy")}</div>
-          <div className="flex gap-2">
-            {todayLaps.map((lap) => (
-              <button
-                key={lap.lapNumber}
-                className={`btn ${selectedLaps.includes(lap.lapNumber) ? "btn-primary" : "btn-ghost"}`}
-                type="button"
-                disabled={!attendanceComplete || !lapsNamed}
-                onClick={() =>
-                  setSelectedLaps((prev) =>
-                    prev.includes(lap.lapNumber)
-                      ? prev.filter((n) => n !== lap.lapNumber)
-                      : [...prev, lap.lapNumber].sort()
-                  )
-                }
-                onDoubleClick={() => {
-                  setEditingLap(lap);
-                  setEditingName(lap.name);
-                }}
-              >
-                Lap {lap.lapNumber}: {lap.name}
-              </button>
-            ))}
-            {!lapsNamed && (
-              <Link
-                href={`/setup/laps?returnTo=${encodeURIComponent(returnTo)}`}
-                className="btn btn-ghost"
-              >
-                + Lap
-              </Link>
-            )}
-          </div>
-        </div>
-
-        <div className="text-sm text-black/60">
-          Attendance: {attendanceComplete ? "Complete" : "Incomplete"} ·{" "}
-          {attendanceComplete ? "Tap desks to log lap performance" : "Tap desks to mark attendance"}
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="btn btn-ghost" type="button" onClick={() => bulkAttendance("PRESENT")} disabled={!blockId}>
+            Set All Present
+          </button>
+          <button className="btn btn-ghost" type="button" onClick={() => bulkAttendance("ABSENT")} disabled={!blockId}>
+            Set All Absent
+          </button>
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={() => {
+              setActiveMode("attendance");
+              setAttendancePanel(true);
+            }}
+            disabled={!blockId}
+          >
+            Switch to Attendance List
+          </button>
         </div>
 
         <div className="hero-card h-[560px] p-4 relative overflow-hidden">
+          {!attendanceComplete && showAttendanceOverlay && (
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/80 text-sm font-semibold"
+              onClick={() => setShowAttendanceOverlay(false)}
+            >
+              Take Attendance
+            </div>
+          )}
+          {showAttendanceComplete && (
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/60 text-sm font-semibold"
+              onClick={() => setShowAttendanceComplete(false)}
+            >
+              Attendance Complete
+            </div>
+          )}
+          {!lapsNamed && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/40 text-sm font-semibold">
+              Name laps to unlock tracking
+            </div>
+          )}
           {desks.map((desk) => {
             const status = desk.studentId ? attendanceMap.get(desk.studentId) : undefined;
             const isAbsent = status === "ABSENT";
@@ -352,37 +375,6 @@ function MonitorPageInner() {
                   ? "bg-yellow-100"
                   : "bg-orange-100"
                 : "bg-white";
-            const categories = showCategories && desk.student
-              ? [
-                  desk.student.ml ? { label: "ML", color: "#9ecae1" } : null,
-                  desk.student.mlNew ? { label: "ML", color: "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 4px,#ffffff 4px,#ffffff 8px)" } : null,
-                  desk.student.iep504 ? { label: "IEP", color: "#f5a9b8" } : null,
-                  desk.student.ec ? { label: "EC", color: "#f7d774" } : null,
-                  desk.student.ca ? { label: "CA", color: "#ffffff" } : null,
-                  desk.student.hiit ? { label: "HIIT", color: "#b18ad8" } : null
-                ].filter(Boolean)
-              : [];
-            const eogLabel =
-              desk.student?.eog === "FIVE"
-                ? "5"
-                : desk.student?.eog === "FOUR"
-                ? "4"
-                : desk.student?.eog === "THREE"
-                ? "3"
-                : desk.student?.eog === "NP"
-                ? "NP"
-                : null;
-            const eogColor =
-              desk.student?.eog === "FIVE"
-                ? "#1f4c8f"
-                : desk.student?.eog === "FOUR"
-                ? "#4caf50"
-                : desk.student?.eog === "THREE"
-                ? "#f2994a"
-                : desk.student?.eog === "NP"
-                ? "#e74c3c"
-                : null;
-            const compactDots = selectedLaps.length >= 2;
             return (
               <div
                 key={desk.id}
@@ -398,141 +390,63 @@ function MonitorPageInner() {
                 }}
                 onClick={() => {
                   if (!desk.studentId) return;
-                  cycleAttendance(desk.studentId);
+                  if (activeMode === "attendance") {
+                    cycleAttendance(desk.studentId);
+                  }
                 }}
               >
-                <div className="text-lg font-semibold">{desk.student?.displayName}</div>
-                <div className={`mx-auto mt-2 h-2 w-10 rounded-full ${statusColor}`} />
-                {showCategories && desk.student && (
-                  <>
-                    {desk.student.hiit && (
-                      <span
-                        className={`absolute left-3 top-3 flex items-center justify-center rounded-full border border-black text-[7px] ${
-                          compactDots ? "h-3 w-3" : "h-4 w-4"
-                        }`}
-                        style={{ background: "#b18ad8" }}
-                      >
-                        H
-                      </span>
-                    )}
-                    {eogLabel && (
-                      <span
-                        className={`absolute right-3 top-3 flex items-center justify-center rounded-full border border-black text-[7px] ${
-                          compactDots ? "h-3 w-3" : "h-4 w-4"
-                        }`}
-                        style={{ background: eogColor || "#ffffff", color: "#fff" }}
-                      >
-                        {eogLabel}
-                      </span>
-                    )}
-                    <div className="mt-2 flex items-center justify-center gap-1 flex-nowrap">
-                      {desk.student.ml && (
-                        <span
-                          className={`flex items-center justify-center rounded-full border border-black text-[7px] ${
-                            compactDots ? "h-3 w-3" : "h-4 w-4"
-                          }`}
-                          style={{ background: "#9ecae1" }}
-                        >
-                          ML
-                        </span>
-                      )}
-                      {desk.student.mlNew && (
-                        <span
-                          className={`flex items-center justify-center rounded-full border border-black text-[7px] ${
-                            compactDots ? "h-3 w-3" : "h-4 w-4"
-                          }`}
-                          style={{
-                            background:
-                              "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 4px,#ffffff 4px,#ffffff 8px)"
-                          }}
-                        >
-                          ML
-                        </span>
-                      )}
-                      {desk.student.iep504 && (
-                        <span
-                          className={`flex items-center justify-center rounded-full border border-black text-[7px] ${
-                            compactDots ? "h-3 w-3" : "h-4 w-4"
-                          }`}
-                          style={{ background: "#f5a9b8" }}
-                        >
-                          I
-                        </span>
-                      )}
-                      {desk.student.ec && (
-                        <span
-                          className={`flex items-center justify-center rounded-full border border-black text-[7px] ${
-                            compactDots ? "h-3 w-3" : "h-4 w-4"
-                          }`}
-                          style={{ background: "#f7d774" }}
-                        >
-                          EC
-                        </span>
-                      )}
-                      {desk.student.ca && (
-                        <span
-                          className={`flex items-center justify-center rounded-full border border-black text-[7px] ${
-                            compactDots ? "h-3 w-3" : "h-4 w-4"
-                          }`}
-                          style={{ background: "#ffffff" }}
-                        >
-                          CA
-                        </span>
-                      )}
-                    </div>
-                  </>
-                )}
-                <div className="mt-3 flex h-12 overflow-hidden rounded-lg border border-black/20">
-                  {selectedLaps.map((lapNumber) => {
-                    const color = desk.studentId ? performanceMap.get(`${desk.studentId}-${lapNumber}`) : undefined;
-                    const bg =
-                      color === "GREEN"
-                        ? "bg-emerald-400"
-                        : color === "YELLOW"
-                        ? "bg-yellow-300"
-                        : color === "RED"
-                        ? "bg-red-400"
-                        : "bg-slate-200";
-
-                    return (
+                <div className="flex h-full w-full flex-col items-center justify-center">
+                  <div className="text-lg font-semibold text-center">{desk.student?.displayName}</div>
+                  <div className={`mx-auto mt-2 h-2 w-10 rounded-full ${statusColor}`} />
+                </div>
+                {activeMode === "performance" && selectedLaps.length > 0 && (
+                  <div className="absolute inset-0 flex">
+                    {selectedLaps.length === 1 && (
                       <button
-                        key={`${desk.id}-${lapNumber}`}
                         type="button"
+                        className="flex-1"
                         disabled={!readyForPerformance || isAbsent}
-                        onClick={() => desk.studentId && cyclePerformance(desk.studentId, lapNumber)}
-                        className={`flex-1 ${bg} text-[10px] font-semibold`}
-                        title={`Lap ${lapNumber}`}
-                      >
-                        L{lapNumber}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="mt-2 flex items-center justify-center gap-2">
-                  {attendanceCycle.map((state) => (
-                    <button
-                      key={`${desk.id}-${state}`}
-                      type="button"
-                      className={`h-7 w-7 rounded-full border border-black/20 text-[8px] ${
-                        status === state
-                          ? state === "PRESENT"
-                            ? "bg-emerald-400"
-                            : state === "ABSENT"
-                            ? "bg-red-400"
-                            : state === "TARDY"
-                            ? "bg-yellow-300"
-                            : "bg-orange-300"
-                          : "bg-white"
-                      }`}
-                      onClick={() => desk.studentId && setAttendanceStatus(desk.studentId, state)}
-                    >
-                      {state[0]}
-                    </button>
-                  ))}
-                </div>
-                {!attendanceComplete && (
-                  <div className="mt-3 w-full rounded-lg border border-black/20 py-2 text-xs">
-                    {status ? `Status: ${status.replace("_", " ")}` : "Tap desk to mark attendance"}
+                        onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[0])}
+                      />
+                    )}
+                    {selectedLaps.length === 2 && (
+                      <>
+                        <button
+                          type="button"
+                          className="flex-1 border-r border-black/10"
+                          disabled={!readyForPerformance || isAbsent}
+                          onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[0])}
+                        />
+                        <button
+                          type="button"
+                          className="flex-1"
+                          disabled={!readyForPerformance || isAbsent}
+                          onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[1])}
+                        />
+                      </>
+                    )}
+                    {selectedLaps.length === 3 && (
+                      <>
+                        <button
+                          type="button"
+                          className="flex-1 border-r border-black/10"
+                          disabled={!readyForPerformance || isAbsent}
+                          onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[0])}
+                        />
+                        <button
+                          type="button"
+                          className="flex-1 border-r border-black/10"
+                          disabled={!readyForPerformance || isAbsent}
+                          onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[1])}
+                        />
+                        <button
+                          type="button"
+                          className="flex-1"
+                          disabled={!readyForPerformance || isAbsent}
+                          onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[2])}
+                        />
+                      </>
+                    )}
                   </div>
                 )}
                 {isAbsent && (
@@ -554,27 +468,12 @@ function MonitorPageInner() {
           )}
         </div>
 
-        {!readyForPerformance && (
+        {desks.length === 0 && (
           <div className="text-sm text-black/60 flex flex-wrap items-center gap-3">
-            Monitor unlocks after attendance is taken and three laps are named. Select at least one lap to begin.
-            {!attendanceComplete && (
-              <button className="btn btn-ghost" type="button" onClick={() => setAttendancePanel(true)}>
-                Go to Attendance
-              </button>
-            )}
-            {!lapsNamed && (
-              <Link
-                href={`/setup/laps?returnTo=${encodeURIComponent(returnTo)}`}
-                className="btn btn-ghost"
-              >
-                + Lap
-              </Link>
-            )}
-            {desks.length === 0 && (
-              <Link href="/setup/seating" className="btn btn-ghost">
-                Go to Seating Setup
-              </Link>
-            )}
+            No seating chart found. Add desks in Setup.
+            <Link href="/setup/seating" className="btn btn-ghost">
+              Go to Seating Setup
+            </Link>
           </div>
         )}
       </div>
