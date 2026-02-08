@@ -65,8 +65,8 @@ export async function POST(req: Request) {
       seatNumber,
       x: body.x ?? 40,
       y: body.y ?? 40,
-      width: body.width ?? 120,
-      height: body.height ?? 90,
+      width: body.width ?? 116,
+      height: body.height ?? 82,
       rotation: body.rotation ?? 0,
       groupId: body.groupId ?? null
     },

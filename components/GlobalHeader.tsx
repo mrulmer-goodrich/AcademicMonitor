@@ -37,7 +37,6 @@ export default function GlobalHeader() {
         </Link>
         <nav className="flex items-center gap-4 text-sm font-medium">
           <Link href="/dashboard">Dashboard</Link>
-          <Link href="/setup">Setup</Link>
           <Link href="/monitor">Monitor</Link>
           <Link href="/report">Report</Link>
           <Link href="/about">About</Link>

@@ -104,7 +104,14 @@ function MonitorPageInner() {
   async function loadDesks() {
     const res = await fetch(`/api/desks?blockId=${blockId}`);
     const data = await res.json();
-    setDesks((data.desks || []).filter((d: Desk) => d.type === "STUDENT"));
+    const normalized = (data.desks || [])
+      .filter((d: Desk) => d.type === "STUDENT")
+      .map((desk: Desk) => ({
+        ...desk,
+        width: desk.width > 116 ? 116 : desk.width,
+        height: desk.height > 82 ? 82 : desk.height
+      }));
+    setDesks(normalized);
   }
 
   async function loadActiveStudents() {
@@ -208,14 +215,21 @@ function MonitorPageInner() {
   }, [performance]);
 
   const lapsNamed = todayLaps.length === 3;
-  const readyForDisplay = lapsNamed && attendanceComplete && selectedLaps.length > 0;
+  const readyForPerformance = lapsNamed && attendanceComplete && selectedLaps.length > 0;
+  const returnTo = blockId ? `/monitor?blockId=${blockId}` : "/monitor";
+
+  useEffect(() => {
+    if (attendanceComplete && attendancePanel) {
+      setAttendancePanel(false);
+    }
+  }, [attendanceComplete, attendancePanel]);
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-6">
         <div>
           <div className="small-header text-black/60">Monitor</div>
-          <h1 className="section-title">Seat Display</h1>
+          <h1 className="section-title">Monitor</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <select className="form-control max-w-[240px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
@@ -298,22 +312,23 @@ function MonitorPageInner() {
                 Lap {lap.lapNumber}: {lap.name}
               </button>
             ))}
-            {todayLaps.length < 3 && (
-              <span className="text-sm text-red-700">Name laps in Setup first.</span>
+            {!lapsNamed && (
+              <Link
+                href={`/setup/laps?returnTo=${encodeURIComponent(returnTo)}`}
+                className="btn btn-ghost"
+              >
+                + Lap
+              </Link>
             )}
           </div>
         </div>
 
         <div className="text-sm text-black/60">
-          Attendance: {attendanceComplete ? "Complete" : "Incomplete"} · Tap desks to log lap performance
+          Attendance: {attendanceComplete ? "Complete" : "Incomplete"} ·{" "}
+          {attendanceComplete ? "Tap desks to log lap performance" : "Tap desks to mark attendance"}
         </div>
 
         <div className="hero-card h-[560px] p-4 relative overflow-hidden">
-          {!readyForDisplay && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/75 text-sm font-semibold">
-              Complete attendance and name laps to unlock SeatDisplay.
-            </div>
-          )}
           {desks.map((desk) => {
             const status = desk.studentId ? attendanceMap.get(desk.studentId) : undefined;
             const isAbsent = status === "ABSENT";
@@ -371,7 +386,7 @@ function MonitorPageInner() {
             return (
               <div
                 key={desk.id}
-                className={`absolute rounded-2xl border border-black/10 px-4 py-4 text-center shadow ${statusBg} ${
+                className={`absolute rounded-2xl border border-black/10 px-3 py-3 text-center shadow ${statusBg} ${
                   isAbsent ? "opacity-50" : ""
                 }`}
                 style={{
@@ -386,7 +401,6 @@ function MonitorPageInner() {
                   cycleAttendance(desk.studentId);
                 }}
               >
-                <div className="text-sm text-black/60">Seat {desk.seatNumber}</div>
                 <div className="text-lg font-semibold">{desk.student?.displayName}</div>
                 <div className={`mx-auto mt-2 h-2 w-10 rounded-full ${statusColor}`} />
                 {showCategories && desk.student && (
@@ -484,7 +498,7 @@ function MonitorPageInner() {
                       <button
                         key={`${desk.id}-${lapNumber}`}
                         type="button"
-                        disabled={!readyForDisplay || isAbsent}
+                        disabled={!readyForPerformance || isAbsent}
                         onClick={() => desk.studentId && cyclePerformance(desk.studentId, lapNumber)}
                         className={`flex-1 ${bg} text-[10px] font-semibold`}
                         title={`Lap ${lapNumber}`}
@@ -516,7 +530,7 @@ function MonitorPageInner() {
                     </button>
                   ))}
                 </div>
-                {!readyForDisplay && (
+                {!attendanceComplete && (
                   <div className="mt-3 w-full rounded-lg border border-black/20 py-2 text-xs">
                     {status ? `Status: ${status.replace("_", " ")}` : "Tap desk to mark attendance"}
                   </div>
@@ -540,17 +554,20 @@ function MonitorPageInner() {
           )}
         </div>
 
-        {!readyForDisplay && (
+        {!readyForPerformance && (
           <div className="text-sm text-black/60 flex flex-wrap items-center gap-3">
-            Seat display unlocks after attendance is taken and three laps are named. Select at least one lap to begin.
+            Monitor unlocks after attendance is taken and three laps are named. Select at least one lap to begin.
             {!attendanceComplete && (
               <button className="btn btn-ghost" type="button" onClick={() => setAttendancePanel(true)}>
                 Go to Attendance
               </button>
             )}
             {!lapsNamed && (
-              <Link href="/setup/laps" className="btn btn-ghost">
-                Go to Laps Setup
+              <Link
+                href={`/setup/laps?returnTo=${encodeURIComponent(returnTo)}`}
+                className="btn btn-ghost"
+              >
+                + Lap
               </Link>
             )}
             {desks.length === 0 && (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import LogoutButton from "@/components/LogoutButton";
 import MonitorSnapshotCard from "@/components/MonitorSnapshotCard";
+import DashboardSetupActions from "@/components/DashboardSetupActions";
 
 export default function DashboardPage({ searchParams }: { searchParams?: { error?: string } }) {
   const user = getSessionUser();
@@ -83,23 +84,7 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
       {isAuthed && (
         <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
           <MonitorSnapshotCard />
-          <div className="grid gap-3">
-            <Link href="/setup/blocks" className="feature-card items-center justify-center text-center py-4">
-              <div className="text-lg font-semibold">Setup / Manage Blocks</div>
-            </Link>
-            <Link href="/setup/students" className="feature-card items-center justify-center text-center py-4">
-              <div className="text-lg font-semibold">Setup / Manage Students</div>
-            </Link>
-            <Link href="/setup/seating" className="feature-card items-center justify-center text-center py-4">
-              <div className="text-lg font-semibold">Setup / Manage Seating Chart</div>
-            </Link>
-            <Link href="/setup/laps" className="feature-card items-center justify-center text-center py-4">
-              <div className="text-lg font-semibold">Name Your Laps</div>
-            </Link>
-            <Link href="/report" className="feature-card items-center justify-center text-center py-4">
-              <div className="text-lg font-semibold">Reporting</div>
-            </Link>
-          </div>
+          <DashboardSetupActions />
         </div>
       )}
     </div>

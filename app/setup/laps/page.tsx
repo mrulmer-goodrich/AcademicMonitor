@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { addDays, format, startOfWeek } from "date-fns";
 import SetupNav from "@/components/SetupNav";
 
@@ -20,6 +21,8 @@ type Standard = { code: string; description: string };
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
 export default function LapsSetupPage() {
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockId, setBlockId] = useState<string>("");
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -41,6 +44,15 @@ export default function LapsSetupPage() {
   useEffect(() => {
     if (blockId) loadLaps();
   }, [blockId, weekStart]);
+
+  useEffect(() => {
+    if (!returnTo) return;
+    const todayIndex = (new Date().getDay() + 6) % 7;
+    const todayLaps = laps.filter((lap) => lap.dayIndex === todayIndex);
+    if (todayLaps.length === 3) {
+      window.location.href = returnTo;
+    }
+  }, [laps, returnTo]);
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -149,7 +161,9 @@ export default function LapsSetupPage() {
             <tbody>
               {[1, 2, 3].map((lapNumber) => (
                 <tr key={lapNumber}>
-                  <td className="font-semibold text-[15px] text-center">Lap {lapNumber}</td>
+                  <td className="text-center align-middle">
+                    <div className="font-semibold text-[15px]">Lap {lapNumber}</div>
+                  </td>
                   {weekdays.map((_day, dayIndex) => {
                     const lap = getLap(dayIndex, lapNumber);
                     return (

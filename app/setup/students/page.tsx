@@ -138,9 +138,6 @@ export default function StudentsSetupPage() {
     <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
       <div className="space-y-2">
         <h1 className="section-title">Set up / manage students</h1>
-        <p className="text-black/70 text-sm">
-          Import or edit students. Each student has a seat number that never gets reused within a school year.
-        </p>
       </div>
       <SetupNav />
 
@@ -160,7 +157,7 @@ export default function StudentsSetupPage() {
             ))}
           </select>
           <input
-            className="form-control flex-1 min-w-[220px]"
+            className="form-control w-[240px]"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="Student name"
@@ -172,19 +169,16 @@ export default function StudentsSetupPage() {
           <button className="btn btn-primary" type="button" onClick={addStudent} disabled={editingLocked}>
             Add Student
           </button>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-black/60">{statusMessage ? statusMessage : ""}</div>
           <button className="btn btn-ghost" type="button" onClick={() => setShowImport(true)} disabled={editingLocked}>
             Import List
           </button>
         </div>
 
+        <div className="text-sm text-black/60">{statusMessage ? statusMessage : ""}</div>
+
         <table className="table">
           <thead>
             <tr>
-              <th className="text-center">Seat #</th>
               <th className="text-center">Student Name</th>
               <th className="text-center">Status</th>
               <th className="text-center">Categories</th>
@@ -209,7 +203,6 @@ export default function StudentsSetupPage() {
 
               return (
               <tr key={student.id}>
-                <td>{student.seatNumber}</td>
                 <td>
                   <input
                     className="form-control"
@@ -330,7 +323,7 @@ export default function StudentsSetupPage() {
             )})}
             {students.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-sm text-black/60">
+                <td colSpan={5} className="text-sm text-black/60">
                   No students yet.
                 </td>
               </tr>

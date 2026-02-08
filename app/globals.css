@@ -6,6 +6,7 @@
 
 :root {
   color-scheme: light;
+  --topbar-height: 64px;
 }
 
 * {
@@ -34,6 +35,10 @@ a {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.app-shell main {
+  padding-top: var(--topbar-height);
 }
 
 .hero-card {
@@ -146,6 +151,7 @@ a {
   top: 0;
   left: 0;
   right: 0;
+  height: var(--topbar-height);
   z-index: 20;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);

@@ -91,7 +91,16 @@ export default function SeatingSetupPage() {
   async function loadDesks() {
     const res = await fetch(`/api/desks?blockId=${blockId}`);
     const data = await res.json();
-    setDesks(data.desks || []);
+    const normalized = (data.desks || []).map((desk: Desk) => {
+      const targetWidth = desk.type === "TEACHER" ? 156 : 116;
+      const targetHeight = desk.type === "TEACHER" ? 92 : 82;
+      return {
+        ...desk,
+        width: desk.width > targetWidth ? targetWidth : desk.width,
+        height: desk.height > targetHeight ? targetHeight : desk.height
+      };
+    });
+    setDesks(normalized);
   }
 
   async function loadUnassigned() {
@@ -118,7 +127,7 @@ export default function SeatingSetupPage() {
     const res = await fetch("/api/desks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ blockId, type: "TEACHER", x: 80, y: 80, width: 160, height: 100 })
+      body: JSON.stringify({ blockId, type: "TEACHER", x: 80, y: 80, width: 156, height: 92 })
     });
     if (res.ok) {
       setLastSaved("Saved");
@@ -278,38 +287,13 @@ export default function SeatingSetupPage() {
   );
 
 
-  async function autoFit() {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const studentDesks = desks.filter((d) => d.type === "STUDENT");
-    if (studentDesks.length === 0) return;
-    const minX = Math.min(...studentDesks.map((d) => d.x));
-    const minY = Math.min(...studentDesks.map((d) => d.y));
-    const maxX = Math.max(...studentDesks.map((d) => d.x + d.width));
-    const maxY = Math.max(...studentDesks.map((d) => d.y + d.height));
-    const padding = 20;
-    const width = maxX - minX;
-    const height = maxY - minY;
-    const scale = Math.min((rect.width - padding * 2) / width, (rect.height - padding * 2) / height);
-    const next = studentDesks.map((d) => ({
-      id: d.id,
-      x: (d.x - minX) * scale + padding,
-      y: (d.y - minY) * scale + padding,
-      width: d.width * scale,
-      height: d.height * scale
-    }));
-    await Promise.all(next.map((d) => updateDesk(d.id, d)));
-    await loadDesks();
-  }
+  // auto-fit removed
 
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
       <div className="space-y-2">
         <h1 className="section-title">Set up / manage seating chart</h1>
-        <p className="text-black/70 text-sm">
-          Drag desks to arrange the room. Desks snap together when close and can move as grouped clusters.
-        </p>
       </div>
       <SetupNav />
 
@@ -319,8 +303,8 @@ export default function SeatingSetupPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <select className="form-control max-w-[260px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
+      <div className="flex flex-wrap items-center gap-2">
+        <select className="form-control max-w-[240px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
           {blockOptions.map((block) => (
             <option key={block.id} value={block.id}>
               {block.label}
@@ -328,51 +312,60 @@ export default function SeatingSetupPage() {
           ))}
         </select>
         <select
-          className="form-control max-w-[220px]"
+          className="form-control max-w-[200px]"
           value={selectedStudentId}
           onChange={(e) => setSelectedStudentId(e.target.value)}
           disabled={unassigned.length === 0}
         >
           {unassigned.map((student) => (
             <option key={student.id} value={student.id}>
-              {student.displayName} (Seat {student.seatNumber})
+              {student.displayName}
             </option>
           ))}
         </select>
-        <button className="btn btn-primary" type="button" onClick={addStudentDesk} disabled={unassigned.length === 0}>
-          Add Student Desk
+        <button
+          className="btn btn-primary px-3 py-2 text-sm"
+          type="button"
+          onClick={addStudentDesk}
+          disabled={unassigned.length === 0}
+        >
+          Add
         </button>
         {unassigned.length === 0 && <div className="text-sm text-black/60">All students assigned</div>}
-        <button className="btn btn-ghost" type="button" onClick={addTeacherDesk}>
+        <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={addTeacherDesk}>
           Add Teacher Desk
         </button>
-        <button className="btn btn-ghost" type="button" onClick={() => rotateSelected(15)}>
+        <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={() => rotateSelected(15)}>
           Rotate +15°
         </button>
-        <button className="btn btn-ghost" type="button" onClick={() => rotateSelected(-15)}>
+        <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={() => rotateSelected(-15)}>
           Rotate -15°
         </button>
-        <button className="btn btn-ghost" type="button" onClick={deleteDesk} disabled={!selectedDeskId}>
+        <button
+          className="btn btn-ghost px-3 py-2 text-sm"
+          type="button"
+          onClick={deleteDesk}
+          disabled={!selectedDeskId}
+        >
           Delete Desk
-        </button>
-        <button className="btn btn-ghost" type="button" onClick={autoFit}>
-          Auto Fit
         </button>
         <div className="text-sm text-black/60">{lastSaved ? lastSaved : "Autosave enabled"}</div>
       </div>
 
-      <div
-        className="hero-card h-[560px] p-4 relative overflow-hidden"
-        ref={containerRef}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
-        style={{
-          backgroundImage: `linear-gradient(to right, rgba(11,27,42,0.06) 1px, transparent 1px),
+      <div className="hero-card h-[560px] p-0 relative overflow-hidden">
+        <div className="absolute inset-4 rounded-2xl border border-black/10 pointer-events-none" />
+        <div
+          className="absolute inset-4"
+          ref={containerRef}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerUp}
+          style={{
+            backgroundImage: `linear-gradient(to right, rgba(11,27,42,0.06) 1px, transparent 1px),
                linear-gradient(to bottom, rgba(11,27,42,0.06) 1px, transparent 1px)`,
-          backgroundSize: `${gridSize}px ${gridSize}px`
-        }}
-      >
+            backgroundSize: `${gridSize}px ${gridSize}px`
+          }}
+        >
         {desks.map((desk) => (
           <div
             key={desk.id}
@@ -393,9 +386,6 @@ export default function SeatingSetupPage() {
             <div className={desk.type === "TEACHER" ? "text-base font-semibold" : "mt-2 text-base font-semibold"}>
               {desk.type === "TEACHER" ? teacherName : desk.student?.displayName || "Student"}
             </div>
-            {desk.type === "STUDENT" && desk.seatNumber && (
-              <div className="text-[10px] text-black/60 sr-only">Seat {desk.seatNumber}</div>
-            )}
             {desk.type === "STUDENT" && desk.student && (
               <>
                 {desk.student.hiit && (
@@ -483,6 +473,7 @@ export default function SeatingSetupPage() {
             Seating chart canvas placeholder
           </div>
         )}
+        </div>
       </div>
     </div>
   );
