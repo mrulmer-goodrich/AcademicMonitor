@@ -32,8 +32,6 @@ export default function LapsSetupPage() {
     name: string;
     standardCode: string | null;
   } | null>(null);
-  const [copyPrompt, setCopyPrompt] = useState(false);
-  const [copySource, setCopySource] = useState<string>("");
 
   useEffect(() => {
     loadBlocks();
@@ -65,11 +63,6 @@ export default function LapsSetupPage() {
     const res = await fetch(`/api/laps?blockId=${blockId}&weekStart=${weekStart.toISOString()}`);
     const data = await res.json();
     setLaps(data.laps || []);
-    if (data.laps?.length === 0 && blocks.length > 1) {
-      setCopyPrompt(true);
-    } else {
-      setCopyPrompt(false);
-    }
   }
 
   async function saveLap(dayIndex: number, lapNumber: number, name: string, standardCode: string | null) {
@@ -88,19 +81,6 @@ export default function LapsSetupPage() {
     if (res.ok) await loadLaps();
   }
 
-  async function copyFromBlock(fromBlockId: string) {
-    const res = await fetch("/api/laps/copy", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fromBlockId,
-        toBlockId: blockId,
-        weekStart: weekStart.toISOString(),
-        force: true
-      })
-    });
-    if (res.ok) await loadLaps();
-  }
 
   function getLap(dayIndex: number, lapNumber: number) {
     return laps.find((lap) => lap.dayIndex === dayIndex && lap.lapNumber === lapNumber);
@@ -138,20 +118,6 @@ export default function LapsSetupPage() {
                 </option>
               ))}
             </select>
-            <select
-              className="form-control max-w-[260px]"
-              onChange={(e) => copyFromBlock(e.target.value)}
-              defaultValue=""
-            >
-              <option value="" disabled>
-                Copy week from block...
-              </option>
-              {blockOptions.filter((b) => b.id !== blockId).map((block) => (
-                <option key={block.id} value={block.id}>
-                  {block.label}
-                </option>
-              ))}
-            </select>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -175,8 +141,8 @@ export default function LapsSetupPage() {
                 <th></th>
                 {weekdays.map((day, index) => (
                   <th key={day} className="text-center">
-                    <div className="font-semibold">{day}</div>
-                    <div className="text-[11px] text-black/60">{format(addDays(weekStart, index), "MM/dd")}</div>
+                    <div className="font-semibold text-base">{day}</div>
+                    <div className="text-sm text-black/60">{format(addDays(weekStart, index), "MM/dd")}</div>
                   </th>
                 ))}
               </tr>
@@ -184,13 +150,13 @@ export default function LapsSetupPage() {
             <tbody>
               {[1, 2, 3].map((lapNumber) => (
                 <tr key={lapNumber}>
-                  <td className="font-semibold">Lap {lapNumber}</td>
+                  <td className="font-semibold text-base">Lap {lapNumber}</td>
                   {weekdays.map((_day, dayIndex) => {
                     const lap = getLap(dayIndex, lapNumber);
                     return (
                       <td key={`${dayIndex}-${lapNumber}`}>
                         <button
-                          className="w-full h-16 rounded-xl border border-black/10 bg-white text-sm text-black/60"
+                          className="w-full h-16 rounded-xl border border-black/10 bg-white text-sm text-black/60 whitespace-normal break-words"
                           type="button"
                           onClick={() =>
                             setEditing({
@@ -219,11 +185,6 @@ export default function LapsSetupPage() {
           </table>
         </div>
 
-        {standards.length > 0 && (
-          <div className="text-xs text-black/60">
-            Standards loaded: {standards.map((s) => s.code).join(", ")}
-          </div>
-        )}
       </div>
 
       {editing && (
@@ -280,48 +241,6 @@ export default function LapsSetupPage() {
         </div>
       )}
 
-      {copyPrompt && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6">
-          <div className="hero-card w-full max-w-md p-6 space-y-4">
-            <div>
-              <div className="small-header text-black/60">Copy Laps</div>
-              <h2 className="section-title">No laps yet for this week</h2>
-            </div>
-            <div className="text-sm text-black/70">
-              Would you like to copy laps from another block for this week?
-            </div>
-            <select
-              className="form-control"
-              value={copySource}
-              onChange={(e) => setCopySource(e.target.value)}
-            >
-              <option value="">Select block...</option>
-              {blocks.filter((b) => b.id !== blockId).map((block) => (
-                <option key={block.id} value={block.id}>
-                  Block {block.blockNumber} · {block.blockName}
-                </option>
-              ))}
-            </select>
-            <div className="flex gap-2">
-              <button
-                className="btn btn-primary"
-                type="button"
-                onClick={async () => {
-                  if (!copySource) return;
-                  await copyFromBlock(copySource);
-                  setCopyPrompt(false);
-                  setCopySource("");
-                }}
-              >
-                Copy Laps
-              </button>
-              <button className="btn btn-ghost" type="button" onClick={() => setCopyPrompt(false)}>
-                Skip
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

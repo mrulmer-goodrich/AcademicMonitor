@@ -27,11 +27,6 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
           {isAuthed && <LogoutButton />}
         </div>
       </div>
-      {isAuthed && (
-        <div className="text-sm text-black/60">
-          <Link href="/" className="underline">Home</Link>
-        </div>
-      )}
 
       {!isAuthed && (
         <div id="login" className="hero-card p-6">
@@ -86,31 +81,34 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
       )}
 
       {isAuthed && (
-        <div className="grid gap-4 md:grid-cols-3">
-          <Link href="/setup/blocks" className="feature-card">
-            <div className="text-lg font-semibold">Blocks</div>
-            <p className="text-sm text-black/70">Create and manage blocks</p>
+        <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
+          <Link href="/monitor" className="feature-card" style={{ minHeight: 220 }}>
+            <div className="text-2xl font-semibold">Monitor</div>
+            <p className="text-sm text-black/70">Jump into today’s seating view and capture laps fast</p>
+            <div className="mt-auto text-sm font-semibold text-ocean">Open today’s class</div>
           </Link>
-          <Link href="/setup/students" className="feature-card">
-            <div className="text-lg font-semibold">Students</div>
-            <p className="text-sm text-black/70">Add and edit student rosters</p>
-          </Link>
-          <Link href="/setup/seating" className="feature-card">
-            <div className="text-lg font-semibold">Seating</div>
-            <p className="text-sm text-black/70">Arrange desks and groups</p>
-          </Link>
-          <Link href="/setup/laps" className="feature-card">
-            <div className="text-lg font-semibold">Laps</div>
-            <p className="text-sm text-black/70">Plan weekly laps</p>
-          </Link>
-          <Link href="/monitor" className="feature-card">
-            <div className="text-lg font-semibold">Monitor</div>
-            <p className="text-sm text-black/70">Attendance and lap performance</p>
-          </Link>
-          <Link href="/report" className="feature-card">
-            <div className="text-lg font-semibold">Report</div>
-            <p className="text-sm text-black/70">Filter and export CSV/XLSX</p>
-          </Link>
+          <div className="grid gap-4">
+            <Link href="/setup/blocks" className="feature-card">
+              <div className="text-lg font-semibold">Blocks</div>
+              <p className="text-sm text-black/70">Create and manage blocks</p>
+            </Link>
+            <Link href="/setup/students" className="feature-card">
+              <div className="text-lg font-semibold">Students</div>
+              <p className="text-sm text-black/70">Add and edit student rosters</p>
+            </Link>
+            <Link href="/setup/seating" className="feature-card">
+              <div className="text-lg font-semibold">Seating</div>
+              <p className="text-sm text-black/70">Arrange desks and groups</p>
+            </Link>
+            <Link href="/setup/laps" className="feature-card">
+              <div className="text-lg font-semibold">Laps</div>
+              <p className="text-sm text-black/70">Plan weekly laps</p>
+            </Link>
+            <Link href="/report" className="feature-card">
+              <div className="text-lg font-semibold">Report</div>
+              <p className="text-sm text-black/70">Filter and export CSV/XLSX</p>
+            </Link>
+          </div>
         </div>
       )}
     </div>

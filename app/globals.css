@@ -51,6 +51,15 @@ a {
   text-transform: uppercase;
 }
 
+.badge-hero {
+  display: inline-flex;
+  width: 100%;
+  justify-content: center;
+  padding: 12px 18px;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

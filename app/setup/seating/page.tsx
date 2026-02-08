@@ -43,10 +43,7 @@ export default function SeatingSetupPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [selectedDeskId, setSelectedDeskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [snapToGrid, setSnapToGrid] = useState(true);
-  const [gridSize, setGridSize] = useState(20);
-  const [snapDistance, setSnapDistance] = useState(SNAP_DISTANCE);
-  const [deskSize, setDeskSize] = useState({ width: 120, height: 90 });
+  const gridSize = 20;
   const [snapTargetId, setSnapTargetId] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [teacherName, setTeacherName] = useState<string>("Teacher");
@@ -146,11 +143,7 @@ export default function SeatingSetupPage() {
     await loadUnassigned();
   }
 
-  async function ungroupDesk() {
-    if (!selectedDeskId) return;
-    await updateDesk(selectedDeskId, { groupId: null });
-    setDesks((prev) => prev.map((d) => (d.id === selectedDeskId ? { ...d, groupId: null } : d)));
-  }
+  // grouping controls removed in v1.1 simplification
 
   function onPointerDown(event: React.PointerEvent, desk: Desk) {
     event.preventDefault();
@@ -194,16 +187,12 @@ export default function SeatingSetupPage() {
             ? {
                 ...desk,
                 x: clamp(
-                  snapToGrid
-                    ? Math.round(((groupPositions?.[desk.id]?.x ?? desk.x) + dx) / gridSize) * gridSize
-                    : (groupPositions?.[desk.id]?.x ?? desk.x) + dx,
+                  Math.round(((groupPositions?.[desk.id]?.x ?? desk.x) + dx) / gridSize) * gridSize,
                   0,
                   maxX
                 ),
                 y: clamp(
-                  snapToGrid
-                    ? Math.round(((groupPositions?.[desk.id]?.y ?? desk.y) + dy) / gridSize) * gridSize
-                    : (groupPositions?.[desk.id]?.y ?? desk.y) + dy,
+                  Math.round(((groupPositions?.[desk.id]?.y ?? desk.y) + dy) / gridSize) * gridSize,
                   0,
                   maxY
                 )
@@ -212,12 +201,12 @@ export default function SeatingSetupPage() {
         );
       }
       const nextX = clamp(
-        snapToGrid ? Math.round((originX + dx) / gridSize) * gridSize : originX + dx,
+        Math.round((originX + dx) / gridSize) * gridSize,
         0,
         maxX
       );
       const nextY = clamp(
-        snapToGrid ? Math.round((originY + dy) / gridSize) * gridSize : originY + dy,
+        Math.round((originY + dy) / gridSize) * gridSize,
         0,
         maxY
       );
@@ -234,7 +223,7 @@ export default function SeatingSetupPage() {
           return { desk: d, dist: Math.hypot(dx, dy) };
         })
         .sort((a, b) => a.dist - b.dist)[0];
-      const threshold = snapDistance || SNAP_DISTANCE;
+      const threshold = SNAP_DISTANCE;
       setSnapTargetId(nearest && nearest.dist < threshold ? nearest.desk.id : null);
     }
   }
@@ -248,7 +237,6 @@ export default function SeatingSetupPage() {
     const desk = desks.find((d) => d.id === id);
     if (!desk) return;
 
-    let groupId: string | null = desk.groupId || null;
     const nearest = desks
       .filter((d) => d.id !== desk.id)
       .map((d) => {
@@ -258,16 +246,21 @@ export default function SeatingSetupPage() {
       })
       .sort((a, b) => a.dist - b.dist)[0];
 
-    const threshold = snapDistance || SNAP_DISTANCE;
+    const threshold = SNAP_DISTANCE;
+    let nextX = desk.x;
+    let nextY = desk.y;
     if (nearest && nearest.dist < threshold) {
-      groupId = nearest.desk.groupId || crypto.randomUUID();
-    } else if (desk.groupId) {
-      groupId = null;
+      if (Math.abs(nearest.desk.x - desk.x) < threshold) {
+        nextX = nearest.desk.x;
+      }
+      if (Math.abs(nearest.desk.y - desk.y) < threshold) {
+        nextY = nearest.desk.y;
+      }
     }
 
-    const updates: Partial<Desk> = { x: desk.x, y: desk.y, groupId };
+    const updates: Partial<Desk> = { x: nextX, y: nextY };
     await updateDesk(desk.id, updates);
-    setDesks((prev) => prev.map((d) => (d.id === desk.id ? { ...d, groupId } : d)));
+    setDesks((prev) => prev.map((d) => (d.id === desk.id ? { ...d, x: nextX, y: nextY } : d)));
     setTimeout(() => setLastSaved(null), 1500);
   }
 
@@ -284,48 +277,6 @@ export default function SeatingSetupPage() {
     [blocks]
   );
 
-  const selectedGroupBounds = useMemo(() => {
-    const selected = desks.find((d) => d.id === selectedDeskId);
-    if (!selected?.groupId) return null;
-    const group = desks.filter((d) => d.groupId === selected.groupId);
-    if (group.length < 2) return null;
-    const minX = Math.min(...group.map((d) => d.x));
-    const minY = Math.min(...group.map((d) => d.y));
-    const maxX = Math.max(...group.map((d) => d.x + d.width));
-    const maxY = Math.max(...group.map((d) => d.y + d.height));
-    return { x: minX - 8, y: minY - 8, width: maxX - minX + 16, height: maxY - minY + 16 };
-  }, [desks, selectedDeskId]);
-
-  async function applyDeskSize() {
-    const studentDesks = desks.filter((d) => d.type === "STUDENT");
-    await Promise.all(
-      studentDesks.map((desk) =>
-        updateDesk(desk.id, { width: deskSize.width, height: deskSize.height })
-      )
-    );
-    await loadDesks();
-  }
-
-  async function rotateGroup(delta: number) {
-    const desk = desks.find((d) => d.id === selectedDeskId);
-    if (!desk || !desk.groupId) return;
-    const group = desks.filter((d) => d.groupId === desk.groupId);
-    if (group.length < 2) return;
-    const cx = group.reduce((sum, d) => sum + d.x + d.width / 2, 0) / group.length;
-    const cy = group.reduce((sum, d) => sum + d.y + d.height / 2, 0) / group.length;
-    const radians = (delta * Math.PI) / 180;
-
-    const updates = group.map((d) => {
-      const dx = d.x + d.width / 2 - cx;
-      const dy = d.y + d.height / 2 - cy;
-      const nx = cx + dx * Math.cos(radians) - dy * Math.sin(radians) - d.width / 2;
-      const ny = cy + dx * Math.sin(radians) + dy * Math.cos(radians) - d.height / 2;
-      return { id: d.id, x: nx, y: ny, rotation: (d.rotation + delta) % 360 };
-    });
-
-    await Promise.all(updates.map((u) => updateDesk(u.id, u)));
-    await loadDesks();
-  }
 
   async function autoFit() {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -351,20 +302,6 @@ export default function SeatingSetupPage() {
     await loadDesks();
   }
 
-  async function alignBottom() {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const studentDesks = desks.filter((d) => d.type === "STUDENT");
-    if (studentDesks.length === 0) return;
-    const maxY = Math.max(...studentDesks.map((d) => d.y + d.height));
-    const delta = rect.height - maxY - 12;
-    const next = studentDesks.map((d) => ({
-      id: d.id,
-      y: Math.max(d.y + delta, 0)
-    }));
-    await Promise.all(next.map((d) => updateDesk(d.id, d)));
-    await loadDesks();
-  }
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
@@ -395,6 +332,7 @@ export default function SeatingSetupPage() {
           className="form-control max-w-[220px]"
           value={selectedStudentId}
           onChange={(e) => setSelectedStudentId(e.target.value)}
+          disabled={unassigned.length === 0}
         >
           {unassigned.map((student) => (
             <option key={student.id} value={student.id}>
@@ -402,9 +340,10 @@ export default function SeatingSetupPage() {
             </option>
           ))}
         </select>
-        <button className="btn btn-primary" type="button" onClick={addStudentDesk}>
+        <button className="btn btn-primary" type="button" onClick={addStudentDesk} disabled={unassigned.length === 0}>
           Add Student Desk
         </button>
+        {unassigned.length === 0 && <div className="text-sm text-black/60">All students assigned</div>}
         <button className="btn btn-ghost" type="button" onClick={addTeacherDesk}>
           Add Teacher Desk
         </button>
@@ -414,74 +353,11 @@ export default function SeatingSetupPage() {
         <button className="btn btn-ghost" type="button" onClick={() => rotateSelected(-15)}>
           Rotate -15°
         </button>
-        <button className="btn btn-ghost" type="button" onClick={() => rotateGroup(15)} disabled={!selectedDeskId}>
-          Rotate Group +15°
-        </button>
-        <button className="btn btn-ghost" type="button" onClick={() => rotateGroup(-15)} disabled={!selectedDeskId}>
-          Rotate Group -15°
-        </button>
-        <button className="btn btn-ghost" type="button" onClick={ungroupDesk} disabled={!selectedDeskId}>
-          Ungroup
-        </button>
         <button className="btn btn-ghost" type="button" onClick={deleteDesk} disabled={!selectedDeskId}>
           Delete Desk
         </button>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={snapToGrid} onChange={(e) => setSnapToGrid(e.target.checked)} />
-          Snap to grid
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          Grid
-          <input
-            className="form-control max-w-[90px]"
-            type="number"
-            value={gridSize}
-            min={10}
-            max={60}
-            onChange={(e) => setGridSize(Number(e.target.value))}
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          Snap
-          <input
-            className="form-control max-w-[90px]"
-            type="number"
-            value={snapDistance}
-            min={20}
-            max={120}
-            onChange={(e) => setSnapDistance(Number(e.target.value))}
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          Desk W
-          <input
-            className="form-control max-w-[90px]"
-            type="number"
-            value={deskSize.width}
-            min={80}
-            max={240}
-            onChange={(e) => setDeskSize((prev) => ({ ...prev, width: Number(e.target.value) }))}
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          Desk H
-          <input
-            className="form-control max-w-[90px]"
-            type="number"
-            value={deskSize.height}
-            min={60}
-            max={200}
-            onChange={(e) => setDeskSize((prev) => ({ ...prev, height: Number(e.target.value) }))}
-          />
-        </label>
-        <button className="btn btn-ghost" type="button" onClick={applyDeskSize}>
-          Apply Size
-        </button>
         <button className="btn btn-ghost" type="button" onClick={autoFit}>
           Auto Fit
-        </button>
-        <button className="btn btn-ghost" type="button" onClick={alignBottom}>
-          Align Bottom
         </button>
         <div className="text-sm text-black/60">{lastSaved ? lastSaved : "Autosave enabled"}</div>
       </div>
@@ -493,30 +369,19 @@ export default function SeatingSetupPage() {
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
         style={{
-          backgroundImage: snapToGrid
-            ? `linear-gradient(to right, rgba(11,27,42,0.06) 1px, transparent 1px),
-               linear-gradient(to bottom, rgba(11,27,42,0.06) 1px, transparent 1px)`
-            : undefined,
-          backgroundSize: snapToGrid ? `${gridSize}px ${gridSize}px` : undefined
+          backgroundImage: `linear-gradient(to right, rgba(11,27,42,0.06) 1px, transparent 1px),
+               linear-gradient(to bottom, rgba(11,27,42,0.06) 1px, transparent 1px)`,
+          backgroundSize: `${gridSize}px ${gridSize}px`
         }}
       >
-        {selectedGroupBounds && (
-          <div
-            className="absolute rounded-2xl border border-dashed border-ocean/60 bg-ocean/5"
-            style={{
-              left: selectedGroupBounds.x,
-              top: selectedGroupBounds.y,
-              width: selectedGroupBounds.width,
-              height: selectedGroupBounds.height
-            }}
-          />
-        )}
         {desks.map((desk) => (
           <div
             key={desk.id}
             className={`absolute rounded-2xl border border-black/20 bg-white/90 text-center text-xs shadow ${
               desk.id === selectedDeskId ? "ring-2 ring-ocean" : ""
-            } ${desk.id === snapTargetId ? "ring-2 ring-coral" : ""}`}
+            } ${desk.id === snapTargetId ? "ring-2 ring-coral" : ""} ${
+              desk.type === "TEACHER" ? "flex items-center justify-center" : ""
+            }`}
             style={{
               left: desk.x,
               top: desk.y,
@@ -526,7 +391,7 @@ export default function SeatingSetupPage() {
             }}
             onPointerDown={(event) => onPointerDown(event, desk)}
           >
-            <div className="mt-2 text-base font-semibold">
+            <div className={desk.type === "TEACHER" ? "text-base font-semibold" : "mt-2 text-base font-semibold"}>
               {desk.type === "TEACHER" ? teacherName : desk.student?.displayName || "Student"}
             </div>
             {desk.type === "STUDENT" && desk.seatNumber && (

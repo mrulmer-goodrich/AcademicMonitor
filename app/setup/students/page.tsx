@@ -39,9 +39,11 @@ export default function StudentsSetupPage() {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [importText, setImportText] = useState("");
+  const [showImport, setShowImport] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, Student>>({});
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const editingLocked = Boolean(editingId);
 
   useEffect(() => {
     loadBlocks();
@@ -93,6 +95,12 @@ export default function StudentsSetupPage() {
     if (res.ok) {
       setStatusMessage("Saved");
       setTimeout(() => setStatusMessage(null), 1500);
+      setEditingId(null);
+      setDraft((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       await loadStudents();
     }
   }
@@ -160,27 +168,18 @@ export default function StudentsSetupPage() {
             onKeyDown={(e) => {
               if (e.key === "Enter") addStudent();
             }}
+            disabled={editingLocked}
           />
-          <button className="btn btn-primary" type="button" onClick={addStudent}>
+          <button className="btn btn-primary" type="button" onClick={addStudent} disabled={editingLocked}>
             Add Student
           </button>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-[3fr_1fr]">
-          <div className="text-sm text-black/60">
-            {statusMessage ? statusMessage : "Rows are read‑only until you click Edit."}
-          </div>
-          <div className="flex flex-col gap-2">
-            <textarea
-              className="form-control min-h-[90px]"
-              placeholder="Paste names (one per line). Optional block number after comma: Jane Doe,2"
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-            />
-            <button className="btn btn-ghost" type="button" onClick={importStudents}>
-              Import List
-            </button>
-          </div>
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-black/60">{statusMessage ? statusMessage : ""}</div>
+          <button className="btn btn-ghost" type="button" onClick={() => setShowImport(true)} disabled={editingLocked}>
+            Import List
+          </button>
         </div>
 
         <table className="table">
@@ -290,6 +289,7 @@ export default function StudentsSetupPage() {
                       className="btn btn-ghost"
                       type="button"
                       onClick={() => {
+                        if (editingId && editingId !== student.id) return;
                         setEditingId(student.id);
                         setDraft((prev) => ({ ...prev, [student.id]: student }));
                       }}
@@ -307,7 +307,18 @@ export default function StudentsSetupPage() {
                       >
                         Save
                       </button>
-                      <button className="btn btn-ghost" type="button" onClick={() => setEditingId(null)}>
+                      <button
+                        className="btn btn-ghost"
+                        type="button"
+                        onClick={() => {
+                          setEditingId(null);
+                          setDraft((prev) => {
+                            const next = { ...prev };
+                            delete next[student.id];
+                            return next;
+                          });
+                        }}
+                      >
                         Cancel
                       </button>
                     </div>
@@ -328,6 +339,37 @@ export default function StudentsSetupPage() {
           </tbody>
         </table>
       </div>
+
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+          <div className="hero-card w-full max-w-md p-6 space-y-4">
+            <div className="text-lg font-semibold">Import student list</div>
+            <textarea
+              className="form-control min-h-[140px]"
+              placeholder="Paste names (one per line). Optional block number after comma: Jane Doe,2"
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              disabled={editingLocked}
+            />
+            <div className="flex gap-2">
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={async () => {
+                  await importStudents();
+                  setShowImport(false);
+                }}
+                disabled={editingLocked}
+              >
+                Import
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => setShowImport(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

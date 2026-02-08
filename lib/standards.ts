@@ -1,5 +1,25 @@
 export const nc7MathStandards = [
-  { code: "RP.1", description: "Compute unit rates associated with ratios of fractions." },
-  { code: "RP.2", description: "Recognize and represent proportional relationships." },
-  { code: "RP.3", description: "Use proportional relationships to solve multistep problems." }
+  { code: "NS1", description: "Apply properties of operations to add/subtract rational numbers." },
+  { code: "NS2", description: "Use rational numbers to solve real‑world problems." },
+  { code: "NS3", description: "Solve problems involving conversions and rational numbers." },
+  { code: "EE1", description: "Apply properties of operations to simplify expressions." },
+  { code: "EE2", description: "Use expressions to solve multi‑step problems." },
+  { code: "EE3", description: "Solve equations of the form px + q = r." },
+  { code: "EE4", description: "Solve inequalities and represent solutions." },
+  { code: "RP1", description: "Compute unit rates associated with ratios of fractions." },
+  { code: "RP2", description: "Recognize and represent proportional relationships." },
+  { code: "RP3", description: "Use proportional relationships to solve multistep problems." },
+  { code: "G1", description: "Solve problems involving scale drawings." },
+  { code: "G2", description: "Draw and construct geometric figures from conditions." },
+  { code: "G4", description: "Describe the two‑dimensional cross sections of three‑dimensional figures." },
+  { code: "G5", description: "Solve area, surface area, and volume problems." },
+  { code: "G6", description: "Understand relationships between 2D and 3D measures." },
+  { code: "SP1", description: "Understand statistical variability." },
+  { code: "SP2", description: "Summarize and describe distributions." },
+  { code: "SP3", description: "Use measures of center and variability." },
+  { code: "SP4", description: "Use random sampling for inference." },
+  { code: "SP5", description: "Compare two populations using random samples." },
+  { code: "SP6", description: "Use probability to predict outcomes." },
+  { code: "SP7", description: "Develop and use probability models." },
+  { code: "SP8", description: "Find probabilities of compound events." }
 ];

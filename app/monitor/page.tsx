@@ -54,7 +54,6 @@ export default function MonitorPage() {
   const [blockId, setBlockId] = useState<string>("");
   const [desks, setDesks] = useState<Desk[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
-  const [attendanceMode, setAttendanceMode] = useState(false);
   const [attendancePanel, setAttendancePanel] = useState(false);
   const [laps, setLaps] = useState<Lap[]>([]);
   const [selectedLaps, setSelectedLaps] = useState<number[]>([]);
@@ -63,7 +62,7 @@ export default function MonitorPage() {
   const [activeStudents, setActiveStudents] = useState<string[]>([]);
   const [editingLap, setEditingLap] = useState<Lap | null>(null);
   const [editingName, setEditingName] = useState("");
-  const [showCategories, setShowCategories] = useState(true);
+  const [showCategories] = useState(true);
 
   const [simulateDate, setSimulateDate] = useState<string>("");
   const dateToUse = simulateDate ? new Date(`${simulateDate}T09:00:00`) : new Date();
@@ -128,6 +127,13 @@ export default function MonitorPage() {
   }
 
   async function setAttendanceStatus(studentId: string, status: Attendance["status"]) {
+    setAttendance((prev) => {
+      const existing = prev.find((a) => a.studentId === studentId);
+      if (existing) {
+        return prev.map((a) => (a.studentId === studentId ? { ...a, status } : a));
+      }
+      return [...prev, { id: `temp-${studentId}`, studentId, status }];
+    });
     await fetch("/api/attendance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -150,6 +156,13 @@ export default function MonitorPage() {
   async function cyclePerformance(studentId: string, lapNumber: number) {
     const current = performance.find((p) => p.studentId === studentId && p.lapNumber === lapNumber);
     const nextColor = current ? colorCycle[(colorCycle.indexOf(current.color) + 1) % colorCycle.length] : "GREEN";
+    setPerformance((prev) => {
+      const existing = prev.find((p) => p.studentId === studentId && p.lapNumber === lapNumber);
+      if (existing) {
+        return prev.map((p) => (p.studentId === studentId && p.lapNumber === lapNumber ? { ...p, color: nextColor } : p));
+      }
+      return [...prev, { studentId, lapNumber, color: nextColor, date: dateToUse.toISOString() } as Performance];
+    });
     await fetch("/api/performance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -206,19 +219,8 @@ export default function MonitorPage() {
               </option>
             ))}
           </select>
-          <button
-            className={`btn ${attendanceMode ? "btn-primary" : "btn-ghost"}`}
-            type="button"
-            onClick={() => setAttendanceMode((prev) => !prev)}
-            disabled={!blockId}
-          >
-            Attendance Mode
-          </button>
           <button className="btn btn-ghost" type="button" onClick={() => setAttendancePanel(true)} disabled={!blockId}>
             Attendance Panel
-          </button>
-          <button className="btn btn-ghost" type="button" onClick={() => setShowCategories((prev) => !prev)}>
-            {showCategories ? "Hide Categories" : "Show Categories"}
           </button>
           <button
             className="btn btn-primary"
@@ -297,12 +299,11 @@ export default function MonitorPage() {
         </div>
 
         <div className="text-sm text-black/60">
-          Attendance: {attendanceComplete ? "Complete" : "Incomplete"} · Mode:{" "}
-          {attendanceMode ? "Tap desks to mark Present/Absent/Tardy/Left Early" : "Tap desks to log lap performance"}
+          Attendance: {attendanceComplete ? "Complete" : "Incomplete"} · Tap desks to log lap performance
         </div>
 
         <div className="hero-card h-[560px] p-4 relative overflow-hidden">
-          {!readyForDisplay && !attendanceMode && (
+          {!readyForDisplay && (
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/75 text-sm font-semibold">
               Complete attendance and name laps to unlock SeatDisplay.
             </div>
@@ -321,7 +322,7 @@ export default function MonitorPage() {
                 ? "bg-orange-300"
                 : "bg-slate-200";
             const statusBg =
-              attendanceMode && status
+              status
                 ? status === "PRESENT"
                   ? "bg-emerald-100"
                   : status === "ABSENT"
@@ -375,9 +376,8 @@ export default function MonitorPage() {
                   transform: `rotate(${desk.rotation}deg)`
                 }}
                 onClick={() => {
-                  if (attendanceMode && desk.studentId) {
-                    cycleAttendance(desk.studentId);
-                  }
+                  if (!desk.studentId) return;
+                  cycleAttendance(desk.studentId);
                 }}
               >
                 <div className="text-sm text-black/60">Seat {desk.seatNumber}</div>
@@ -478,7 +478,7 @@ export default function MonitorPage() {
                       <button
                         key={`${desk.id}-${lapNumber}`}
                         type="button"
-                        disabled={!readyForDisplay || isAbsent || attendanceMode}
+                        disabled={!readyForDisplay || isAbsent}
                         onClick={() => desk.studentId && cyclePerformance(desk.studentId, lapNumber)}
                         className={`flex-1 ${bg} text-[10px] font-semibold`}
                         title={`Lap ${lapNumber}`}
@@ -487,6 +487,28 @@ export default function MonitorPage() {
                       </button>
                     );
                   })}
+                </div>
+                <div className="mt-2 flex items-center justify-center gap-2">
+                  {attendanceCycle.map((state) => (
+                    <button
+                      key={`${desk.id}-${state}`}
+                      type="button"
+                      className={`h-7 w-7 rounded-full border border-black/20 text-[8px] ${
+                        status === state
+                          ? state === "PRESENT"
+                            ? "bg-emerald-400"
+                            : state === "ABSENT"
+                            ? "bg-red-400"
+                            : state === "TARDY"
+                            ? "bg-yellow-300"
+                            : "bg-orange-300"
+                          : "bg-white"
+                      }`}
+                      onClick={() => desk.studentId && setAttendanceStatus(desk.studentId, state)}
+                    >
+                      {state[0]}
+                    </button>
+                  ))}
                 </div>
                 {attendanceMode && (
                   <div className="mt-3 w-full rounded-lg border border-black/20 py-2 text-xs">
@@ -596,20 +618,32 @@ export default function MonitorPage() {
                 Close
               </button>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {desks.map((desk) => {
+            <div className="space-y-3">
+              {desks
+                .slice()
+                .sort((a, b) => (a.student?.displayName || "").localeCompare(b.student?.displayName || ""))
+                .map((desk) => {
                 if (!desk.studentId) return null;
                 const status = attendanceMap.get(desk.studentId);
                 return (
                   <div key={`att-${desk.id}`} className="rounded-xl border border-black/10 bg-white p-3 text-sm">
                     <div className="font-semibold">{desk.student?.displayName}</div>
-                    <div className="text-black/60 mb-2">Seat {desk.seatNumber}</div>
                     <div className="flex flex-wrap gap-2">
                       {attendanceCycle.map((state) => (
                         <button
                           key={`${desk.id}-${state}`}
                           type="button"
-                          className={`btn ${status === state ? "btn-primary" : "btn-ghost"}`}
+                          className={`btn ${
+                            status === state
+                              ? state === "PRESENT"
+                                ? "bg-emerald-500 text-white"
+                                : state === "ABSENT"
+                                ? "bg-red-500 text-white"
+                                : state === "TARDY"
+                                ? "bg-yellow-400 text-black"
+                                : "bg-orange-400 text-black"
+                              : "btn-ghost"
+                          }`}
                           onClick={() => setAttendanceStatus(desk.studentId as string, state)}
                         >
                           {state.replace("_", " ")}

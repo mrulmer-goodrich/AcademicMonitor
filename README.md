@@ -232,6 +232,17 @@ Demo login:
 
 ---
 
+## Contact Form Delivery
+
+Contact form submissions are sent via **Resend**. Set these env vars in Vercel:
+
+- `RESEND_API_KEY`
+- `CONTACT_EMAIL` (recipient address)
+
+If these are not set, the contact form will return an error.
+
+---
+
 ## Railway Postgres Setup (Recommended if Vercel Postgres is unavailable)
 
 If you’re using Railway for Postgres, follow this once:
