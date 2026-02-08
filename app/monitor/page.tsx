@@ -56,6 +56,9 @@ export default function MonitorPage() {
   const [performance, setPerformance] = useState<Performance[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeStudents, setActiveStudents] = useState<string[]>([]);
+  const [editingLap, setEditingLap] = useState<Lap | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [showCategories, setShowCategories] = useState(true);
 
   const [simulateDate, setSimulateDate] = useState<string>("");
   const dateToUse = simulateDate ? new Date(`${simulateDate}T09:00:00`) : new Date();
@@ -180,7 +183,8 @@ export default function MonitorPage() {
     return map;
   }, [performance]);
 
-  const readyForDisplay = todayLaps.length === 3 && attendanceComplete && selectedLaps.length > 0;
+  const lapsNamed = todayLaps.length === 3;
+  const readyForDisplay = lapsNamed && attendanceComplete && selectedLaps.length > 0;
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
@@ -208,18 +212,23 @@ export default function MonitorPage() {
           <button className="btn btn-ghost" type="button" onClick={() => setAttendancePanel(true)} disabled={!blockId}>
             Attendance Panel
           </button>
+          <button className="btn btn-ghost" type="button" onClick={() => setShowCategories((prev) => !prev)}>
+            {showCategories ? "Hide Categories" : "Show Categories"}
+          </button>
           <button
             className="btn btn-primary"
             type="button"
             onClick={() => bulkAttendance("PRESENT")}
-            disabled={!blockId}>
+            disabled={!blockId}
+          >
             Mark All Present
           </button>
           <button
             className="btn btn-ghost"
             type="button"
             onClick={() => bulkAttendance("ABSENT")}
-            disabled={!blockId}>
+            disabled={!blockId}
+          >
             Mark All Absent
           </button>
         </div>
@@ -254,6 +263,7 @@ export default function MonitorPage() {
                 key={lap.lapNumber}
                 className={`btn ${selectedLaps.includes(lap.lapNumber) ? "btn-primary" : "btn-ghost"}`}
                 type="button"
+                disabled={!attendanceComplete || !lapsNamed}
                 onClick={() =>
                   setSelectedLaps((prev) =>
                     prev.includes(lap.lapNumber)
@@ -262,7 +272,8 @@ export default function MonitorPage() {
                   )
                 }
                 onDoubleClick={() => {
-                  window.location.href = "/setup/laps";
+                  setEditingLap(lap);
+                  setEditingName(lap.name);
                 }}
               >
                 Lap {lap.lapNumber}: {lap.name}
@@ -279,7 +290,12 @@ export default function MonitorPage() {
           {attendanceMode ? "Tap desks to mark Present/Absent/Tardy/Left Early" : "Tap desks to log lap performance"}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 relative">
+          {!readyForDisplay && !attendanceMode && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/75 text-sm font-semibold">
+              Complete attendance and name laps to unlock SeatDisplay.
+            </div>
+          )}
           {desks.map((desk) => {
             const status = desk.studentId ? attendanceMap.get(desk.studentId) : undefined;
             const isAbsent = status === "ABSENT";
@@ -293,7 +309,7 @@ export default function MonitorPage() {
                 : status === "LEFT_EARLY"
                 ? "bg-orange-300"
                 : "bg-slate-200";
-            const categories = desk.student
+            const categories = showCategories && desk.student
               ? [
                   desk.student.ml ? { label: "ML", color: "#9ecae1" } : null,
                   desk.student.mlNew ? { label: "ML", color: "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 4px,#ffffff 4px,#ffffff 8px)" } : null,
@@ -386,7 +402,13 @@ export default function MonitorPage() {
                   </div>
                 )}
                 {isAbsent && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/70 text-sm font-semibold">
+                  <div
+                    className="absolute inset-0 flex items-center justify-center bg-white/70 text-sm font-semibold pointer-events-auto"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                  >
                     Absent
                   </div>
                 )}
@@ -404,6 +426,56 @@ export default function MonitorPage() {
           </div>
         )}
       </div>
+
+      {editingLap && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+          <div className="hero-card w-full max-w-md p-6 space-y-4">
+            <div>
+              <div className="small-header text-black/60">Edit Lap</div>
+              <h2 className="section-title">
+                Lap {editingLap.lapNumber} · {format(dateToUse, "MM/dd/yyyy")}
+              </h2>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Lap name</label>
+              <input
+                className="form-control"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={async () => {
+                  if (!editingName.trim()) return;
+                  await fetch("/api/laps", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      blockId,
+                      weekStart: weekStart.toISOString(),
+                      dayIndex,
+                      lapNumber: editingLap.lapNumber,
+                      name: editingName.trim(),
+                      standardCode: null
+                    })
+                  });
+                  setEditingLap(null);
+                  setEditingName("");
+                  await loadLaps();
+                }}
+              >
+                Save
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => setEditingLap(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {attendancePanel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">

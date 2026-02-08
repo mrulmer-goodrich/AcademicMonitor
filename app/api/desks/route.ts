@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { DeskType } from "@prisma/client";
 import { getActiveSchoolYear, requireUser } from "@/lib/server";
 
 export async function GET(req: Request) {
@@ -39,7 +40,10 @@ export async function POST(req: Request) {
   const schoolYear = await getActiveSchoolYear(user.id);
   const body = await req.json();
   const blockId = String(body.blockId || "");
-  const type = String(body.type || "STUDENT");
+  const typeValue = String(body.type || "STUDENT");
+  const type = Object.values(DeskType).includes(typeValue as DeskType)
+    ? (typeValue as DeskType)
+    : DeskType.STUDENT;
   if (!blockId) return NextResponse.json({ error: "invalid" }, { status: 400 });
 
   let studentId: string | null = null;

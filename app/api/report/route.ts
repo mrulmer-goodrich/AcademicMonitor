@@ -19,6 +19,7 @@ export async function POST(req: Request) {
   const categories: string[] = Array.isArray(body.categories)
     ? body.categories.filter((cat: string) => allowedCategories.has(cat))
     : [];
+  const categoriesMatchAll = Boolean(body.categoriesMatchAll);
   const standards: string[] = Array.isArray(body.standards) ? body.standards : [];
 
   if (blockIds.length === 0) {
@@ -68,9 +69,13 @@ export async function POST(req: Request) {
       blockId: { in: blockIds },
       ...(studentIds.length ? { id: { in: studentIds } } : {}),
       ...(categories.length
-        ? {
-            OR: categories.map((cat) => ({ [cat]: true }))
-          }
+        ? categoriesMatchAll
+          ? {
+              AND: categories.map((cat) => ({ [cat]: true }))
+            }
+          : {
+              OR: categories.map((cat) => ({ [cat]: true }))
+            }
         : {})
     },
     orderBy: [{ blockId: "asc" }, { seatNumber: "asc" }],

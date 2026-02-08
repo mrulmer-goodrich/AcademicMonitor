@@ -44,6 +44,7 @@ export default function SeatingSetupPage() {
   const [error, setError] = useState<string | null>(null);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [gridSize, setGridSize] = useState(20);
+  const [snapDistance, setSnapDistance] = useState(SNAP_DISTANCE);
   const [deskSize, setDeskSize] = useState({ width: 120, height: 90 });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number } | null>(null);
@@ -185,7 +186,8 @@ export default function SeatingSetupPage() {
       })
       .sort((a, b) => a.dist - b.dist)[0];
 
-    if (nearest && nearest.dist < SNAP_DISTANCE) {
+    const threshold = snapDistance || SNAP_DISTANCE;
+    if (nearest && nearest.dist < threshold) {
       groupId = nearest.desk.groupId || crypto.randomUUID();
     } else if (desk.groupId) {
       groupId = null;
@@ -216,6 +218,51 @@ export default function SeatingSetupPage() {
         updateDesk(desk.id, { width: deskSize.width, height: deskSize.height })
       )
     );
+    await loadDesks();
+  }
+
+  async function rotateGroup(delta: number) {
+    const desk = desks.find((d) => d.id === selectedDeskId);
+    if (!desk || !desk.groupId) return;
+    const group = desks.filter((d) => d.groupId === desk.groupId);
+    if (group.length < 2) return;
+    const cx = group.reduce((sum, d) => sum + d.x + d.width / 2, 0) / group.length;
+    const cy = group.reduce((sum, d) => sum + d.y + d.height / 2, 0) / group.length;
+    const radians = (delta * Math.PI) / 180;
+
+    const updates = group.map((d) => {
+      const dx = d.x + d.width / 2 - cx;
+      const dy = d.y + d.height / 2 - cy;
+      const nx = cx + dx * Math.cos(radians) - dy * Math.sin(radians) - d.width / 2;
+      const ny = cy + dx * Math.sin(radians) + dy * Math.cos(radians) - d.height / 2;
+      return { id: d.id, x: nx, y: ny, rotation: (d.rotation + delta) % 360 };
+    });
+
+    await Promise.all(updates.map((u) => updateDesk(u.id, u)));
+    await loadDesks();
+  }
+
+  async function autoFit() {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const studentDesks = desks.filter((d) => d.type === "STUDENT");
+    if (studentDesks.length === 0) return;
+    const minX = Math.min(...studentDesks.map((d) => d.x));
+    const minY = Math.min(...studentDesks.map((d) => d.y));
+    const maxX = Math.max(...studentDesks.map((d) => d.x + d.width));
+    const maxY = Math.max(...studentDesks.map((d) => d.y + d.height));
+    const padding = 20;
+    const width = maxX - minX;
+    const height = maxY - minY;
+    const scale = Math.min((rect.width - padding * 2) / width, (rect.height - padding * 2) / height);
+    const next = studentDesks.map((d) => ({
+      id: d.id,
+      x: (d.x - minX) * scale + padding,
+      y: (d.y - minY) * scale + padding,
+      width: d.width * scale,
+      height: d.height * scale
+    }));
+    await Promise.all(next.map((d) => updateDesk(d.id, d)));
     await loadDesks();
   }
 
@@ -266,6 +313,12 @@ export default function SeatingSetupPage() {
         <button className="btn btn-ghost" type="button" onClick={() => rotateSelected(-15)}>
           Rotate -15°
         </button>
+        <button className="btn btn-ghost" type="button" onClick={() => rotateGroup(15)} disabled={!selectedDeskId}>
+          Rotate Group +15°
+        </button>
+        <button className="btn btn-ghost" type="button" onClick={() => rotateGroup(-15)} disabled={!selectedDeskId}>
+          Rotate Group -15°
+        </button>
         <button className="btn btn-ghost" type="button" onClick={ungroupDesk} disabled={!selectedDeskId}>
           Ungroup
         </button>
@@ -285,6 +338,17 @@ export default function SeatingSetupPage() {
             min={10}
             max={60}
             onChange={(e) => setGridSize(Number(e.target.value))}
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          Snap
+          <input
+            className="form-control max-w-[90px]"
+            type="number"
+            value={snapDistance}
+            min={20}
+            max={120}
+            onChange={(e) => setSnapDistance(Number(e.target.value))}
           />
         </label>
         <label className="flex items-center gap-2 text-sm">
@@ -311,6 +375,9 @@ export default function SeatingSetupPage() {
         </label>
         <button className="btn btn-ghost" type="button" onClick={applyDeskSize}>
           Apply Size
+        </button>
+        <button className="btn btn-ghost" type="button" onClick={autoFit}>
+          Auto Fit
         </button>
       </div>
 

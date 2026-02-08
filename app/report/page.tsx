@@ -29,6 +29,7 @@ export default function ReportPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"class" | "student">("class");
+  const [categoriesMatchAll, setCategoriesMatchAll] = useState(false);
   const [weekStart, setWeekStart] = useState<string>(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().slice(0, 10)
   );
@@ -92,7 +93,8 @@ export default function ReportPage() {
         students: selectedStudents,
         categories: selectedCategories,
         standards: selectedStandards,
-        viewMode
+        viewMode,
+        categoriesMatchAll
       })
     });
     if (!res.ok) {
@@ -290,6 +292,14 @@ export default function ReportPage() {
               </label>
             ))}
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={categoriesMatchAll}
+              onChange={(e) => setCategoriesMatchAll(e.target.checked)}
+            />
+            Match ALL selected categories
+          </label>
         </div>
 
         <div className="feature-card space-y-3">

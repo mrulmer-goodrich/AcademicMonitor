@@ -31,6 +31,8 @@ export default function LapsSetupPage() {
     name: string;
     standardCode: string | null;
   } | null>(null);
+  const [copyPrompt, setCopyPrompt] = useState(false);
+  const [copySource, setCopySource] = useState<string>("");
 
   useEffect(() => {
     loadBlocks();
@@ -62,6 +64,11 @@ export default function LapsSetupPage() {
     const res = await fetch(`/api/laps?blockId=${blockId}&weekStart=${weekStart.toISOString()}`);
     const data = await res.json();
     setLaps(data.laps || []);
+    if (data.laps?.length === 0 && blocks.length > 1) {
+      setCopyPrompt(true);
+    } else {
+      setCopyPrompt(false);
+    }
   }
 
   async function saveLap(dayIndex: number, lapNumber: number, name: string, standardCode: string | null) {
@@ -256,6 +263,49 @@ export default function LapsSetupPage() {
               </button>
               <button className="btn btn-ghost" type="button" onClick={() => setEditing(null)}>
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {copyPrompt && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6">
+          <div className="hero-card w-full max-w-md p-6 space-y-4">
+            <div>
+              <div className="small-header text-black/60">Copy Laps</div>
+              <h2 className="section-title">No laps yet for this week</h2>
+            </div>
+            <div className="text-sm text-black/70">
+              Would you like to copy laps from another block for this week?
+            </div>
+            <select
+              className="form-control"
+              value={copySource}
+              onChange={(e) => setCopySource(e.target.value)}
+            >
+              <option value="">Select block...</option>
+              {blocks.filter((b) => b.id !== blockId).map((block) => (
+                <option key={block.id} value={block.id}>
+                  Block {block.blockNumber} · {block.blockName}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={async () => {
+                  if (!copySource) return;
+                  await copyFromBlock(copySource);
+                  setCopyPrompt(false);
+                  setCopySource("");
+                }}
+              >
+                Copy Laps
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => setCopyPrompt(false)}>
+                Skip
               </button>
             </div>
           </div>
