@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
-import LogoutButton from "@/components/LogoutButton";
 import MonitorSnapshotCard from "@/components/MonitorSnapshotCard";
 import DashboardSetupActions from "@/components/DashboardSetupActions";
 
@@ -24,9 +23,7 @@ export default function DashboardPage({ searchParams }: { searchParams?: { error
         <div>
           <h1 className="section-title">{greeting}</h1>
         </div>
-        <div className="flex gap-3">
-          {isAuthed && <LogoutButton />}
-        </div>
+        <div className="flex gap-3" />
       </div>
 
       {!isAuthed && (

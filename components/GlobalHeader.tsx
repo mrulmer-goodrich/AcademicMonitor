@@ -41,6 +41,7 @@ export default function GlobalHeader() {
           <Link href="/report">Report</Link>
           <Link href="/about">About</Link>
           <Link href="/contact">Contact</Link>
+          {user && <Link href="/account">Account</Link>}
         </nav>
       </div>
     </div>
