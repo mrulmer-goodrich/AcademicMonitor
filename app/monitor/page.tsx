@@ -271,7 +271,11 @@ function MonitorPageInner() {
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
-          <select className="form-control max-w-[200px]" value="" onChange={(e) => setBlockId(e.target.value)}>
+          <select
+            className="form-control w-[240px] shrink-0 ml-1"
+            value={blockId}
+            onChange={(e) => setBlockId(e.target.value)}
+          >
             <option value="">Select Block</option>
             {blocks.map((block) => (
               <option key={block.id} value={block.id}>
@@ -353,19 +357,21 @@ function MonitorPageInner() {
         </div>
       )}
 
-      <div className="hero-card p-4 text-sm text-black/70 flex flex-wrap items-center gap-3">
-        <div className="font-semibold">Simulate date</div>
-        <input
-          className="form-control max-w-[200px]"
-          type="date"
-          value={simulateDate}
-          onChange={(e) => setSimulateDate(e.target.value)}
-        />
-        <button className="btn btn-ghost" type="button" onClick={() => setSimulateDate("")}>
-          Use Today
-        </button>
-        {!isWeekday && <div>Selected date is not a weekday. Pick Mon-Fri for monitoring.</div>}
-      </div>
+      {false && (
+        <div className="hero-card p-4 text-sm text-black/70 flex flex-wrap items-center gap-3">
+          <div className="font-semibold">Simulate date</div>
+          <input
+            className="form-control max-w-[200px]"
+            type="date"
+            value={simulateDate}
+            onChange={(e) => setSimulateDate(e.target.value)}
+          />
+          <button className="btn btn-ghost" type="button" onClick={() => setSimulateDate("")}>
+            Use Today
+          </button>
+          {!isWeekday && <div>Selected date is not a weekday. Pick Mon-Fri for monitoring.</div>}
+        </div>
+      )}
 
       <div className="hero-card p-6 space-y-4">
         <div className={`hero-card h-[560px] p-4 relative overflow-hidden ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
