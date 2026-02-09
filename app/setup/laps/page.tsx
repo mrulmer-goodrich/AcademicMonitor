@@ -23,6 +23,7 @@ const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 function LapsSetupPageInner() {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
+  const focusDate = searchParams.get("focusDate");
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockId, setBlockId] = useState<string>("");
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -47,12 +48,19 @@ function LapsSetupPageInner() {
 
   useEffect(() => {
     if (!returnTo) return;
-    const todayIndex = (new Date().getDay() + 6) % 7;
-    const todayLaps = laps.filter((lap) => lap.dayIndex === todayIndex);
-    if (todayLaps.length === 3) {
+    const targetDate = focusDate ? new Date(`${focusDate}T09:00:00`) : new Date();
+    const targetIndex = (targetDate.getDay() + 6) % 7;
+    const targetLaps = laps.filter((lap) => lap.dayIndex === targetIndex);
+    if (targetLaps.length === 3) {
       window.location.href = returnTo;
     }
-  }, [laps, returnTo]);
+  }, [laps, returnTo, focusDate]);
+
+  useEffect(() => {
+    if (!focusDate) return;
+    const focus = new Date(`${focusDate}T09:00:00`);
+    setWeekStart(startOfWeek(focus, { weekStartsOn: 1 }));
+  }, [focusDate]);
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -147,12 +155,15 @@ function LapsSetupPageInner() {
             <thead>
               <tr>
                 <th></th>
-                {weekdays.map((day, index) => (
-                  <th key={day} className="text-center">
+                {weekdays.map((day, index) => {
+                  const isTarget =
+                    focusDate && index === ((new Date(`${focusDate}T09:00:00`).getDay() + 6) % 7);
+                  return (
+                  <th key={day} className={`text-center ${focusDate && !isTarget ? "opacity-40" : ""}`}>
                     <div className="font-semibold text-[15px]">{day}</div>
                     <div className="text-[13px] text-black/60">{format(addDays(weekStart, index), "MM/dd")}</div>
                   </th>
-                ))}
+                )})}
               </tr>
             </thead>
             <tbody>
@@ -163,11 +174,14 @@ function LapsSetupPageInner() {
                   </td>
                   {weekdays.map((_day, dayIndex) => {
                     const lap = getLap(dayIndex, lapNumber);
+                    const isTarget =
+                      focusDate && dayIndex === ((new Date(`${focusDate}T09:00:00`).getDay() + 6) % 7);
                     return (
-                      <td key={`${dayIndex}-${lapNumber}`} className="align-top">
+                      <td key={`${dayIndex}-${lapNumber}`} className={`align-top ${focusDate && !isTarget ? "opacity-40" : ""}`}>
                         <button
                           className="w-full h-20 rounded-xl border border-black/10 bg-white text-[11px] leading-snug text-black/70 whitespace-normal break-words px-2"
                           type="button"
+                          disabled={Boolean(focusDate && !isTarget)}
                           onClick={() =>
                             setEditing({
                               dayIndex,

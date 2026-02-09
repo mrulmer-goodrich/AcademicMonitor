@@ -271,41 +271,53 @@ function MonitorPageInner() {
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
-          <select className="form-control max-w-[240px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
+          <select className="form-control max-w-[200px]" value="" onChange={(e) => setBlockId(e.target.value)}>
+            <option value="">Select Block</option>
             {blocks.map((block) => (
               <option key={block.id} value={block.id}>
                 Block {block.blockNumber} · {block.blockName}
               </option>
             ))}
           </select>
+          <div className="flex items-center gap-2 rounded-full border border-black/20 bg-white/70 px-2 py-1">
           <button
-            className={`btn ${activeMode === "attendance" ? "btn-primary" : "btn-ghost"}`}
+            className={`btn ${
+              !attendanceComplete || activeMode === "attendance" ? "btn-primary" : "btn-ghost"
+            }`}
             type="button"
-            onClick={() => setActiveMode("attendance")}
+            onClick={() =>
+              setActiveMode((prev) => {
+                if (prev === "attendance") {
+                  return attendanceComplete ? "performance" : "attendance";
+                }
+                return "attendance";
+              })
+            }
             disabled={!blockId}
           >
-            Update Attendance
+            Attendance
           </button>
-          <button
-            className="btn btn-ghost"
-            type="button"
-            onClick={() => {
-              setActiveMode("attendance");
-              setShowAttendanceOverlay(false);
-              setShowAttendanceComplete(false);
-              setAttendancePanel(true);
-            }}
-            disabled={!blockId}
-          >
-            Attendance List
-          </button>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => {
+                setActiveMode("attendance");
+                setShowAttendanceOverlay(false);
+                setShowAttendanceComplete(false);
+                setAttendancePanel(true);
+              }}
+              disabled={!blockId || activeMode !== "attendance"}
+            >
+              List
+            </button>
+          </div>
           {lapButtons.map((lap) => {
             const selected = selectedLaps.includes(lap.lapNumber);
             return (
               <button
                 key={`lap-select-${lap.lapNumber}`}
                 className={`btn ${selected ? "btn-primary shadow" : "btn-ghost border-2 border-dashed border-black/30"} ${
-                  lapsNamed ? "" : "ring-2 ring-amber-300"
+                  lapsNamed ? "" : "ring-2 ring-amber-300 animate-pulse"
                 } w-[180px] h-12 rounded-full text-[11px] uppercase tracking-wide text-center leading-tight overflow-hidden flex items-center justify-center`}
                 type="button"
                 onClick={() =>
@@ -317,12 +329,12 @@ function MonitorPageInner() {
                             ? prev.filter((n) => n !== lap.lapNumber)
                             : [...prev, lap.lapNumber].sort((a, b) => a - b)
                         )
-                      : (window.location.href = `/setup/laps?returnTo=${encodeURIComponent(blockId ? `/monitor?blockId=${blockId}` : "/monitor")}`)
+                      : (window.location.href = `/setup/laps?returnTo=${encodeURIComponent(blockId ? `/monitor?blockId=${blockId}` : "/monitor")}&focusDate=${format(dateToUse, "yyyy-MM-dd")}`)
                 }
                 disabled={activeMode === "attendance"}
                 title={lap.name}
               >
-                {lap.name}
+                {lapsNamed ? lap.name : "+"}
               </button>
             );
           })}
@@ -425,7 +437,11 @@ function MonitorPageInner() {
                   }
                 }}
               >
-                <div className="relative z-10 flex h-full w-full flex-col items-center justify-center">
+                <div
+                  className={`relative z-10 flex h-full w-full flex-col items-center justify-center ${
+                    activeMode === "performance" ? "pointer-events-none" : ""
+                  }`}
+                >
                   {!(isAbsent && activeMode === "performance") && (
                     <>
                       <div className="text-lg font-semibold text-center">{desk.student?.displayName}</div>
