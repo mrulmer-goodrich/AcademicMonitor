@@ -88,9 +88,22 @@ a {
   box-shadow: 0 10px 20px rgba(11, 27, 42, 0.12);
 }
 
+.btn:disabled {
+  opacity: 0.35;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
 .btn-primary {
   background: #0b1b2a;
   color: #fffaf3;
+}
+
+.btn-primary:disabled {
+  background: #7b8591;
+  color: #f3f3f3;
 }
 
 .btn-hero {
@@ -104,6 +117,12 @@ a {
 .btn-ghost {
   border: 1px solid rgba(11, 27, 42, 0.2);
   background: #ffffff;
+}
+
+.btn-ghost:disabled {
+  background: #e6e6e6;
+  border-color: rgba(11, 27, 42, 0.1);
+  color: rgba(11, 27, 42, 0.35);
 }
 
 .card-grid {

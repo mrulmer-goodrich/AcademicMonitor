@@ -154,7 +154,7 @@ function MonitorPageInner() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ blockId, studentId, date: dateToUse.toISOString(), status })
     });
-    await loadAttendance();
+    loadAttendance();
   }
 
   async function bulkAttendance(status: Attendance["status"]) {
@@ -165,7 +165,7 @@ function MonitorPageInner() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ blockId, date: dateToUse.toISOString(), mode: "bulk", status })
     });
-    await loadAttendance();
+    loadAttendance();
   }
 
   async function cyclePerformance(studentId: string, lapNumber: number) {
@@ -190,7 +190,7 @@ function MonitorPageInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blockId, studentId, date: dateToUse.toISOString(), lapNumber, remove: true })
       });
-      await loadPerformance();
+      loadPerformance();
       return;
     }
     await fetch("/api/performance", {
@@ -198,7 +198,7 @@ function MonitorPageInner() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ blockId, studentId, date: dateToUse.toISOString(), lapNumber, color: nextColor })
     });
-    await loadPerformance();
+    loadPerformance();
   }
 
   async function cycleAttendance(studentId: string) {
@@ -279,12 +279,12 @@ function MonitorPageInner() {
               </option>
             ))}
           </select>
-          <div className="flex items-center gap-2 rounded-full border border-black/20 bg-white/70 px-2 py-1">
-          <button
-            className={`btn ${
-              !attendanceComplete || activeMode === "attendance" ? "btn-primary" : "btn-ghost"
-            }`}
-            type="button"
+          <div className="flex items-center gap-2 rounded-full border border-black/20 bg-white/70 px-3 py-2">
+            <button
+              className={`btn px-4 py-2 ${
+                !attendanceComplete || activeMode === "attendance" ? "btn-primary" : "btn-ghost"
+              }`}
+              type="button"
             onClick={() =>
               setActiveMode((prev) => {
                 if (prev === "attendance") {
@@ -294,11 +294,11 @@ function MonitorPageInner() {
               })
             }
             disabled={!blockId}
-          >
-            Attendance
-          </button>
+            >
+              Attendance
+            </button>
             <button
-              className="btn btn-ghost"
+              className="btn btn-ghost px-4 py-2"
               type="button"
               onClick={() => {
                 setActiveMode("attendance");
