@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { format, startOfWeek } from "date-fns";
@@ -68,6 +68,7 @@ function MonitorPageInner() {
   const [activeStudents, setActiveStudents] = useState<string[]>([]);
   const [editingLap, setEditingLap] = useState<Lap | null>(null);
   const [editingName, setEditingName] = useState("");
+  const wasAttendanceComplete = useRef(false);
 
   const [simulateDate, setSimulateDate] = useState<string>("");
   const dateToUse = simulateDate ? new Date(`${simulateDate}T09:00:00`) : new Date();
@@ -225,6 +226,13 @@ function MonitorPageInner() {
     return activeStudents.every((id) => attendanceMap.has(id));
   }, [activeStudents, attendanceMap]);
 
+  const unseatedActiveStudents = useMemo(() => {
+    const assigned = new Set(desks.map((desk) => desk.studentId).filter(Boolean) as string[]);
+    return activeStudents.filter((id) => !assigned.has(id));
+  }, [activeStudents, desks]);
+
+  const canTakeAttendance = unseatedActiveStudents.length === 0;
+
   const performanceMap = useMemo(() => {
     const map = new Map<string, Performance["color"]>();
     performance.forEach((p) => map.set(`${p.studentId}-${p.lapNumber}`, p.color));
@@ -238,15 +246,19 @@ function MonitorPageInner() {
     : [1, 2, 3].map((lapNumber) => ({ lapNumber, name: `Lap ${lapNumber}` }));
 
   useEffect(() => {
-    if (attendanceComplete && attendancePanel) {
-      setAttendancePanel(false);
+    if (!attendanceComplete) {
+      wasAttendanceComplete.current = false;
+      return;
     }
-    if (attendanceComplete) {
+    if (wasAttendanceComplete.current) return;
+    wasAttendanceComplete.current = true;
+    const timeout = setTimeout(() => {
       setActiveMode("performance");
       setShowAttendanceComplete(true);
-      const timeout = setTimeout(() => setShowAttendanceComplete(false), 1500);
-      return () => clearTimeout(timeout);
-    }
+      setTimeout(() => setShowAttendanceComplete(false), 1500);
+      if (attendancePanel) setAttendancePanel(false);
+    }, 2000);
+    return () => clearTimeout(timeout);
   }, [attendanceComplete, attendancePanel]);
 
   useEffect(() => {
@@ -256,10 +268,11 @@ function MonitorPageInner() {
   }, [blockId, simulateDate]);
 
   useEffect(() => {
+    if (activeMode === "attendance") return;
     if (attendanceComplete && selectedLaps.length > 0) {
       setActiveMode("performance");
     }
-  }, [attendanceComplete, selectedLaps]);
+  }, [attendanceComplete, selectedLaps, activeMode]);
 
   useEffect(() => {
     if (attendancePanel) {
@@ -272,11 +285,10 @@ function MonitorPageInner() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <select
-            className="form-control w-[240px] shrink-0 ml-1"
+            className="form-control w-[260px] shrink-0 ml-2"
             value={blockId}
             onChange={(e) => setBlockId(e.target.value)}
           >
-            <option value="">Select Block</option>
             {blocks.map((block) => (
               <option key={block.id} value={block.id}>
                 Block {block.blockNumber} · {block.blockName}
@@ -289,17 +301,26 @@ function MonitorPageInner() {
                 !attendanceComplete || activeMode === "attendance" ? "btn-primary" : "btn-ghost"
               }`}
               type="button"
-            onClick={() =>
-              setActiveMode((prev) => {
-                if (prev === "attendance") {
-                  return attendanceComplete ? "performance" : "attendance";
+              onClick={() => {
+                if (!canTakeAttendance) {
+                  setShowAttendanceOverlay(true);
+                  return;
                 }
-                return "attendance";
-              })
-            }
-            disabled={!blockId}
+                setActiveMode((prev) => {
+                  if (prev === "attendance") {
+                    return attendanceComplete ? "performance" : "attendance";
+                  }
+                  return "attendance";
+                });
+                if (!attendanceComplete) setShowAttendanceOverlay(false);
+              }}
+              disabled={!blockId || !canTakeAttendance}
             >
-              Attendance
+              {!attendanceComplete
+                ? "Attendance"
+                : activeMode === "attendance"
+                ? "Back to Laps"
+                : "Update Attendance"}
             </button>
             <button
               className="btn btn-ghost px-4 py-2"
@@ -310,38 +331,45 @@ function MonitorPageInner() {
                 setShowAttendanceComplete(false);
                 setAttendancePanel(true);
               }}
-              disabled={!blockId || activeMode !== "attendance"}
+              disabled={!blockId || !canTakeAttendance || activeMode !== "attendance"}
             >
               List
             </button>
           </div>
-          {lapButtons.map((lap) => {
-            const selected = selectedLaps.includes(lap.lapNumber);
-            return (
-              <button
-                key={`lap-select-${lap.lapNumber}`}
-                className={`btn ${selected ? "btn-primary shadow" : "btn-ghost border-2 border-dashed border-black/30"} ${
-                  lapsNamed ? "" : "ring-2 ring-amber-300 animate-pulse"
-                } w-[180px] h-12 rounded-full text-[11px] uppercase tracking-wide text-center leading-tight overflow-hidden flex items-center justify-center`}
-                type="button"
-                onClick={() =>
-                  !attendanceComplete
-                    ? setActiveMode("attendance")
-                    : lapsNamed
-                      ? setSelectedLaps((prev) =>
-                          prev.includes(lap.lapNumber)
-                            ? prev.filter((n) => n !== lap.lapNumber)
-                            : [...prev, lap.lapNumber].sort((a, b) => a - b)
-                        )
-                      : (window.location.href = `/setup/laps?returnTo=${encodeURIComponent(blockId ? `/monitor?blockId=${blockId}` : "/monitor")}&focusDate=${format(dateToUse, "yyyy-MM-dd")}`)
-                }
-                disabled={activeMode === "attendance"}
-                title={lap.name}
-              >
-                {lapsNamed ? lap.name : "+"}
-              </button>
-            );
-          })}
+          <div className="flex flex-col gap-2 rounded-2xl border border-black/20 bg-white/70 px-4 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-black/60">
+              Select Laps to Monitor
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {lapButtons.map((lap) => {
+                const selected = selectedLaps.includes(lap.lapNumber);
+                return (
+                  <button
+                    key={`lap-select-${lap.lapNumber}`}
+                    className={`btn ${
+                      selected ? "btn-primary shadow" : "btn-ghost border-2 border-dashed border-black/30"
+                    } ${lapsNamed ? "" : "ring-2 ring-amber-300 animate-pulse"} w-[170px] h-12 rounded-full text-[11px] uppercase tracking-wide text-center leading-tight whitespace-normal break-words overflow-hidden flex items-center justify-center px-3`}
+                    type="button"
+                    onClick={() =>
+                      !attendanceComplete
+                        ? setActiveMode("attendance")
+                        : lapsNamed
+                          ? setSelectedLaps((prev) =>
+                              prev.includes(lap.lapNumber)
+                                ? prev.filter((n) => n !== lap.lapNumber)
+                                : [...prev, lap.lapNumber].sort((a, b) => a - b)
+                            )
+                          : (window.location.href = `/setup/laps?returnTo=${encodeURIComponent(blockId ? `/monitor?blockId=${blockId}` : "/monitor")}&focusDate=${format(dateToUse, "yyyy-MM-dd")}`)
+                    }
+                    disabled={activeMode === "attendance" || !canTakeAttendance}
+                    title={lap.name}
+                  >
+                    {lapsNamed ? lap.name : "+"}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -375,12 +403,25 @@ function MonitorPageInner() {
 
       <div className="hero-card p-6 space-y-4">
         <div className={`hero-card h-[560px] p-4 relative overflow-hidden ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
-          {!attendanceComplete && showAttendanceOverlay && !attendancePanel && (
+          {!canTakeAttendance && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-2xl bg-black/40 text-center text-white">
+              <div className="text-[5vw] leading-none font-semibold">Assign Seats</div>
+              <div className="max-w-md text-sm text-white/90">
+                {unseatedActiveStudents.length} active student
+                {unseatedActiveStudents.length === 1 ? " is" : "s are"} unassigned. Update the seating chart first.
+              </div>
+              <Link href="/setup/seating" className="btn btn-ghost">
+                Go to Seating Setup
+              </Link>
+            </div>
+          )}
+          {canTakeAttendance && !attendanceComplete && showAttendanceOverlay && !attendancePanel && (
             <div
-              className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/90 text-base font-semibold"
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-2xl bg-black/45 text-white text-center cursor-pointer"
               onClick={() => setShowAttendanceOverlay(false)}
             >
-              Take Attendance
+              <div className="text-[12vw] leading-none font-semibold">Take Attendance</div>
+              <div className="text-base text-white/80">Tap to begin</div>
             </div>
           )}
           {showAttendanceComplete && (
@@ -412,7 +453,7 @@ function MonitorPageInner() {
             const statusBg =
               activeMode === "performance"
                 ? selectedLaps.length > 0
-                  ? "bg-slate-100"
+                  ? "bg-slate-200"
                   : "bg-transparent"
                 : status
                 ? status === "PRESENT"
@@ -736,7 +777,7 @@ function MonitorPageInner() {
                 Close
               </button>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
               {desks
                 .slice()
                 .sort((a, b) => (a.student?.displayName || "").localeCompare(b.student?.displayName || ""))

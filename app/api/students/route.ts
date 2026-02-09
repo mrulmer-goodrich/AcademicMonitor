@@ -38,6 +38,7 @@ export async function POST(req: Request) {
 
   const eogValue = body.eog ? String(body.eog) : null;
   const eog = eogValue && Object.values(EogLevel).includes(eogValue as EogLevel) ? (eogValue as EogLevel) : null;
+  const notes = body.notes ? String(body.notes) : null;
 
   const student = await prisma.student.create({
     data: {
@@ -52,7 +53,8 @@ export async function POST(req: Request) {
       ec: Boolean(body.ec),
       ca: Boolean(body.ca),
       hiit: Boolean(body.hiit),
-      eog
+      eog,
+      notes
     }
   });
   return NextResponse.json({ student });

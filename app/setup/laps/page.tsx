@@ -160,8 +160,10 @@ function LapsSetupPageInner() {
                     focusDate && index === ((new Date(`${focusDate}T09:00:00`).getDay() + 6) % 7);
                   return (
                   <th key={day} className={`text-center ${focusDate && !isTarget ? "opacity-40" : ""}`}>
-                    <div className="font-semibold text-[15px]">{day}</div>
-                    <div className="text-[13px] text-black/60">{format(addDays(weekStart, index), "MM/dd")}</div>
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="font-semibold text-[15px]">{day}</div>
+                      <div className="text-[13px] text-black/60">{format(addDays(weekStart, index), "MM/dd")}</div>
+                    </div>
                   </th>
                 )})}
               </tr>
@@ -179,7 +181,7 @@ function LapsSetupPageInner() {
                     return (
                       <td key={`${dayIndex}-${lapNumber}`} className={`align-top ${focusDate && !isTarget ? "opacity-40" : ""}`}>
                         <button
-                          className="w-full h-20 rounded-xl border border-black/10 bg-white text-[11px] leading-snug text-black/70 whitespace-normal break-words px-2"
+                          className="w-full h-20 rounded-xl border border-black/10 bg-white text-[13px] leading-snug text-black/70 whitespace-normal break-words px-2"
                           type="button"
                           disabled={Boolean(focusDate && !isTarget)}
                           onClick={() =>
@@ -193,8 +195,8 @@ function LapsSetupPageInner() {
                         >
                           {lap ? (
                             <div className="flex flex-col">
-                              <span className="font-semibold text-black">{lap.name}</span>
-                              {lap.standardCode && <span className="text-[10px]">{lap.standardCode}</span>}
+                              <span className="font-semibold text-black text-[13px]">{lap.name}</span>
+                              {lap.standardCode && <span className="text-[11px]">{lap.standardCode}</span>}
                             </div>
                           ) : (
                             "+"

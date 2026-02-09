@@ -12,10 +12,10 @@ export default function HomePage() {
         <div className="space-y-6">
           <span className="badge badge-hero">Academic Monitoring</span>
           <h1 className="text-4xl font-bold leading-tight" style={{ fontFamily: "Space Grotesk" }}>
-            See learning while it’s happening.
+            Track learning while it’s happening.
           </h1>
           <p className="text-lg text-black/70">
-            Notice patterns before the bell rings. Built for iPad and Chromebook.
+            Use current real data to influence instructional moves.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href={isAuthed ? "/dashboard" : "/dashboard?login=1"} className="btn btn-hero">

@@ -18,7 +18,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     "ec",
     "ca",
     "hiit",
-    "eog"
+    "eog",
+    "notes"
   ];
   for (const field of fields) {
     if (body[field] !== undefined) data[field] = body[field];
@@ -35,4 +36,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     data
   });
   return NextResponse.json({ student });
+}
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  await prisma.$transaction([
+    prisma.attendanceRecord.deleteMany({ where: { studentId: params.id } }),
+    prisma.lapPerformance.deleteMany({ where: { studentId: params.id } }),
+    prisma.desk.updateMany({ where: { studentId: params.id }, data: { studentId: null } }),
+    prisma.student.delete({ where: { id: params.id } })
+  ]);
+  return NextResponse.json({ ok: true });
 }

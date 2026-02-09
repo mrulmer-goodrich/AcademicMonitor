@@ -35,13 +35,13 @@ export default function GlobalHeader() {
             />
           </div>
         </Link>
-        <nav className="flex items-center gap-4 text-sm font-medium">
-          <Link href="/dashboard">Dashboard</Link>
-          <Link href="/monitor">Monitor</Link>
-          <Link href="/report">Report</Link>
-          <Link href="/about">About</Link>
-          <Link href="/contact">Contact</Link>
-          {user && <Link href="/account">Account</Link>}
+        <nav className="flex items-center gap-3 text-sm font-medium">
+          <Link href="/dashboard" className="nav-pill">Dashboard</Link>
+          <Link href="/monitor" className="nav-pill">Monitor</Link>
+          <Link href="/report" className="nav-pill">Report</Link>
+          <Link href="/about" className="nav-pill">About</Link>
+          <Link href="/contact" className="nav-pill">Contact</Link>
+          {user && <Link href="/account" className="nav-pill">Account</Link>}
         </nav>
       </div>
     </div>
