@@ -281,17 +281,23 @@ function MonitorPageInner() {
           <button
             className={`btn ${activeMode === "attendance" ? "btn-primary" : "btn-ghost"}`}
             type="button"
-            onClick={() =>
-              setActiveMode((prev) => {
-                if (prev === "attendance") {
-                  return attendanceComplete ? "performance" : "attendance";
-                }
-                return "attendance";
-              })
-            }
+            onClick={() => setActiveMode("attendance")}
             disabled={!blockId}
           >
             Update Attendance
+          </button>
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={() => {
+              setActiveMode("attendance");
+              setShowAttendanceOverlay(false);
+              setShowAttendanceComplete(false);
+              setAttendancePanel(true);
+            }}
+            disabled={!blockId}
+          >
+            Attendance List
           </button>
           {lapButtons.map((lap) => {
             const selected = selectedLaps.includes(lap.lapNumber);
@@ -300,7 +306,7 @@ function MonitorPageInner() {
                 key={`lap-select-${lap.lapNumber}`}
                 className={`btn ${selected ? "btn-primary shadow" : "btn-ghost border-2 border-dashed border-black/30"} ${
                   lapsNamed ? "" : "ring-2 ring-amber-300"
-                } w-[180px] h-12 rounded-full text-sm uppercase tracking-wide whitespace-normal leading-tight`}
+                } w-[180px] h-12 rounded-full text-[11px] uppercase tracking-wide text-center leading-tight overflow-hidden flex items-center justify-center`}
                 type="button"
                 onClick={() =>
                   !attendanceComplete
@@ -350,28 +356,6 @@ function MonitorPageInner() {
       </div>
 
       <div className="hero-card p-6 space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <button className="btn btn-ghost" type="button" onClick={() => bulkAttendance("PRESENT")} disabled={!blockId}>
-            Set All Present
-          </button>
-          <button className="btn btn-ghost" type="button" onClick={() => bulkAttendance("ABSENT")} disabled={!blockId}>
-            Set All Absent
-          </button>
-          <button
-            className="btn btn-ghost"
-            type="button"
-            onClick={() => {
-              setActiveMode("attendance");
-              setShowAttendanceOverlay(false);
-              setShowAttendanceComplete(false);
-              setAttendancePanel(true);
-            }}
-            disabled={!blockId}
-          >
-            Switch to Attendance List
-          </button>
-        </div>
-
         <div className={`hero-card h-[560px] p-4 relative overflow-hidden ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
           {!attendanceComplete && showAttendanceOverlay && !attendancePanel && (
             <div
@@ -408,7 +392,11 @@ function MonitorPageInner() {
                 ? "bg-orange-300"
                 : "bg-slate-200";
             const statusBg =
-              status
+              activeMode === "performance"
+                ? selectedLaps.length > 0
+                  ? "bg-slate-100"
+                  : "bg-transparent"
+                : status
                 ? status === "PRESENT"
                   ? "bg-emerald-100"
                   : status === "ABSENT"
