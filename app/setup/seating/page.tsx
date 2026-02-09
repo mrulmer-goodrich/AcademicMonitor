@@ -303,8 +303,8 @@ export default function SeatingSetupPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <select className="form-control max-w-[240px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
+      <div className="flex flex-wrap lg:flex-nowrap items-center gap-2">
+        <select className="form-control max-w-[220px] shrink-0" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
           {blockOptions.map((block) => (
             <option key={block.id} value={block.id}>
               {block.label}
@@ -312,7 +312,7 @@ export default function SeatingSetupPage() {
           ))}
         </select>
         <select
-          className="form-control max-w-[200px]"
+          className="form-control max-w-[180px] shrink-0"
           value={selectedStudentId}
           onChange={(e) => setSelectedStudentId(e.target.value)}
           disabled={unassigned.length === 0}
@@ -324,32 +324,32 @@ export default function SeatingSetupPage() {
           ))}
         </select>
         <button
-          className="btn btn-primary px-3 py-2 text-sm"
+          className="btn btn-primary px-3 py-2 text-sm shrink-0"
           type="button"
           onClick={addStudentDesk}
           disabled={unassigned.length === 0}
         >
           Add
         </button>
-        {unassigned.length === 0 && <div className="text-sm text-black/60">All students assigned</div>}
-        <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={addTeacherDesk}>
+        {unassigned.length === 0 && <div className="text-sm text-black/60 w-full lg:w-auto">All students assigned</div>}
+        <button className="btn btn-ghost px-3 py-2 text-sm shrink-0" type="button" onClick={addTeacherDesk}>
           Add Teacher Desk
         </button>
-        <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={() => rotateSelected(15)}>
+        <button className="btn btn-ghost px-3 py-2 text-sm shrink-0" type="button" onClick={() => rotateSelected(15)}>
           +15°
         </button>
-        <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={() => rotateSelected(-15)}>
+        <button className="btn btn-ghost px-3 py-2 text-sm shrink-0" type="button" onClick={() => rotateSelected(-15)}>
           -15°
         </button>
         <button
-          className="btn btn-ghost px-3 py-2 text-sm"
+          className="btn btn-ghost px-3 py-2 text-sm shrink-0"
           type="button"
           onClick={deleteDesk}
           disabled={!selectedDeskId}
         >
           Delete
         </button>
-        <div className="text-sm text-black/60">{lastSaved ? lastSaved : "Autosave enabled"}</div>
+        <div className="text-sm text-black/60 w-full lg:w-auto">{lastSaved ? lastSaved : "Autosave enabled"}</div>
       </div>
 
       <div className="hero-card h-[560px] p-0 relative overflow-hidden">
@@ -372,7 +372,7 @@ export default function SeatingSetupPage() {
             className={`absolute rounded-2xl border border-black/20 bg-white/90 text-center text-xs shadow ${
               desk.id === selectedDeskId ? "ring-2 ring-ocean" : ""
             } ${desk.id === snapTargetId ? "ring-2 ring-coral" : ""} ${
-              desk.type === "TEACHER" ? "flex items-center justify-center" : "flex flex-col items-center justify-center"
+              desk.type === "TEACHER" ? "flex items-center justify-center" : ""
             }`}
             style={{
               left: desk.x,
@@ -383,14 +383,16 @@ export default function SeatingSetupPage() {
             }}
             onPointerDown={(event) => onPointerDown(event, desk)}
           >
-            <div className={desk.type === "TEACHER" ? "text-base font-semibold" : "text-base font-semibold"}>
-              {desk.type === "TEACHER" ? teacherName : desk.student?.displayName || "Student"}
+            <div className="absolute inset-0 flex items-center justify-center px-1">
+              <div className="text-base font-semibold text-center leading-tight">
+                {desk.type === "TEACHER" ? teacherName : desk.student?.displayName || "Student"}
+              </div>
             </div>
             {desk.type === "STUDENT" && desk.student && (
               <>
                 {desk.student.hiit && (
                   <span
-                    className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
+                    className="absolute left-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
                     style={{ background: "#b18ad8" }}
                   >
                     H
@@ -398,7 +400,7 @@ export default function SeatingSetupPage() {
                 )}
                 {desk.student.eog && (
                   <span
-                    className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px] text-white"
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px] text-white"
                     style={{
                       background:
                         desk.student.eog === "FIVE"
@@ -419,7 +421,7 @@ export default function SeatingSetupPage() {
                       : "NP"}
                   </span>
                 )}
-                <div className="mt-2 flex flex-wrap items-center justify-center gap-1 px-1">
+                <div className="absolute left-1 right-1 bottom-1 flex flex-wrap items-center justify-center gap-1">
                   {desk.student.ml && (
                     <span
                       className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
