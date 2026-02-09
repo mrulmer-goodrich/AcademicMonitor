@@ -30,6 +30,7 @@ export async function POST(req: Request) {
   const studentId = String(body.studentId || "");
   const date = normalizeDate(parseISO(String(body.date || "")));
   const lapNumber = Number(body.lapNumber);
+  const remove = Boolean(body.remove);
   const colorValue = String(body.color || "GREEN");
   const color = Object.values(PerformanceColor).includes(colorValue as PerformanceColor)
     ? (colorValue as PerformanceColor)
@@ -37,6 +38,13 @@ export async function POST(req: Request) {
 
   if (!blockId || !studentId || Number.isNaN(lapNumber)) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
+  }
+
+  if (remove) {
+    await prisma.lapPerformance.deleteMany({
+      where: { studentId, date, lapNumber, schoolYearId: schoolYear.id, blockId }
+    });
+    return NextResponse.json({ ok: true });
   }
 
   const record = await prisma.lapPerformance.upsert({

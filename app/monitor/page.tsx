@@ -47,7 +47,7 @@ type Performance = {
   color: "GREEN" | "YELLOW" | "RED";
 };
 
-const colorCycle: Performance["color"][] = ["GREEN", "YELLOW", "RED"];
+const colorCycle: (Performance["color"] | null)[] = ["GREEN", "YELLOW", "RED", null];
 const attendanceCycle: Attendance["status"][] = ["PRESENT", "ABSENT", "TARDY", "LEFT_EARLY"];
 
 function MonitorPageInner() {
@@ -170,14 +170,29 @@ function MonitorPageInner() {
 
   async function cyclePerformance(studentId: string, lapNumber: number) {
     const current = performance.find((p) => p.studentId === studentId && p.lapNumber === lapNumber);
-    const nextColor = current ? colorCycle[(colorCycle.indexOf(current.color) + 1) % colorCycle.length] : "GREEN";
+    const currentColor = current?.color ?? null;
+    const nextColor = colorCycle[(colorCycle.indexOf(currentColor) + 1) % colorCycle.length];
     setPerformance((prev) => {
       const existing = prev.find((p) => p.studentId === studentId && p.lapNumber === lapNumber);
       if (existing) {
-        return prev.map((p) => (p.studentId === studentId && p.lapNumber === lapNumber ? { ...p, color: nextColor } : p));
+        return nextColor
+          ? prev.map((p) =>
+              p.studentId === studentId && p.lapNumber === lapNumber ? { ...p, color: nextColor } : p
+            )
+          : prev.filter((p) => !(p.studentId === studentId && p.lapNumber === lapNumber));
       }
+      if (!nextColor) return prev;
       return [...prev, { studentId, lapNumber, color: nextColor, date: dateToUse.toISOString() } as Performance];
     });
+    if (!nextColor) {
+      await fetch("/api/performance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blockId, studentId, date: dateToUse.toISOString(), lapNumber, remove: true })
+      });
+      await loadPerformance();
+      return;
+    }
     await fetch("/api/performance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -281,13 +296,14 @@ function MonitorPageInner() {
               } w-[160px] rounded-full text-xs uppercase tracking-wide truncate`}
               type="button"
               onClick={() =>
-                setSelectedLaps((prev) =>
-                  prev.includes(lap.lapNumber)
-                    ? prev.filter((n) => n !== lap.lapNumber)
-                    : [...prev, lap.lapNumber].sort((a, b) => a - b)
-                )
+                lapsNamed
+                  ? setSelectedLaps((prev) =>
+                      prev.includes(lap.lapNumber)
+                        ? prev.filter((n) => n !== lap.lapNumber)
+                        : [...prev, lap.lapNumber].sort((a, b) => a - b)
+                    )
+                  : (window.location.href = `/setup/laps?returnTo=${encodeURIComponent(blockId ? `/monitor?blockId=${blockId}` : "/monitor")}`)
               }
-              disabled={!lapsNamed}
               title={lap.name}
             >
               {lap.name}
@@ -410,12 +426,92 @@ function MonitorPageInner() {
                   }
                 }}
               >
-                <div className="flex h-full w-full flex-col items-center justify-center">
+                <div className="relative z-10 flex h-full w-full flex-col items-center justify-center">
                   <div className="text-lg font-semibold text-center">{desk.student?.displayName}</div>
                   <div className={`mx-auto mt-2 h-2 w-10 rounded-full ${statusColor}`} />
                 </div>
+                {desk.student && (
+                  <div className="absolute inset-0 z-10 pointer-events-none">
+                    {desk.student.hiit && (
+                      <span
+                        className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
+                        style={{ background: "#b18ad8" }}
+                      >
+                        H
+                      </span>
+                    )}
+                    {desk.student.eog && (
+                      <span
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px] text-white"
+                        style={{
+                          background:
+                            desk.student.eog === "FIVE"
+                              ? "#1f4c8f"
+                              : desk.student.eog === "FOUR"
+                              ? "#4caf50"
+                              : desk.student.eog === "THREE"
+                              ? "#f2994a"
+                              : "#e74c3c"
+                        }}
+                      >
+                        {desk.student.eog === "FIVE"
+                          ? "5"
+                          : desk.student.eog === "FOUR"
+                          ? "4"
+                          : desk.student.eog === "THREE"
+                          ? "3"
+                          : "NP"}
+                      </span>
+                    )}
+                    <div className="absolute left-1 right-1 bottom-1 flex flex-nowrap items-center justify-center gap-0.5">
+                      {desk.student.ml && (
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
+                          style={{ background: "#9ecae1" }}
+                        >
+                          ML
+                        </span>
+                      )}
+                      {desk.student.mlNew && (
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
+                          style={{
+                            background:
+                              "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)"
+                          }}
+                        >
+                          ML
+                        </span>
+                      )}
+                      {desk.student.iep504 && (
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
+                          style={{ background: "#f5a9b8" }}
+                        >
+                          I
+                        </span>
+                      )}
+                      {desk.student.ec && (
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
+                          style={{ background: "#f7d774" }}
+                        >
+                          EC
+                        </span>
+                      )}
+                      {desk.student.ca && (
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
+                          style={{ background: "#ffffff" }}
+                        >
+                          CA
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {activeMode === "performance" && selectedLaps.length > 0 && (
-                  <div className="absolute inset-0 flex">
+                  <div className="absolute inset-0 z-0 flex">
                     {selectedLaps.length === 1 && (
                       <button
                         type="button"
@@ -424,11 +520,11 @@ function MonitorPageInner() {
                         style={{
                           background:
                             (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "GREEN")
-                              ? "#34d399"
+                              ? "rgba(52, 211, 153, 0.25)"
                               : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "YELLOW")
-                              ? "#fde047"
+                              ? "rgba(253, 224, 71, 0.25)"
                               : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "RED")
-                              ? "#f87171"
+                              ? "rgba(248, 113, 113, 0.25)"
                               : "transparent"
                         }}
                         onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[0])}
@@ -443,11 +539,11 @@ function MonitorPageInner() {
                           style={{
                             background:
                               (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "GREEN")
-                                ? "#34d399"
+                                ? "rgba(52, 211, 153, 0.25)"
                                 : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "YELLOW")
-                                ? "#fde047"
+                                ? "rgba(253, 224, 71, 0.25)"
                                 : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "RED")
-                                ? "#f87171"
+                                ? "rgba(248, 113, 113, 0.25)"
                                 : "transparent"
                           }}
                           onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[0])}
@@ -459,11 +555,11 @@ function MonitorPageInner() {
                           style={{
                             background:
                               (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "GREEN")
-                                ? "#34d399"
+                                ? "rgba(52, 211, 153, 0.25)"
                                 : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "YELLOW")
-                                ? "#fde047"
+                                ? "rgba(253, 224, 71, 0.25)"
                                 : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "RED")
-                                ? "#f87171"
+                                ? "rgba(248, 113, 113, 0.25)"
                                 : "transparent"
                           }}
                           onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[1])}
@@ -479,11 +575,11 @@ function MonitorPageInner() {
                           style={{
                             background:
                               (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "GREEN")
-                                ? "#34d399"
+                                ? "rgba(52, 211, 153, 0.25)"
                                 : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "YELLOW")
-                                ? "#fde047"
+                                ? "rgba(253, 224, 71, 0.25)"
                                 : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "RED")
-                                ? "#f87171"
+                                ? "rgba(248, 113, 113, 0.25)"
                                 : "transparent"
                           }}
                           onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[0])}
@@ -495,11 +591,11 @@ function MonitorPageInner() {
                           style={{
                             background:
                               (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "GREEN")
-                                ? "#34d399"
+                                ? "rgba(52, 211, 153, 0.25)"
                                 : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "YELLOW")
-                                ? "#fde047"
+                                ? "rgba(253, 224, 71, 0.25)"
                                 : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "RED")
-                                ? "#f87171"
+                                ? "rgba(248, 113, 113, 0.25)"
                                 : "transparent"
                           }}
                           onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[1])}
@@ -511,11 +607,11 @@ function MonitorPageInner() {
                           style={{
                             background:
                               (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[2]}`) === "GREEN")
-                                ? "#34d399"
+                                ? "rgba(52, 211, 153, 0.25)"
                                 : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[2]}`) === "YELLOW")
-                                ? "#fde047"
+                                ? "rgba(253, 224, 71, 0.25)"
                                 : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[2]}`) === "RED")
-                                ? "#f87171"
+                                ? "rgba(248, 113, 113, 0.25)"
                                 : "transparent"
                           }}
                           onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[2])}
