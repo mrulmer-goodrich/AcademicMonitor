@@ -388,86 +388,71 @@ export default function SeatingSetupPage() {
                 {desk.type === "TEACHER" ? teacherName : desk.student?.displayName || "Student"}
               </div>
             </div>
-            {desk.type === "STUDENT" && desk.student && (
-              <>
-                {desk.student.hiit && (
-                  <span
-                    className="absolute left-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
-                    style={{ background: "#b18ad8" }}
-                  >
-                    H
-                  </span>
-                )}
-                {desk.student.eog && (
-                  <span
-                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px] text-white"
-                    style={{
-                      background:
-                        desk.student.eog === "FIVE"
-                          ? "#1f4c8f"
-                          : desk.student.eog === "FOUR"
-                          ? "#4caf50"
-                          : desk.student.eog === "THREE"
-                          ? "#f2994a"
-                          : "#e74c3c"
-                    }}
-                  >
-                    {desk.student.eog === "FIVE"
-                      ? "5"
-                      : desk.student.eog === "FOUR"
-                      ? "4"
-                      : desk.student.eog === "THREE"
-                      ? "3"
-                      : "NP"}
-                  </span>
-                )}
-                <div className="absolute left-1 right-1 bottom-1 flex flex-wrap items-center justify-center gap-1">
-                  {desk.student.ml && (
+            {desk.type === "STUDENT" && desk.student && (() => {
+              const indicators = [
+                desk.student.ml ? { key: "ml", label: "ML", color: "#9ecae1" } : null,
+                desk.student.mlNew
+                  ? {
+                      key: "mlNew",
+                      label: "ML",
+                      color: "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)"
+                    }
+                  : null,
+                desk.student.iep504 ? { key: "iep504", label: "I", color: "#f5a9b8" } : null,
+                desk.student.ec ? { key: "ec", label: "EC", color: "#f7d774" } : null,
+                desk.student.ca ? { key: "ca", label: "CA", color: "#ffffff" } : null
+              ].filter(Boolean) as { key: string; label: string; color: string }[];
+              const count = indicators.length;
+              const sizeClass =
+                count >= 5 ? "h-4 w-4 text-[7px]" : count >= 4 ? "h-5 w-5 text-[8px]" : "h-6 w-6 text-[9px]";
+
+              return (
+                <>
+                  {desk.student.hiit && (
                     <span
-                      className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
-                      style={{ background: "#9ecae1" }}
+                      className="absolute left-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
+                      style={{ background: "#b18ad8" }}
                     >
-                      ML
+                      H
                     </span>
                   )}
-                  {desk.student.mlNew && (
+                  {desk.student.eog && (
                     <span
-                      className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
+                      className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px] text-white"
                       style={{
                         background:
-                          "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)"
+                          desk.student.eog === "FIVE"
+                            ? "#1f4c8f"
+                            : desk.student.eog === "FOUR"
+                            ? "#4caf50"
+                            : desk.student.eog === "THREE"
+                            ? "#f2994a"
+                            : "#e74c3c"
                       }}
                     >
-                      ML
+                      {desk.student.eog === "FIVE"
+                        ? "5"
+                        : desk.student.eog === "FOUR"
+                        ? "4"
+                        : desk.student.eog === "THREE"
+                        ? "3"
+                        : "NP"}
                     </span>
                   )}
-                  {desk.student.iep504 && (
-                    <span
-                      className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
-                      style={{ background: "#f5a9b8" }}
-                    >
-                      I
-                    </span>
-                  )}
-                  {desk.student.ec && (
-                    <span
-                      className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
-                      style={{ background: "#f7d774" }}
-                    >
-                      EC
-                    </span>
-                  )}
-                  {desk.student.ca && (
-                    <span
-                      className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
-                      style={{ background: "#ffffff" }}
-                    >
-                      CA
-                    </span>
-                  )}
-                </div>
-              </>
-            )}
+                  <div className="absolute left-0.5 right-0.5 bottom-0.5 flex flex-nowrap items-center justify-center gap-0.5">
+                    {indicators.map((indicator) => (
+                      <span
+                        key={indicator.key}
+                        className={`flex items-center justify-center rounded-full border border-black ${sizeClass}`}
+                        style={{ background: indicator.color }}
+                      >
+                        {indicator.label}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         ))}
         {desks.length === 0 && (
