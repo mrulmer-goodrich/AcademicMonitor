@@ -282,33 +282,42 @@ function MonitorPageInner() {
             className={`btn ${activeMode === "attendance" ? "btn-primary" : "btn-ghost"}`}
             type="button"
             onClick={() =>
-              setActiveMode((prev) => (prev === "attendance" ? (readyForPerformance ? "performance" : prev) : "attendance"))
+              setActiveMode((prev) => {
+                if (prev === "attendance") {
+                  return attendanceComplete ? "performance" : "attendance";
+                }
+                return "attendance";
+              })
             }
             disabled={!blockId}
           >
             Update Attendance
           </button>
-          {lapButtons.map((lap) => (
-            <button
-              key={`lap-select-${lap.lapNumber}`}
-              className={`btn ${selectedLaps.includes(lap.lapNumber) ? "btn-primary" : "btn-ghost"} ${
-                lapsNamed ? "" : "ring-2 ring-amber-300"
-              } w-[160px] rounded-full text-xs uppercase tracking-wide truncate`}
-              type="button"
-              onClick={() =>
-                lapsNamed
-                  ? setSelectedLaps((prev) =>
-                      prev.includes(lap.lapNumber)
-                        ? prev.filter((n) => n !== lap.lapNumber)
-                        : [...prev, lap.lapNumber].sort((a, b) => a - b)
-                    )
-                  : (window.location.href = `/setup/laps?returnTo=${encodeURIComponent(blockId ? `/monitor?blockId=${blockId}` : "/monitor")}`)
-              }
-              title={lap.name}
-            >
-              {lap.name}
-            </button>
-          ))}
+          {lapButtons.map((lap) => {
+            const selected = selectedLaps.includes(lap.lapNumber);
+            return (
+              <button
+                key={`lap-select-${lap.lapNumber}`}
+                className={`btn ${selected ? "btn-primary shadow" : "btn-ghost border-2 border-dashed border-black/30"} ${
+                  lapsNamed ? "" : "ring-2 ring-amber-300"
+                } w-[180px] h-12 rounded-full text-sm uppercase tracking-wide whitespace-normal leading-tight`}
+                type="button"
+                onClick={() =>
+                  lapsNamed
+                    ? setSelectedLaps((prev) =>
+                        prev.includes(lap.lapNumber)
+                          ? prev.filter((n) => n !== lap.lapNumber)
+                          : [...prev, lap.lapNumber].sort((a, b) => a - b)
+                      )
+                    : (window.location.href = `/setup/laps?returnTo=${encodeURIComponent(blockId ? `/monitor?blockId=${blockId}` : "/monitor")}`)
+                }
+                disabled={activeMode === "attendance"}
+                title={lap.name}
+              >
+                {lap.name}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -361,7 +370,7 @@ function MonitorPageInner() {
           </button>
         </div>
 
-        <div className="hero-card h-[560px] p-4 relative overflow-hidden">
+        <div className={`hero-card h-[560px] p-4 relative overflow-hidden ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
           {!attendanceComplete && showAttendanceOverlay && !attendancePanel && (
             <div
               className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/90 text-base font-semibold"
@@ -390,7 +399,7 @@ function MonitorPageInner() {
               status === "PRESENT"
                 ? "bg-emerald-400"
                 : status === "ABSENT"
-                ? "bg-red-400"
+                ? "bg-red-500"
                 : status === "TARDY"
                 ? "bg-yellow-300"
                 : status === "LEFT_EARLY"
@@ -401,7 +410,7 @@ function MonitorPageInner() {
                 ? status === "PRESENT"
                   ? "bg-emerald-100"
                   : status === "ABSENT"
-                  ? "bg-red-100"
+                  ? "bg-red-200"
                   : status === "TARDY"
                   ? "bg-yellow-100"
                   : "bg-orange-100"
@@ -410,8 +419,8 @@ function MonitorPageInner() {
               <div
                 key={desk.id}
                 className={`absolute rounded-2xl border border-black/10 px-2 py-2 text-center shadow ${statusBg} ${
-                  isAbsent ? "opacity-50" : ""
-                }`}
+                  isAbsent && activeMode === "performance" ? "opacity-30" : ""
+                } ${isAbsent ? "border-red-500" : ""}`}
                 style={{
                   left: desk.x,
                   top: desk.y,
@@ -427,10 +436,16 @@ function MonitorPageInner() {
                 }}
               >
                 <div className="relative z-10 flex h-full w-full flex-col items-center justify-center">
-                  <div className="text-lg font-semibold text-center">{desk.student?.displayName}</div>
-                  <div className={`mx-auto mt-2 h-2 w-10 rounded-full ${statusColor}`} />
+                  {!(isAbsent && activeMode === "performance") && (
+                    <>
+                      <div className="text-lg font-semibold text-center">{desk.student?.displayName}</div>
+                      {activeMode === "attendance" && (
+                        <div className={`mx-auto mt-2 h-2 w-10 rounded-full ${statusColor}`} />
+                      )}
+                    </>
+                  )}
                 </div>
-                {desk.student && (
+                {desk.student && activeMode === "performance" && !isAbsent && (
                   <div className="absolute inset-0 z-10 pointer-events-none">
                     {desk.student.hiit && (
                       <span
@@ -510,7 +525,7 @@ function MonitorPageInner() {
                     </div>
                   </div>
                 )}
-                {activeMode === "performance" && selectedLaps.length > 0 && (
+                {activeMode === "performance" && selectedLaps.length > 0 && !isAbsent && (
                   <div className="absolute inset-0 z-0 flex">
                     {selectedLaps.length === 1 && (
                       <button
@@ -620,16 +635,14 @@ function MonitorPageInner() {
                     )}
                   </div>
                 )}
-                {isAbsent && (
+                {isAbsent && activeMode === "attendance" && (
                   <div
-                    className="absolute inset-0 flex items-center justify-center bg-white/70 text-sm font-semibold pointer-events-auto"
+                    className="absolute inset-0 pointer-events-auto"
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
                     }}
-                  >
-                    Absent
-                  </div>
+                  />
                 )}
               </div>
             );
