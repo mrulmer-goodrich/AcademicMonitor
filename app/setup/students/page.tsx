@@ -148,8 +148,8 @@ export default function StudentsSetupPage() {
       )}
 
       <div className="hero-card p-6 space-y-4">
-        <div className="flex flex-wrap lg:flex-nowrap items-center gap-3">
-          <select className="form-control max-w-[260px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
+        <div className="flex flex-wrap lg:flex-nowrap items-center gap-2">
+          <select className="form-control max-w-[220px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
             {blockOptions.map((block) => (
               <option key={block.id} value={block.id}>
                 {block.label}
@@ -157,7 +157,7 @@ export default function StudentsSetupPage() {
             ))}
           </select>
           <input
-            className="form-control w-[220px] shrink-0"
+            className="form-control w-[180px] shrink-0"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="Student name"
@@ -166,10 +166,10 @@ export default function StudentsSetupPage() {
             }}
             disabled={editingLocked}
           />
-          <button className="btn btn-primary" type="button" onClick={addStudent} disabled={editingLocked}>
+          <button className="btn btn-primary shrink-0" type="button" onClick={addStudent} disabled={editingLocked}>
             Add Student
           </button>
-          <button className="btn btn-ghost" type="button" onClick={() => setShowImport(true)} disabled={editingLocked}>
+          <button className="btn btn-ghost shrink-0" type="button" onClick={() => setShowImport(true)} disabled={editingLocked}>
             Import List
           </button>
         </div>

@@ -110,8 +110,6 @@ export default function MonitorSnapshotCard() {
       className="feature-card group"
       style={{ minHeight: 200 }}
     >
-      <div className="text-2xl font-semibold">Monitor</div>
-      <p className="text-sm text-black/70">Jump into today’s seating view</p>
       <div className="text-sm font-semibold text-black/80">{blockLabel}</div>
       <div className="relative mt-2 h-36 w-full overflow-hidden rounded-xl border border-black/10 bg-white/70">
         <div className="absolute inset-2">
@@ -141,9 +139,6 @@ export default function MonitorSnapshotCard() {
           )}
         </div>
         <div className="absolute inset-0 rounded-xl ring-1 ring-transparent transition group-hover:ring-black/10" />
-      </div>
-      <div className="mt-auto text-sm font-semibold text-ocean">
-        {hasActivity ? "Resume today’s class" : "Open today’s class"}
       </div>
       {error && <div className="text-xs text-red-600">{error}</div>}
     </Link>

@@ -390,7 +390,7 @@ export default function SeatingSetupPage() {
               <>
                 {desk.student.hiit && (
                   <span
-                    className="absolute left-2 top-2 flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                    className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
                     style={{ background: "#b18ad8" }}
                   >
                     H
@@ -398,7 +398,7 @@ export default function SeatingSetupPage() {
                 )}
                 {desk.student.eog && (
                   <span
-                    className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px] text-white"
+                    className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px] text-white"
                     style={{
                       background:
                         desk.student.eog === "FIVE"
@@ -419,10 +419,10 @@ export default function SeatingSetupPage() {
                       : "NP"}
                   </span>
                 )}
-                <div className="mt-2 flex flex-wrap items-center justify-center gap-1 px-2">
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-1 px-1">
                   {desk.student.ml && (
                     <span
-                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                      className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
                       style={{ background: "#9ecae1" }}
                     >
                       ML
@@ -430,7 +430,7 @@ export default function SeatingSetupPage() {
                   )}
                   {desk.student.mlNew && (
                     <span
-                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                      className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
                       style={{
                         background:
                           "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)"
@@ -441,7 +441,7 @@ export default function SeatingSetupPage() {
                   )}
                   {desk.student.iep504 && (
                     <span
-                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                      className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
                       style={{ background: "#f5a9b8" }}
                     >
                       I
@@ -449,7 +449,7 @@ export default function SeatingSetupPage() {
                   )}
                   {desk.student.ec && (
                     <span
-                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                      className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
                       style={{ background: "#f7d774" }}
                     >
                       EC
@@ -457,7 +457,7 @@ export default function SeatingSetupPage() {
                   )}
                   {desk.student.ca && (
                     <span
-                      className="flex h-4 w-4 items-center justify-center rounded-full border border-black text-[7px]"
+                      className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
                       style={{ background: "#ffffff" }}
                     >
                       CA

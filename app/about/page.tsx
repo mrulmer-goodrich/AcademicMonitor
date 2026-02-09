@@ -2,7 +2,6 @@ export default function AboutPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-12 space-y-6">
       <div>
-        <div className="small-header text-black/60">About</div>
         <h1 className="section-title">Academic Monitoring, simplified.</h1>
       </div>
       <p className="text-base text-black/70">

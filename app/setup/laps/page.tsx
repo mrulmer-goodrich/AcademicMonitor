@@ -142,8 +142,8 @@ function LapsSetupPageInner() {
           </div>
         </div>
 
-        <div className="overflow-auto">
-          <table className="table table-compact min-w-[720px]">
+        <div className="overflow-visible">
+          <table className="table table-compact w-full table-fixed">
             <thead>
               <tr>
                 <th></th>
@@ -164,9 +164,9 @@ function LapsSetupPageInner() {
                   {weekdays.map((_day, dayIndex) => {
                     const lap = getLap(dayIndex, lapNumber);
                     return (
-                      <td key={`${dayIndex}-${lapNumber}`}>
+                      <td key={`${dayIndex}-${lapNumber}`} className="align-top">
                         <button
-                          className="w-full h-16 rounded-xl border border-black/10 bg-white text-[11px] leading-snug text-black/70 whitespace-normal break-words px-2"
+                          className="w-full h-20 rounded-xl border border-black/10 bg-white text-[11px] leading-snug text-black/70 whitespace-normal break-words px-2"
                           type="button"
                           onClick={() =>
                             setEditing({

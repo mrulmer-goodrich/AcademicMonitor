@@ -240,6 +240,18 @@ function MonitorPageInner() {
     setActiveMode("attendance");
   }, [blockId, simulateDate]);
 
+  useEffect(() => {
+    if (attendanceComplete && selectedLaps.length > 0) {
+      setActiveMode("performance");
+    }
+  }, [attendanceComplete, selectedLaps]);
+
+  useEffect(() => {
+    if (attendancePanel) {
+      setShowAttendanceOverlay(false);
+    }
+  }, [attendancePanel]);
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -266,7 +278,7 @@ function MonitorPageInner() {
               key={`lap-select-${lap.lapNumber}`}
               className={`btn ${selectedLaps.includes(lap.lapNumber) ? "btn-primary" : "btn-ghost"} ${
                 lapsNamed ? "" : "ring-2 ring-amber-300"
-              }`}
+              } w-[160px] rounded-full text-xs uppercase tracking-wide truncate`}
               type="button"
               onClick={() =>
                 setSelectedLaps((prev) =>
@@ -276,6 +288,7 @@ function MonitorPageInner() {
                 )
               }
               disabled={!lapsNamed}
+              title={lap.name}
             >
               {lap.name}
             </button>
@@ -322,6 +335,8 @@ function MonitorPageInner() {
             type="button"
             onClick={() => {
               setActiveMode("attendance");
+              setShowAttendanceOverlay(false);
+              setShowAttendanceComplete(false);
               setAttendancePanel(true);
             }}
             disabled={!blockId}
@@ -331,9 +346,9 @@ function MonitorPageInner() {
         </div>
 
         <div className="hero-card h-[560px] p-4 relative overflow-hidden">
-          {!attendanceComplete && showAttendanceOverlay && (
+          {!attendanceComplete && showAttendanceOverlay && !attendancePanel && (
             <div
-              className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/80 text-sm font-semibold"
+              className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/90 text-base font-semibold"
               onClick={() => setShowAttendanceOverlay(false)}
             >
               Take Attendance
@@ -378,7 +393,7 @@ function MonitorPageInner() {
             return (
               <div
                 key={desk.id}
-                className={`absolute rounded-2xl border border-black/10 px-3 py-3 text-center shadow ${statusBg} ${
+                className={`absolute rounded-2xl border border-black/10 px-2 py-2 text-center shadow ${statusBg} ${
                   isAbsent ? "opacity-50" : ""
                 }`}
                 style={{
@@ -406,6 +421,16 @@ function MonitorPageInner() {
                         type="button"
                         className="flex-1"
                         disabled={!readyForPerformance || isAbsent}
+                        style={{
+                          background:
+                            (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "GREEN")
+                              ? "#34d399"
+                              : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "YELLOW")
+                              ? "#fde047"
+                              : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "RED")
+                              ? "#f87171"
+                              : "transparent"
+                        }}
                         onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[0])}
                       />
                     )}
@@ -415,12 +440,32 @@ function MonitorPageInner() {
                           type="button"
                           className="flex-1 border-r border-black/10"
                           disabled={!readyForPerformance || isAbsent}
+                          style={{
+                            background:
+                              (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "GREEN")
+                                ? "#34d399"
+                                : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "YELLOW")
+                                ? "#fde047"
+                                : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "RED")
+                                ? "#f87171"
+                                : "transparent"
+                          }}
                           onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[0])}
                         />
                         <button
                           type="button"
                           className="flex-1"
                           disabled={!readyForPerformance || isAbsent}
+                          style={{
+                            background:
+                              (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "GREEN")
+                                ? "#34d399"
+                                : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "YELLOW")
+                                ? "#fde047"
+                                : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "RED")
+                                ? "#f87171"
+                                : "transparent"
+                          }}
                           onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[1])}
                         />
                       </>
@@ -431,18 +476,48 @@ function MonitorPageInner() {
                           type="button"
                           className="flex-1 border-r border-black/10"
                           disabled={!readyForPerformance || isAbsent}
+                          style={{
+                            background:
+                              (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "GREEN")
+                                ? "#34d399"
+                                : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "YELLOW")
+                                ? "#fde047"
+                                : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[0]}`) === "RED")
+                                ? "#f87171"
+                                : "transparent"
+                          }}
                           onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[0])}
                         />
                         <button
                           type="button"
                           className="flex-1 border-r border-black/10"
                           disabled={!readyForPerformance || isAbsent}
+                          style={{
+                            background:
+                              (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "GREEN")
+                                ? "#34d399"
+                                : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "YELLOW")
+                                ? "#fde047"
+                                : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[1]}`) === "RED")
+                                ? "#f87171"
+                                : "transparent"
+                          }}
                           onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[1])}
                         />
                         <button
                           type="button"
                           className="flex-1"
                           disabled={!readyForPerformance || isAbsent}
+                          style={{
+                            background:
+                              (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[2]}`) === "GREEN")
+                                ? "#34d399"
+                                : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[2]}`) === "YELLOW")
+                                ? "#fde047"
+                                : (desk.studentId && performanceMap.get(`${desk.studentId}-${selectedLaps[2]}`) === "RED")
+                                ? "#f87171"
+                                : "transparent"
+                          }}
                           onClick={() => desk.studentId && cyclePerformance(desk.studentId, selectedLaps[2])}
                         />
                       </>
