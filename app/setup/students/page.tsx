@@ -149,7 +149,11 @@ export default function StudentsSetupPage() {
 
       <div className="hero-card p-6 space-y-4">
         <div className="flex flex-nowrap items-center gap-2 w-full">
-          <select className="form-control w-[220px] shrink-0" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
+          <select
+            className="form-control w-[190px] shrink-0 truncate"
+            value={blockId}
+            onChange={(e) => setBlockId(e.target.value)}
+          >
             {blockOptions.map((block) => (
               <option key={block.id} value={block.id}>
                 {block.label}
@@ -157,7 +161,7 @@ export default function StudentsSetupPage() {
             ))}
           </select>
           <input
-            className="form-control flex-1 min-w-[200px] max-w-[360px]"
+            className="form-control flex-1 min-w-[160px] max-w-[300px]"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="Student name"
