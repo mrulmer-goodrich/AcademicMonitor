@@ -303,13 +303,15 @@ function MonitorPageInner() {
                 } w-[180px] h-12 rounded-full text-sm uppercase tracking-wide whitespace-normal leading-tight`}
                 type="button"
                 onClick={() =>
-                  lapsNamed
-                    ? setSelectedLaps((prev) =>
-                        prev.includes(lap.lapNumber)
-                          ? prev.filter((n) => n !== lap.lapNumber)
-                          : [...prev, lap.lapNumber].sort((a, b) => a - b)
-                      )
-                    : (window.location.href = `/setup/laps?returnTo=${encodeURIComponent(blockId ? `/monitor?blockId=${blockId}` : "/monitor")}`)
+                  !attendanceComplete
+                    ? setActiveMode("attendance")
+                    : lapsNamed
+                      ? setSelectedLaps((prev) =>
+                          prev.includes(lap.lapNumber)
+                            ? prev.filter((n) => n !== lap.lapNumber)
+                            : [...prev, lap.lapNumber].sort((a, b) => a - b)
+                        )
+                      : (window.location.href = `/setup/laps?returnTo=${encodeURIComponent(blockId ? `/monitor?blockId=${blockId}` : "/monitor")}`)
                 }
                 disabled={activeMode === "attendance"}
                 title={lap.name}
@@ -387,7 +389,7 @@ function MonitorPageInner() {
               Attendance Complete
             </div>
           )}
-          {!lapsNamed && (
+          {attendanceComplete && !lapsNamed && (
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/40 text-sm font-semibold">
               Name laps to unlock tracking
             </div>
@@ -724,7 +726,7 @@ function MonitorPageInner() {
                 Close
               </button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {desks
                 .slice()
                 .sort((a, b) => (a.student?.displayName || "").localeCompare(b.student?.displayName || ""))
@@ -733,8 +735,9 @@ function MonitorPageInner() {
                 const status = attendanceMap.get(desk.studentId);
                 return (
                   <div key={`att-${desk.id}`} className="rounded-xl border border-black/10 bg-white p-3 text-sm">
-                    <div className="font-semibold">{desk.student?.displayName}</div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-base font-semibold">{desk.student?.displayName}</div>
+                      <div className="flex flex-wrap gap-2">
                       {attendanceCycle.map((state) => (
                         <button
                           key={`${desk.id}-${state}`}
@@ -755,6 +758,7 @@ function MonitorPageInner() {
                           {state.replace("_", " ")}
                         </button>
                       ))}
+                      </div>
                     </div>
                   </div>
                 );
