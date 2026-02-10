@@ -25,7 +25,7 @@ type Student = {
 const categories = [
   { key: "ml", label: "ML", color: "#9ecae1" },
   { key: "mlNew", label: "ML New", color: "#9ecae1" },
-  { key: "iep504", label: "IEP / 504", color: "#f5a9b8" },
+  { key: "iep504", label: "IEP/504", color: "#f5a9b8" },
   { key: "ec", label: "EC", color: "#f7d774" },
   { key: "ca", label: "CA", color: "#ffffff" },
   { key: "hiit", label: "HIIT", color: "#b18ad8" }
@@ -261,13 +261,13 @@ export default function StudentsSetupPage() {
               <th className="text-center">
                 <span className="btn btn-ghost h-9 px-3 text-xs cursor-default flex items-center justify-center text-center">Status</span>
               </th>
-              <th className="text-center">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex flex-wrap items-center justify-center gap-2">
+              <th className="text-left">
+                <div className="flex flex-col items-start gap-2">
+                  <div className="flex flex-wrap items-center justify-start gap-2">
                     {categories.map((cat) => (
                       <button
                         key={`sort-${cat.key}`}
-                        className="btn btn-ghost h-10 w-10 rounded-full border border-black/40 text-[10px] font-bold leading-tight flex items-center justify-center text-center"
+                        className="btn btn-ghost h-10 w-10 rounded-full border border-black/70 text-[10px] font-bold leading-tight flex items-center justify-center text-center whitespace-normal break-words px-1"
                         type="button"
                         onClick={() => toggleSort(cat.key)}
                       >
