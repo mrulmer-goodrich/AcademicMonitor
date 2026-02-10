@@ -26,3 +26,45 @@ Global Header/TopBar
 
 Global Issue:
 -Glitchiness.  There is a lag between click and action sometimes. And when pages load, there is a "ghost" image of the page mid-loading.
+
+
+
+***************************************************************************
+
+Summary of changes applied for DEVNOTES8:
+
+Students setup:
+Import modal text updated to “enter names, one per line” and “make sure correct block selected.”
+Default sort by name (auto‑resorts on add) with clickable sorting for Name, EOG, and all six categories.
+Inactive students hidden by default with a Show/Hide toggle.
+Added Notes per student with a modal editor and an indicator dot when notes exist.
+Added multi‑confirm Delete with a final DELETE prompt.
+Tightened top row sizing so Block/Name/Add/Import fit on one line without pushing offscreen.
+Attendance:
+Gate attendance when any active student is unseated with an overlay + link to Seating.
+Attendance overlay is now a real overlay with very large “Take Attendance” text and a tap prompt.
+Attendance “complete” auto‑switch now waits 2 seconds (prevents the “last student absent” issue).
+Attendance list overlay is scrollable.
+Monitor:
+Attendance button label logic updated: Attendance → Update Attendance → Back to Laps.
+List button is disabled unless in attendance mode.
+Lap buttons are inside their own container with “Select Laps to Monitor” label.
+Lap button text wraps cleanly and stays centered.
+Name Your Laps:
+Day/date header centered.
+Lap box text size increased.
+Global header:
+Topbar is fully transparent.
+Nav links are pill buttons.
+
+Important: I added a notes field to Student in schema.prisma. You’ll need to run a Prisma migration or prisma db push in your production DB for notes to work. If you want me to walk you through that via Railway/Vercel, say the word.
+
+Open items I did not fully “solve”:
+
+The “ghost image mid‑loading” glitch. I don’t see a deterministic single fix in the current code; we may need to observe it live to pinpoint.
+If you want, I can:
+
+Adjust the new attendance overlay size further (bigger/smaller).
+Make the “Select Laps to Monitor” container tighter or larger.
+Add a soft animation to make the attendance overlay feel more obvious.
+
