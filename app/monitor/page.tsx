@@ -386,7 +386,7 @@ function MonitorPageInner() {
         </div>
       )}
 
-      {true && (
+      {false && (
         <div className="hero-card p-4 text-sm text-black/70 flex flex-wrap items-center gap-3">
           <div className="font-semibold">Simulate date</div>
           <input
@@ -501,38 +501,40 @@ function MonitorPageInner() {
                 </div>
                 {desk.student && activeMode === "performance" && !isAbsent && (
                   <div className="absolute inset-0 z-10 pointer-events-none">
-                    {desk.student.hiit && (
-                      <span
-                        className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
-                        style={{ background: "#b18ad8" }}
-                      >
-                        H
-                      </span>
-                    )}
-                    {desk.student.eog && (
-                      <span
-                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px] text-white"
-                        style={{
-                          background:
-                            desk.student.eog === "FIVE"
-                              ? "#1f4c8f"
-                              : desk.student.eog === "FOUR"
-                              ? "#4caf50"
-                              : desk.student.eog === "THREE"
-                              ? "#f2994a"
-                              : "#e74c3c"
-                        }}
-                      >
-                        {desk.student.eog === "FIVE"
-                          ? "5"
-                          : desk.student.eog === "FOUR"
-                          ? "4"
-                          : desk.student.eog === "THREE"
-                          ? "3"
-                          : "NP"}
-                      </span>
-                    )}
-                    <div className="absolute left-1 right-1 bottom-1 flex flex-nowrap items-center justify-center gap-0.5">
+                    <div className="absolute right-1 top-1 flex items-center gap-0.5">
+                      {desk.student.hiit && (
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
+                          style={{ background: "#b18ad8" }}
+                        >
+                          H
+                        </span>
+                      )}
+                      {desk.student.eog && (
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px] text-white"
+                          style={{
+                            background:
+                              desk.student.eog === "FIVE"
+                                ? "#3f6db5"
+                                : desk.student.eog === "FOUR"
+                                ? "#4caf50"
+                                : desk.student.eog === "THREE"
+                                ? "#f2994a"
+                                : "#e74c3c"
+                          }}
+                        >
+                          {desk.student.eog === "FIVE"
+                            ? "5"
+                            : desk.student.eog === "FOUR"
+                            ? "4"
+                            : desk.student.eog === "THREE"
+                            ? "3"
+                            : "NP"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="absolute left-1 bottom-1 flex items-center gap-0.5">
                       {desk.student.ml && (
                         <span
                           className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
@@ -552,6 +554,8 @@ function MonitorPageInner() {
                           ML
                         </span>
                       )}
+                    </div>
+                    <div className="absolute right-1 bottom-1 flex items-center gap-0.5">
                       {desk.student.iep504 && (
                         <span
                           className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
@@ -563,7 +567,7 @@ function MonitorPageInner() {
                       {desk.student.ec && (
                         <span
                           className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
-                          style={{ background: "#f7d774" }}
+                          style={{ background: "#ffd633" }}
                         >
                           EC
                         </span>

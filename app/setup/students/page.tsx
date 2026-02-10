@@ -254,21 +254,20 @@ export default function StudentsSetupPage() {
           <thead>
             <tr>
               <th className="text-center">
-                <button className="btn btn-ghost h-9 px-3 text-xs" type="button" onClick={() => toggleSort("displayName")}>
+                <button className="btn btn-ghost h-9 px-3 text-xs flex items-center justify-center text-center" type="button" onClick={() => toggleSort("displayName")}>
                   Student Name{sortLabel("displayName")}
                 </button>
               </th>
               <th className="text-center">
-                <span className="btn btn-ghost h-9 px-3 text-xs cursor-default">Status</span>
+                <span className="btn btn-ghost h-9 px-3 text-xs cursor-default flex items-center justify-center text-center">Status</span>
               </th>
               <th className="text-center">
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-xs uppercase tracking-wide text-black/60">Categories</span>
+                <div className="flex flex-col items-center gap-2">
                   <div className="flex flex-wrap items-center justify-center gap-2">
                     {categories.map((cat) => (
                       <button
                         key={`sort-${cat.key}`}
-                        className="btn btn-ghost h-10 w-10 rounded-full border border-black/40 text-[10px] font-bold leading-tight"
+                        className="btn btn-ghost h-10 w-10 rounded-full border border-black/40 text-[10px] font-bold leading-tight flex items-center justify-center text-center"
                         type="button"
                         onClick={() => toggleSort(cat.key)}
                       >
@@ -282,15 +281,15 @@ export default function StudentsSetupPage() {
                 </div>
               </th>
               <th className="text-center">
-                <button className="btn btn-ghost h-9 px-3 text-xs" type="button" onClick={() => toggleSort("eog")}>
+                <button className="btn btn-ghost h-9 px-3 text-xs flex items-center justify-center text-center" type="button" onClick={() => toggleSort("eog")}>
                   EOG{sortLabel("eog")}
                 </button>
               </th>
               <th className="text-center">
-                <span className="btn btn-ghost h-9 px-3 text-xs cursor-default">Notes</span>
+                <span className="btn btn-ghost h-9 px-3 text-xs cursor-default flex items-center justify-center text-center">Notes</span>
               </th>
               <th className="text-center">
-                <span className="btn btn-ghost h-9 px-3 text-xs cursor-default">Save</span>
+                <span className="btn btn-ghost h-9 px-3 text-xs cursor-default flex items-center justify-center text-center">Save</span>
               </th>
             </tr>
           </thead>
