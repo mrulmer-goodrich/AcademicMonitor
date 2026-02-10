@@ -403,7 +403,7 @@ function MonitorPageInner() {
       )}
 
       <div className="hero-card p-6 space-y-4">
-        <div className={`hero-card h-[560px] p-4 relative overflow-hidden ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
+        <div className={`hero-card h-[560px] p-4 pr-8 relative overflow-visible ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
           {!canTakeAttendance && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-2xl bg-black/40 text-center text-white">
               <div className="text-[5vw] leading-none font-semibold">Assign Seats</div>
