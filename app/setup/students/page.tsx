@@ -25,7 +25,7 @@ type Student = {
 const categories = [
   { key: "ml", label: "ML", color: "#9ecae1" },
   { key: "mlNew", label: "ML New", color: "#9ecae1" },
-  { key: "iep504", label: "IEP/504", color: "#f5a9b8" },
+  { key: "iep504", label: "IEP/ 504", color: "#f5a9b8" },
   { key: "ec", label: "EC", color: "#f7d774" },
   { key: "ca", label: "CA", color: "#ffffff" },
   { key: "hiit", label: "HIIT", color: "#b18ad8" }
