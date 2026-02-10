@@ -209,9 +209,9 @@ export default function StudentsSetupPage() {
       )}
 
       <div className="hero-card p-6 space-y-4">
-        <div className="flex flex-nowrap items-center gap-2 w-full">
+        <div className="grid w-full grid-cols-[200px_minmax(120px,1fr)_auto_auto] items-center gap-2">
           <select
-            className="form-control w-[220px] shrink-0 truncate"
+            className="form-control w-full truncate"
             value={blockId}
             onChange={(e) => setBlockId(e.target.value)}
           >
@@ -222,7 +222,7 @@ export default function StudentsSetupPage() {
             ))}
           </select>
           <input
-            className="form-control flex-1 min-w-[140px] max-w-[260px]"
+            className="form-control min-w-0"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="Student name"
@@ -231,10 +231,10 @@ export default function StudentsSetupPage() {
             }}
             disabled={editingLocked}
           />
-          <button className="btn btn-primary shrink-0 px-3" type="button" onClick={addStudent} disabled={editingLocked}>
+          <button className="btn btn-primary shrink-0 px-3 py-2 text-sm" type="button" onClick={addStudent} disabled={editingLocked}>
             Add Student
           </button>
-          <button className="btn btn-ghost shrink-0 px-3" type="button" onClick={() => setShowImport(true)} disabled={editingLocked}>
+          <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={() => setShowImport(true)} disabled={editingLocked}>
             Import List
           </button>
         </div>
@@ -254,36 +254,44 @@ export default function StudentsSetupPage() {
           <thead>
             <tr>
               <th className="text-center">
-                <button className="btn btn-ghost px-2 py-1 text-xs" type="button" onClick={() => toggleSort("displayName")}>
+                <button className="btn btn-ghost h-9 px-3 text-xs" type="button" onClick={() => toggleSort("displayName")}>
                   Student Name{sortLabel("displayName")}
                 </button>
               </th>
-              <th className="text-center">Status</th>
+              <th className="text-center">
+                <span className="btn btn-ghost h-9 px-3 text-xs cursor-default">Status</span>
+              </th>
               <th className="text-center">
                 <div className="flex flex-col items-center gap-1">
-                  <span>Categories</span>
-                  <div className="flex flex-wrap items-center justify-center gap-1">
+                  <span className="text-xs uppercase tracking-wide text-black/60">Categories</span>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
                     {categories.map((cat) => (
                       <button
                         key={`sort-${cat.key}`}
-                        className="btn btn-ghost px-2 py-1 text-[10px]"
+                        className="btn btn-ghost h-10 w-10 rounded-full border border-black/40 text-[10px] font-bold leading-tight"
                         type="button"
                         onClick={() => toggleSort(cat.key)}
                       >
-                        {cat.label}
-                        {sortLabel(cat.key)}
+                        <span className="flex flex-col items-center justify-center leading-tight">
+                          <span>{cat.label}</span>
+                          {sortLabel(cat.key) && <span className="text-[9px]">{sortLabel(cat.key)}</span>}
+                        </span>
                       </button>
                     ))}
                   </div>
                 </div>
               </th>
               <th className="text-center">
-                <button className="btn btn-ghost px-2 py-1 text-xs" type="button" onClick={() => toggleSort("eog")}>
+                <button className="btn btn-ghost h-9 px-3 text-xs" type="button" onClick={() => toggleSort("eog")}>
                   EOG{sortLabel("eog")}
                 </button>
               </th>
-              <th className="text-center">Notes</th>
-              <th className="text-center">Save</th>
+              <th className="text-center">
+                <span className="btn btn-ghost h-9 px-3 text-xs cursor-default">Notes</span>
+              </th>
+              <th className="text-center">
+                <span className="btn btn-ghost h-9 px-3 text-xs cursor-default">Save</span>
+              </th>
             </tr>
           </thead>
           <tbody>

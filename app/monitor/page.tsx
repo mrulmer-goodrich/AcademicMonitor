@@ -72,6 +72,7 @@ function MonitorPageInner() {
 
   const [simulateDate, setSimulateDate] = useState<string>("");
   const dateToUse = simulateDate ? new Date(`${simulateDate}T09:00:00`) : new Date();
+  const dateKey = format(dateToUse, "yyyy-MM-dd");
   const weekStart = startOfWeek(dateToUse, { weekStartsOn: 1 });
   const dayIndex = (dateToUse.getDay() + 6) % 7;
   const isWeekday = dayIndex >= 0 && dayIndex <= 4;
@@ -125,7 +126,7 @@ function MonitorPageInner() {
   }
 
   async function loadAttendance() {
-    const res = await fetch(`/api/attendance?blockId=${blockId}&date=${dateToUse.toISOString()}`);
+    const res = await fetch(`/api/attendance?blockId=${blockId}&date=${dateKey}`);
     const data = await res.json();
     setAttendance(data.attendance || []);
   }
@@ -137,7 +138,7 @@ function MonitorPageInner() {
   }
 
   async function loadPerformance() {
-    const res = await fetch(`/api/performance?blockId=${blockId}&date=${dateToUse.toISOString()}`);
+    const res = await fetch(`/api/performance?blockId=${blockId}&date=${dateKey}`);
     const data = await res.json();
     setPerformance(data.performance || []);
   }
@@ -153,7 +154,7 @@ function MonitorPageInner() {
     await fetch("/api/attendance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ blockId, studentId, date: dateToUse.toISOString(), status })
+      body: JSON.stringify({ blockId, studentId, date: dateKey, status })
     });
     loadAttendance();
   }
@@ -164,7 +165,7 @@ function MonitorPageInner() {
     await fetch("/api/attendance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ blockId, date: dateToUse.toISOString(), mode: "bulk", status })
+      body: JSON.stringify({ blockId, date: dateKey, mode: "bulk", status })
     });
     loadAttendance();
   }
@@ -189,15 +190,15 @@ function MonitorPageInner() {
       await fetch("/api/performance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blockId, studentId, date: dateToUse.toISOString(), lapNumber, remove: true })
-      });
-      loadPerformance();
-      return;
-    }
+      body: JSON.stringify({ blockId, studentId, date: dateKey, lapNumber, remove: true })
+    });
+    loadPerformance();
+    return;
+  }
     await fetch("/api/performance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ blockId, studentId, date: dateToUse.toISOString(), lapNumber, color: nextColor })
+      body: JSON.stringify({ blockId, studentId, date: dateKey, lapNumber, color: nextColor })
     });
     loadPerformance();
   }
@@ -385,7 +386,7 @@ function MonitorPageInner() {
         </div>
       )}
 
-      {false && (
+      {true && (
         <div className="hero-card p-4 text-sm text-black/70 flex flex-wrap items-center gap-3">
           <div className="font-semibold">Simulate date</div>
           <input

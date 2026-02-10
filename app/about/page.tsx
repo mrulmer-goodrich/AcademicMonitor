@@ -91,8 +91,8 @@ export default function AboutPage() {
       <div className="hero-card p-6 space-y-4">
         <div className="text-lg font-semibold">Designed for How Teachers Actually Work</div>
         <p className="text-base text-black/70">
-          Academic Monitoring was designed by a classroom teacher, tested with students, and built for the realities of
-          a 50‑minute period. There are no lengthy rubrics to complete, no forms to fill out after school, and no
+          Academic Monitoring was designed by a classroom teacher, tested with students, and built for the realities of daily instruction.
+          There are no lengthy rubrics to complete, no forms to fill out after school, and no
           separate assessment platform to learn. Teachers tap through performance levels as they circulate—the same
           instructional laps they're already taking.
         </p>
@@ -153,8 +153,8 @@ export default function AboutPage() {
       </div>
 
       <p className="text-sm text-black/50 italic text-center">
-        Academic Monitoring was created by a practicing educator committed to building tools that respect teachers'
-        time and improve student outcomes.
+        Academic Monitoring was created by a practicing educator committed to respecting teachers'
+        time and improving student outcomes.
       </p>
     </div>
   );
