@@ -18,8 +18,20 @@ export default function GlobalHeader() {
       .catch(() => setUser(null));
   }, []);
 
-  const isDashboard = pathname === "/dashboard";
-  const logoHref = user ? (isDashboard ? "/" : "/dashboard") : "/";
+  const isFocusedPage = pathname?.startsWith("/setup") || pathname?.startsWith("/monitor");
+  const logoHref = user ? "/dashboard" : "/";
+  const navLinks = user
+    ? isFocusedPage
+      ? []
+      : [
+          { href: "/account", label: "Account" },
+          { href: "/about", label: "About" },
+          { href: "/contact", label: "Contact" }
+        ]
+    : [
+        { href: "/about", label: "About" },
+        { href: "/contact", label: "Contact" }
+      ];
 
   return (
     <div className="topbar">
@@ -36,12 +48,11 @@ export default function GlobalHeader() {
           </div>
         </Link>
         <nav className="flex items-center gap-3 text-sm font-medium">
-          <Link href="/dashboard" className="nav-pill">Dashboard</Link>
-          <Link href="/monitor" className="nav-pill">Monitor</Link>
-          <Link href="/report" className="nav-pill">Report</Link>
-          <Link href="/about" className="nav-pill">About</Link>
-          <Link href="/contact" className="nav-pill">Contact</Link>
-          {user && <Link href="/account" className="nav-pill">Account</Link>}
+          {navLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="nav-pill">
+              {link.label}
+            </Link>
+          ))}
         </nav>
       </div>
     </div>

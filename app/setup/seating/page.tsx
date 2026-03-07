@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import SetupNav from "@/components/SetupNav";
+import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 
 type Block = { id: string; blockNumber: number; blockName: string };
 
@@ -292,10 +292,7 @@ export default function SeatingSetupPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
-      <div className="space-y-2">
-        <h1 className="section-title">Set up / manage seating chart</h1>
-      </div>
-      <SetupNav />
+      <ReturnToDashboardButton />
 
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">

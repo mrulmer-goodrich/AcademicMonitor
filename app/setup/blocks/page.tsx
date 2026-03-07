@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import SetupNav from "@/components/SetupNav";
+import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
+import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
+import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
 
 type Block = {
   id: string;
@@ -22,6 +24,20 @@ export default function BlocksSetupPage() {
   useEffect(() => {
     loadBlocks();
   }, []);
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (blockName.trim()) return true;
+    if (!editingId) return false;
+    const original = blocks.find((block) => block.id === editingId);
+    const draftRow = editingId ? draft[editingId] : null;
+    if (!original || !draftRow) return false;
+    return original.blockNumber !== draftRow.blockNumber || original.blockName !== draftRow.blockName;
+  }, [blockName, editingId, blocks, draft]);
+
+  const { dialogProps } = useUnsavedChangesGuard({
+    when: hasUnsavedChanges,
+    description: "You have unsaved block changes on this screen. Leaving now will discard them."
+  });
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -66,10 +82,7 @@ export default function BlocksSetupPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-6 space-y-6">
-      <div className="space-y-2">
-        <h1 className="section-title">Set up / manage blocks</h1>
-      </div>
-      <SetupNav />
+      <ReturnToDashboardButton />
 
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">
@@ -188,6 +201,7 @@ export default function BlocksSetupPage() {
           </tbody>
         </table>
       </div>
+      <UnsavedChangesDialog {...dialogProps} />
     </div>
   );
 }

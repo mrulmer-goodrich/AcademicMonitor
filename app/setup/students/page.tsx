@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import SetupNav from "@/components/SetupNav";
+import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
+import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
+import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
 
 type Block = { id: string; blockNumber: number; blockName: string };
 
@@ -33,6 +35,21 @@ const categories = [
 
 const eogOptions: Student["eog"][] = [null, "FIVE", "FOUR", "THREE", "NP"];
 
+function studentHasChanges(student: Student, draftRow: Student) {
+  return (
+    draftRow.displayName !== student.displayName ||
+    draftRow.active !== student.active ||
+    draftRow.ml !== student.ml ||
+    draftRow.mlNew !== student.mlNew ||
+    draftRow.iep504 !== student.iep504 ||
+    draftRow.ec !== student.ec ||
+    draftRow.ca !== student.ca ||
+    draftRow.hiit !== student.hiit ||
+    draftRow.eog !== student.eog ||
+    (draftRow.notes || "") !== (student.notes || "")
+  );
+}
+
 export default function StudentsSetupPage() {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -59,6 +76,23 @@ export default function StudentsSetupPage() {
   useEffect(() => {
     if (blockId) loadStudents();
   }, [blockId]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    const hasNewStudentDraft = Boolean(displayName.trim());
+    const hasImportDraft = Boolean(importText.trim());
+    const editingStudent = editingId ? students.find((student) => student.id === editingId) : null;
+    const editingDraft = editingId ? draft[editingId] : null;
+    const editingDirty = Boolean(editingStudent && editingDraft && studentHasChanges(editingStudent, editingDraft));
+    const currentNotes = notesEditor ? students.find((student) => student.id === notesEditor.id)?.notes || "" : "";
+    const notesDirty = Boolean(notesEditor && notesEditor.notes !== currentNotes);
+
+    return hasNewStudentDraft || hasImportDraft || editingDirty || notesDirty;
+  }, [displayName, importText, editingId, draft, students, notesEditor]);
+
+  const { dialogProps, requestNavigation } = useUnsavedChangesGuard({
+    when: hasUnsavedChanges,
+    description: "You have unsaved student changes on this screen. Leaving now will discard them."
+  });
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -197,10 +231,7 @@ export default function StudentsSetupPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
-      <div className="space-y-2">
-        <h1 className="section-title">Set up / manage students</h1>
-      </div>
-      <SetupNav />
+      <ReturnToDashboardButton />
 
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">
@@ -213,7 +244,10 @@ export default function StudentsSetupPage() {
           <select
             className="form-control w-full truncate"
             value={blockId}
-            onChange={(e) => setBlockId(e.target.value)}
+            onChange={(e) => {
+              const nextBlockId = e.target.value;
+              requestNavigation(() => setBlockId(nextBlockId));
+            }}
           >
             {blockOptions.map((block) => (
               <option key={block.id} value={block.id}>
@@ -297,17 +331,7 @@ export default function StudentsSetupPage() {
             {sortedStudents.map((student) => {
               const isEditing = editingId === student.id;
               const draftRow = draft[student.id] || student;
-              const hasChanges =
-                draftRow.displayName !== student.displayName ||
-                draftRow.active !== student.active ||
-                draftRow.ml !== student.ml ||
-                draftRow.mlNew !== student.mlNew ||
-                draftRow.iep504 !== student.iep504 ||
-                draftRow.ec !== student.ec ||
-                draftRow.ca !== student.ca ||
-                draftRow.hiit !== student.hiit ||
-                draftRow.eog !== student.eog ||
-                (draftRow.notes || "") !== (student.notes || "");
+              const hasChanges = studentHasChanges(student, draftRow);
               const hasNotes = Boolean(student.notes && student.notes.trim().length > 0);
 
               return (
@@ -490,7 +514,20 @@ export default function StudentsSetupPage() {
               >
                 Import
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => setShowImport(false)}>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => {
+                  if (!importText.trim()) {
+                    setShowImport(false);
+                    return;
+                  }
+                  requestNavigation(() => {
+                    setShowImport(false);
+                    setImportText("");
+                  });
+                }}
+              >
                 Cancel
               </button>
             </div>
@@ -523,13 +560,26 @@ export default function StudentsSetupPage() {
               >
                 Save Notes
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => setNotesEditor(null)}>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => {
+                  const originalNotes = students.find((student) => student.id === notesEditor.id)?.notes || "";
+                  if (notesEditor.notes === originalNotes) {
+                    setNotesEditor(null);
+                    return;
+                  }
+                  requestNavigation(() => setNotesEditor(null));
+                }}
+              >
                 Cancel
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <UnsavedChangesDialog {...dialogProps} />
     </div>
   );
 }

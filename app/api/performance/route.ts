@@ -36,6 +36,78 @@ export async function POST(req: Request) {
     ? (colorValue as PerformanceColor)
     : PerformanceColor.GREEN;
 
+  if (Array.isArray(body.records)) {
+    const records = body.records
+      .map(
+        (record: {
+          studentId?: string;
+          lapNumber?: number;
+          color?: string;
+          remove?: boolean;
+        }) => {
+          const nextStudentId = String(record.studentId || "");
+          const nextLapNumber = Number(record.lapNumber);
+          const removeRecord = Boolean(record.remove);
+          const colorValue = String(record.color || "GREEN");
+          const nextColor = Object.values(PerformanceColor).includes(colorValue as PerformanceColor)
+            ? (colorValue as PerformanceColor)
+            : PerformanceColor.GREEN;
+          if (!nextStudentId || Number.isNaN(nextLapNumber)) return null;
+          return {
+            studentId: nextStudentId,
+            lapNumber: nextLapNumber,
+            remove: removeRecord,
+            color: nextColor
+          };
+        }
+      )
+      .filter(Boolean) as {
+      studentId: string;
+      lapNumber: number;
+      remove: boolean;
+      color: PerformanceColor;
+    }[];
+
+    if (!records.length) {
+      return NextResponse.json({ error: "invalid" }, { status: 400 });
+    }
+
+    await prisma.$transaction(
+      records.map((record) =>
+        record.remove
+          ? prisma.lapPerformance.deleteMany({
+              where: {
+                studentId: record.studentId,
+                date,
+                lapNumber: record.lapNumber,
+                schoolYearId: schoolYear.id,
+                blockId
+              }
+            })
+          : prisma.lapPerformance.upsert({
+              where: {
+                studentId_date_lapNumber: {
+                  studentId: record.studentId,
+                  date,
+                  lapNumber: record.lapNumber
+                }
+              },
+              update: { color: record.color },
+              create: {
+                schoolYearId: schoolYear.id,
+                blockId,
+                studentId: record.studentId,
+                date,
+                lapNumber: record.lapNumber,
+                color: record.color
+              }
+            })
+      )
+    );
+
+    return NextResponse.json({ ok: true });
+  }
+
   if (!blockId || !studentId || Number.isNaN(lapNumber)) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }

@@ -4,7 +4,9 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { addDays, format, startOfWeek } from "date-fns";
-import SetupNav from "@/components/SetupNav";
+import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
+import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
+import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
 
 type Block = { id: string; blockNumber: number; blockName: string };
 
@@ -18,24 +20,56 @@ type Lap = {
 
 type Standard = { code: string; description: string };
 
+type LapDraft = {
+  name: string;
+  standardCode: string;
+};
+
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const lapNumbers = [1, 2, 3];
+
+function draftKey(dayIndex: number, lapNumber: number) {
+  return `${dayIndex}-${lapNumber}`;
+}
+
+function buildDraftMap(laps: Lap[]) {
+  const next: Record<string, LapDraft> = {};
+  weekdays.forEach((_day, dayIndex) => {
+    lapNumbers.forEach((lapNumber) => {
+      const lap = laps.find((entry) => entry.dayIndex === dayIndex && entry.lapNumber === lapNumber);
+      next[draftKey(dayIndex, lapNumber)] = {
+        name: lap?.name || "",
+        standardCode: lap?.standardCode || ""
+      };
+    });
+  });
+  return next;
+}
+
+function lapDraftsMatch(left: Record<string, LapDraft>, right: Record<string, LapDraft>) {
+  const keys = Array.from(new Set([...Object.keys(left), ...Object.keys(right)]));
+  return keys.every((key) => {
+    const leftDraft = left[key] || { name: "", standardCode: "" };
+    const rightDraft = right[key] || { name: "", standardCode: "" };
+    return leftDraft.name === rightDraft.name && leftDraft.standardCode === rightDraft.standardCode;
+  });
+}
 
 function LapsSetupPageInner() {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
   const focusDate = searchParams.get("focusDate");
+  const requestedBlockId = searchParams.get("blockId");
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockId, setBlockId] = useState<string>("");
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [laps, setLaps] = useState<Lap[]>([]);
   const [standards, setStandards] = useState<Standard[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, LapDraft>>({});
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{
-    dayIndex: number;
-    lapNumber: number;
-    name: string;
-    standardCode: string | null;
-  } | null>(null);
 
   useEffect(() => {
     loadBlocks();
@@ -43,24 +77,35 @@ function LapsSetupPageInner() {
   }, []);
 
   useEffect(() => {
-    if (blockId) loadLaps();
-  }, [blockId, weekStart]);
-
-  useEffect(() => {
-    if (!returnTo) return;
-    const targetDate = focusDate ? new Date(`${focusDate}T09:00:00`) : new Date();
-    const targetIndex = (targetDate.getDay() + 6) % 7;
-    const targetLaps = laps.filter((lap) => lap.dayIndex === targetIndex);
-    if (targetLaps.length === 3) {
-      window.location.href = returnTo;
-    }
-  }, [laps, returnTo, focusDate]);
-
-  useEffect(() => {
     if (!focusDate) return;
     const focus = new Date(`${focusDate}T09:00:00`);
     setWeekStart(startOfWeek(focus, { weekStartsOn: 1 }));
   }, [focusDate]);
+
+  useEffect(() => {
+    if (!blockId) return;
+    setEditing(false);
+    setStatusMessage(null);
+    loadLaps();
+  }, [blockId, weekStart]);
+
+  useEffect(() => {
+    if (!requestedBlockId) return;
+    if (!blocks.some((block) => block.id === requestedBlockId)) return;
+    if (requestedBlockId !== blockId) {
+      setBlockId(requestedBlockId);
+    }
+  }, [requestedBlockId, blocks, blockId]);
+
+  useEffect(() => {
+    if (!returnTo || !focusDate) return;
+    const targetDate = new Date(`${focusDate}T09:00:00`);
+    const targetIndex = (targetDate.getDay() + 6) % 7;
+    const targetLaps = laps.filter((lap) => lap.dayIndex === targetIndex && lap.name.trim());
+    if (targetLaps.length === 3) {
+      window.location.href = returnTo;
+    }
+  }, [laps, returnTo, focusDate]);
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -69,8 +114,14 @@ function LapsSetupPageInner() {
       return;
     }
     const data = await res.json();
-    setBlocks(data.blocks || []);
-    if (!blockId && data.blocks?.length) setBlockId(data.blocks[0].id);
+    const availableBlocks: Block[] = data.blocks || [];
+    setBlocks(availableBlocks);
+    if (!blockId && availableBlocks.length) {
+      const matchingBlock = requestedBlockId
+        ? availableBlocks.find((block) => block.id === requestedBlockId)
+        : null;
+      setBlockId(matchingBlock ? matchingBlock.id : availableBlocks[0].id);
+    }
   }
 
   async function loadStandards() {
@@ -82,28 +133,97 @@ function LapsSetupPageInner() {
   async function loadLaps() {
     const res = await fetch(`/api/laps?blockId=${blockId}&weekStart=${weekStart.toISOString()}`);
     const data = await res.json();
-    setLaps(data.laps || []);
+    const nextLaps: Lap[] = data.laps || [];
+    setLaps(nextLaps);
+    setDrafts(buildDraftMap(nextLaps));
   }
 
-  async function saveLap(dayIndex: number, lapNumber: number, name: string, standardCode: string | null) {
+  function startEditing() {
+    setStatusMessage(null);
+    setDrafts(buildDraftMap(laps));
+    setEditing(true);
+  }
+
+  function cancelEditing() {
+    setDrafts(buildDraftMap(laps));
+    setEditing(false);
+    setStatusMessage(null);
+  }
+
+  async function saveAll() {
+    if (!blockId) return;
+    setSaving(true);
+    setStatusMessage(null);
+
+    const entries = weekdays.flatMap((_day, dayIndex) =>
+      lapNumbers.map((lapNumber) => {
+        const draft = drafts[draftKey(dayIndex, lapNumber)] || { name: "", standardCode: "" };
+        const name = draft.name.trim();
+        return {
+          dayIndex,
+          lapNumber,
+          name,
+          standardCode: draft.standardCode || null,
+          delete: !name
+        };
+      })
+    );
+
     const res = await fetch("/api/laps", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         blockId,
         weekStart: weekStart.toISOString(),
-        dayIndex,
-        lapNumber,
-        name,
-        standardCode
+        entries
       })
     });
-    if (res.ok) await loadLaps();
+
+    if (!res.ok) {
+      setStatusMessage("Unable to save laps.");
+      setSaving(false);
+      return;
+    }
+
+    await loadLaps();
+    setEditing(false);
+    setSaving(false);
+    setStatusMessage("Saved.");
   }
 
+  function handlePaste(startDayIndex: number, startLapNumber: number, text: string) {
+    const rows = text.replace(/\r/g, "").split("\n").filter((row) => row.length > 0);
+    const startRowIndex = lapNumbers.indexOf(startLapNumber);
+    if (!rows.length || startRowIndex < 0) return;
 
-  function getLap(dayIndex: number, lapNumber: number) {
-    return laps.find((lap) => lap.dayIndex === dayIndex && lap.lapNumber === lapNumber);
+    setDrafts((prev) => {
+      const next = { ...prev };
+      rows.forEach((row, rowOffset) => {
+        const lapNumber = lapNumbers[startRowIndex + rowOffset];
+        if (!lapNumber) return;
+        row.split("\t").forEach((value, colOffset) => {
+          const dayIndex = startDayIndex + colOffset;
+          if (dayIndex > weekdays.length - 1) return;
+          const key = draftKey(dayIndex, lapNumber);
+          next[key] = {
+            ...(next[key] || { name: "", standardCode: "" }),
+            name: value.trim()
+          };
+        });
+      });
+      return next;
+    });
+  }
+
+  function updateDraft(dayIndex: number, lapNumber: number, value: Partial<LapDraft>) {
+    const key = draftKey(dayIndex, lapNumber);
+    setDrafts((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || { name: "", standardCode: "" }),
+        ...value
+      }
+    }));
   }
 
   const blockOptions = useMemo(
@@ -111,12 +231,30 @@ function LapsSetupPageInner() {
     [blocks]
   );
 
+  const savedDrafts = useMemo(() => buildDraftMap(laps), [laps]);
+  const hasUnsavedChanges = useMemo(
+    () => editing && !lapDraftsMatch(drafts, savedDrafts),
+    [editing, drafts, savedDrafts]
+  );
+
+  const { dialogProps, requestNavigation } = useUnsavedChangesGuard({
+    when: hasUnsavedChanges,
+    description: "You have unsaved lap edits on this screen. Leaving now will discard them."
+  });
+
+  const focusDayIndex = useMemo(() => {
+    if (!focusDate) return null;
+    const focus = new Date(`${focusDate}T09:00:00`);
+    const focusWeekStart = startOfWeek(focus, { weekStartsOn: 1 });
+    if (focusWeekStart.toISOString().slice(0, 10) !== weekStart.toISOString().slice(0, 10)) {
+      return null;
+    }
+    return (focus.getDay() + 6) % 7;
+  }, [focusDate, weekStart]);
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
-      <div className="space-y-2">
-        <h1 className="section-title">Name Your Laps</h1>
-      </div>
-      <SetupNav />
+      <ReturnToDashboardButton />
 
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">
@@ -126,82 +264,141 @@ function LapsSetupPageInner() {
 
       <div className="hero-card p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <select className="form-control max-w-[260px]" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              className="form-control max-w-[280px]"
+              value={blockId}
+              onChange={(e) => {
+                const nextBlockId = e.target.value;
+                requestNavigation(() => setBlockId(nextBlockId));
+              }}
+            >
               {blockOptions.map((block) => (
                 <option key={block.id} value={block.id}>
                   {block.label}
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex items-center gap-3">
+
             <button
               className="btn btn-ghost"
               type="button"
-              onClick={() => setWeekStart(addDays(weekStart, -7))}
+              onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, -7)))}
             >
               Previous Week
             </button>
             <div className="text-lg font-semibold">Week of {format(weekStart, "MM/dd/yy")}</div>
-            <button className="btn btn-ghost" type="button" onClick={() => setWeekStart(addDays(weekStart, 7))}>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, 7)))}
+            >
               Next Week
             </button>
           </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {!editing && (
+              <button className="btn btn-primary" type="button" onClick={startEditing} disabled={!blockId}>
+                Edit
+              </button>
+            )}
+            {editing && (
+              <>
+                <button className="btn btn-primary" type="button" onClick={saveAll} disabled={saving}>
+                  {saving ? "Saving..." : "Save"}
+                </button>
+                <button className="btn btn-ghost" type="button" onClick={cancelEditing} disabled={saving}>
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="overflow-visible">
-          <table className="table table-compact w-full table-fixed">
+        <div className="flex min-h-[20px] items-center justify-end text-sm text-black/60">
+          <div>{statusMessage || ""}</div>
+        </div>
+
+        <div className="overflow-x-auto overflow-y-visible">
+          <table className="table table-compact w-full min-w-[980px] table-fixed">
             <thead>
               <tr>
-                <th></th>
+                <th className="w-[120px]"></th>
                 {weekdays.map((day, index) => {
-                  const isTarget =
-                    focusDate && index === ((new Date(`${focusDate}T09:00:00`).getDay() + 6) % 7);
+                  const isFocusDay = focusDayIndex === null || focusDayIndex === index;
                   return (
-                  <th key={day} className={`text-center ${focusDate && !isTarget ? "opacity-40" : ""}`}>
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="font-semibold text-[15px]">{day}</div>
-                      <div className="text-[13px] text-black/60">{format(addDays(weekStart, index), "MM/dd")}</div>
-                    </div>
-                  </th>
-                )})}
+                    <th key={day} className="text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <div className="font-semibold text-[15px]">{day}</div>
+                        <div className={`text-[13px] ${focusDayIndex !== null && isFocusDay ? "text-black" : "text-black/60"}`}>
+                          {format(addDays(weekStart, index), "MM/dd")}
+                        </div>
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
-              {[1, 2, 3].map((lapNumber) => (
+              {lapNumbers.map((lapNumber) => (
                 <tr key={lapNumber}>
-                  <td className="text-center align-middle">
-                    <div className="font-semibold text-[15px]">Lap {lapNumber}</div>
+                  <td className="align-top">
+                    <div className="pt-3 text-center font-semibold text-[15px]">Lap {lapNumber}</div>
                   </td>
                   {weekdays.map((_day, dayIndex) => {
-                    const lap = getLap(dayIndex, lapNumber);
-                    const isTarget =
-                      focusDate && dayIndex === ((new Date(`${focusDate}T09:00:00`).getDay() + 6) % 7);
+                    const key = draftKey(dayIndex, lapNumber);
+                    const draft = drafts[key] || { name: "", standardCode: "" };
+                    const lap = laps.find((entry) => entry.dayIndex === dayIndex && entry.lapNumber === lapNumber);
+                    const isFocusDay = focusDayIndex === null || focusDayIndex === dayIndex;
+
                     return (
-                      <td key={`${dayIndex}-${lapNumber}`} className={`align-top ${focusDate && !isTarget ? "opacity-40" : ""}`}>
-                        <button
-                          className="w-full h-20 rounded-xl border border-black/10 bg-white text-[13px] leading-snug text-black/70 whitespace-normal break-words px-2"
-                          type="button"
-                          disabled={Boolean(focusDate && !isTarget)}
-                          onClick={() =>
-                            setEditing({
-                              dayIndex,
-                              lapNumber,
-                              name: lap?.name || "",
-                              standardCode: lap?.standardCode || null
-                            })
-                          }
+                      <td key={key} className="align-top">
+                        <div
+                          className={`rounded-2xl border p-3 ${
+                            focusDayIndex !== null && isFocusDay
+                              ? "border-black/20 bg-white shadow-sm"
+                              : "border-black/10 bg-white/90"
+                          }`}
                         >
-                          {lap ? (
-                            <div className="flex flex-col">
-                              <span className="font-semibold text-black text-[13px]">{lap.name}</span>
-                              {lap.standardCode && <span className="text-[11px]">{lap.standardCode}</span>}
+                          {!editing && (
+                            <div className="min-h-[72px] space-y-2">
+                              <div className="text-sm font-semibold text-black">
+                                {lap?.name || <span className="text-black/35">No lap name</span>}
+                              </div>
+                              <div className="text-xs text-black/55">{lap?.standardCode || "No standard selected"}</div>
                             </div>
-                          ) : (
-                            "+"
                           )}
-                        </button>
+
+                          {editing && (
+                            <div className="space-y-2">
+                              <input
+                                className="form-control bg-white text-sm"
+                                value={draft.name}
+                                placeholder="Lap name"
+                                onChange={(e) => updateDraft(dayIndex, lapNumber, { name: e.target.value })}
+                                onPaste={(e) => {
+                                  const pasted = e.clipboardData.getData("text");
+                                  if (!pasted.includes("\t") && !pasted.includes("\n")) return;
+                                  e.preventDefault();
+                                  handlePaste(dayIndex, lapNumber, pasted);
+                                }}
+                              />
+                              <select
+                                className="form-control bg-white text-sm"
+                                value={draft.standardCode}
+                                onChange={(e) => updateDraft(dayIndex, lapNumber, { standardCode: e.target.value })}
+                              >
+                                <option value="">No standard</option>
+                                {standards.map((standard) => (
+                                  <option key={standard.code} value={standard.code}>
+                                    {standard.code} — {standard.description}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     );
                   })}
@@ -210,63 +407,9 @@ function LapsSetupPageInner() {
             </tbody>
           </table>
         </div>
-
       </div>
 
-      {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
-          <div className="hero-card w-full max-w-md p-6 space-y-4">
-            <div>
-              <div className="small-header text-black/60">Edit Lap</div>
-              <h2 className="section-title">
-                {weekdays[editing.dayIndex]} · Lap {editing.lapNumber}
-              </h2>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Lap name</label>
-              <input
-                className="form-control"
-                value={editing.name}
-                onChange={(e) => setEditing((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">NC Standard (optional)</label>
-              <select
-                className="form-control"
-                value={editing.standardCode || ""}
-                onChange={(e) =>
-                  setEditing((prev) => (prev ? { ...prev, standardCode: e.target.value || null } : prev))
-                }
-              >
-                <option value="">None</option>
-                {standards.map((standard) => (
-                  <option key={standard.code} value={standard.code}>
-                    {standard.code} — {standard.description}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button
-                className="btn btn-primary"
-                type="button"
-                onClick={async () => {
-                  if (!editing.name.trim()) return;
-                  await saveLap(editing.dayIndex, editing.lapNumber, editing.name.trim(), editing.standardCode);
-                  setEditing(null);
-                }}
-              >
-                Save Lap
-              </button>
-              <button className="btn btn-ghost" type="button" onClick={() => setEditing(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      <UnsavedChangesDialog {...dialogProps} />
     </div>
   );
 }

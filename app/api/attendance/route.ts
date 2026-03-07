@@ -33,6 +33,41 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
 
+  if (Array.isArray(body.records)) {
+    const records = body.records
+      .map((record: { studentId?: string; status?: string }) => {
+        const studentId = String(record.studentId || "");
+        const statusValue = String(record.status || "PRESENT");
+        const status = Object.values(AttendanceStatus).includes(statusValue as AttendanceStatus)
+          ? (statusValue as AttendanceStatus)
+          : AttendanceStatus.PRESENT;
+        return studentId ? { studentId, status } : null;
+      })
+      .filter(Boolean) as { studentId: string; status: AttendanceStatus }[];
+
+    if (!records.length) {
+      return NextResponse.json({ error: "invalid" }, { status: 400 });
+    }
+
+    await prisma.$transaction(
+      records.map((record) =>
+        prisma.attendanceRecord.upsert({
+          where: { studentId_date: { studentId: record.studentId, date } },
+          update: { status: record.status },
+          create: {
+            schoolYearId: schoolYear.id,
+            blockId,
+            studentId: record.studentId,
+            date,
+            status: record.status
+          }
+        })
+      )
+    );
+
+    return NextResponse.json({ ok: true });
+  }
+
   if (body.mode === "bulk") {
     const statusValue = String(body.status || "PRESENT");
     const status = Object.values(AttendanceStatus).includes(statusValue as AttendanceStatus)
