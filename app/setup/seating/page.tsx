@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 
 type Block = { id: string; blockNumber: number; blockName: string };
@@ -35,7 +36,9 @@ type Desk = {
 
 const SNAP_DISTANCE = 40;
 
-export default function SeatingSetupPage() {
+function SeatingSetupPageInner() {
+  const searchParams = useSearchParams();
+  const requestedBlockId = searchParams.get("blockId");
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockId, setBlockId] = useState<string>("");
   const [desks, setDesks] = useState<Desk[]>([]);
@@ -62,6 +65,14 @@ export default function SeatingSetupPage() {
   }, []);
 
   useEffect(() => {
+    if (!requestedBlockId) return;
+    if (!blocks.some((block) => block.id === requestedBlockId)) return;
+    if (requestedBlockId !== blockId) {
+      setBlockId(requestedBlockId);
+    }
+  }, [requestedBlockId, blocks, blockId]);
+
+  useEffect(() => {
     if (blockId) {
       loadDesks();
       loadUnassigned();
@@ -84,8 +95,12 @@ export default function SeatingSetupPage() {
       return;
     }
     const data = await res.json();
-    setBlocks(data.blocks || []);
-    if (!blockId && data.blocks?.length) setBlockId(data.blocks[0].id);
+    const availableBlocks: Block[] = data.blocks || [];
+    setBlocks(availableBlocks);
+    if (!blockId && availableBlocks.length) {
+      const matchingBlock = requestedBlockId ? availableBlocks.find((block) => block.id === requestedBlockId) : null;
+      setBlockId(matchingBlock ? matchingBlock.id : availableBlocks[0].id);
+    }
   }
 
   async function loadDesks() {
@@ -285,29 +300,40 @@ export default function SeatingSetupPage() {
     () => blocks.map((block) => ({ id: block.id, label: `Block ${block.blockNumber} · ${block.blockName}` })),
     [blocks]
   );
-
+  const selectedBlock = useMemo(() => blocks.find((block) => block.id === blockId) || null, [blocks, blockId]);
+  const blockLocked = useMemo(
+    () => Boolean(requestedBlockId && blocks.some((block) => block.id === requestedBlockId)),
+    [requestedBlockId, blocks]
+  );
 
   // auto-fit removed
 
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
-      <ReturnToDashboardButton />
-
+    <div className="mx-auto max-w-6xl px-6 py-6 space-y-4">
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">
           {error} <Link className="underline" href="/dashboard">Go to login</Link>
         </div>
       )}
 
-      <div className="flex flex-wrap lg:flex-nowrap items-center gap-2">
-        <select className="form-control max-w-[220px] shrink-0" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
-          {blockOptions.map((block) => (
-            <option key={block.id} value={block.id}>
-              {block.label}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-wrap items-center gap-2">
+        <ReturnToDashboardButton className="w-auto shrink-0 px-4 py-2 text-sm md:min-w-0" />
+
+        {blockLocked ? (
+          <div className="rounded-full border border-black/15 bg-white/85 px-3 py-2 text-sm font-semibold text-black/80 shadow-sm">
+            {selectedBlock ? `Block ${selectedBlock.blockNumber} · ${selectedBlock.blockName}` : "Selected Block"}
+          </div>
+        ) : (
+          <select className="form-control max-w-[220px] shrink-0" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
+            {blockOptions.map((block) => (
+              <option key={block.id} value={block.id}>
+                {block.label}
+              </option>
+            ))}
+          </select>
+        )}
+
         <select
           className="form-control max-w-[180px] shrink-0"
           value={selectedStudentId}
@@ -346,7 +372,9 @@ export default function SeatingSetupPage() {
         >
           Delete
         </button>
-        <div className="text-sm text-black/60 w-full lg:w-auto">{lastSaved ? lastSaved : "Autosave enabled"}</div>
+        <div className="w-full text-sm text-black/60 xl:w-auto">
+          {lastSaved ? lastSaved : "Layout changes save immediately"}
+        </div>
       </div>
 
       <div className="hero-card h-[560px] p-0 relative overflow-hidden">
@@ -490,5 +518,13 @@ export default function SeatingSetupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SeatingSetupPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl px-6 py-6">Loading…</div>}>
+      <SeatingSetupPageInner />
+    </Suspense>
   );
 }

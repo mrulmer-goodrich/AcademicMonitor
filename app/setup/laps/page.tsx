@@ -60,6 +60,7 @@ function LapsSetupPageInner() {
   const returnTo = searchParams.get("returnTo");
   const focusDate = searchParams.get("focusDate");
   const requestedBlockId = searchParams.get("blockId");
+  const notice = searchParams.get("notice");
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockId, setBlockId] = useState<string>("");
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -106,6 +107,11 @@ function LapsSetupPageInner() {
       window.location.href = returnTo;
     }
   }, [laps, returnTo, focusDate]);
+
+  useEffect(() => {
+    if (notice !== "name-laps-before-monitoring") return;
+    window.alert("You have to name a lap before you can monitor it.");
+  }, [notice]);
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -253,7 +259,7 @@ function LapsSetupPageInner() {
   }, [focusDate, weekStart]);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
+    <div className="mx-auto max-w-6xl px-6 py-6 space-y-4">
       <ReturnToDashboardButton />
 
       {error && (
@@ -262,7 +268,7 @@ function LapsSetupPageInner() {
         </div>
       )}
 
-      <div className="hero-card p-6 space-y-4">
+      <div className="hero-card p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <select
@@ -281,7 +287,7 @@ function LapsSetupPageInner() {
             </select>
 
             <button
-              className="btn btn-ghost"
+              className="btn btn-ghost shrink-0 whitespace-nowrap"
               type="button"
               onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, -7)))}
             >
@@ -289,7 +295,7 @@ function LapsSetupPageInner() {
             </button>
             <div className="text-lg font-semibold">Week of {format(weekStart, "MM/dd/yy")}</div>
             <button
-              className="btn btn-ghost"
+              className="btn btn-ghost shrink-0 whitespace-nowrap"
               type="button"
               onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, 7)))}
             >
@@ -321,7 +327,7 @@ function LapsSetupPageInner() {
         </div>
 
         <div className="overflow-x-auto overflow-y-visible">
-          <table className="table table-compact w-full min-w-[980px] table-fixed">
+          <table className="table w-full min-w-[980px] table-fixed">
             <thead>
               <tr>
                 <th className="w-[120px]"></th>
@@ -355,10 +361,12 @@ function LapsSetupPageInner() {
                     return (
                       <td key={key} className="align-top">
                         <div
-                          className={`rounded-2xl border p-3 ${
-                            focusDayIndex !== null && isFocusDay
+                          className={`rounded-2xl border p-3 transition ${
+                            editing
+                              ? "border-black/15 bg-[#fffdf8] shadow-sm"
+                              : focusDayIndex !== null && isFocusDay
                               ? "border-black/20 bg-white shadow-sm"
-                              : "border-black/10 bg-white/90"
+                              : "border-black/10 bg-white/92"
                           }`}
                         >
                           {!editing && (
@@ -371,31 +379,35 @@ function LapsSetupPageInner() {
                           )}
 
                           {editing && (
-                            <div className="space-y-2">
-                              <input
-                                className="form-control bg-white text-sm"
-                                value={draft.name}
-                                placeholder="Lap name"
-                                onChange={(e) => updateDraft(dayIndex, lapNumber, { name: e.target.value })}
-                                onPaste={(e) => {
-                                  const pasted = e.clipboardData.getData("text");
-                                  if (!pasted.includes("\t") && !pasted.includes("\n")) return;
-                                  e.preventDefault();
-                                  handlePaste(dayIndex, lapNumber, pasted);
-                                }}
-                              />
-                              <select
-                                className="form-control bg-white text-sm"
-                                value={draft.standardCode}
-                                onChange={(e) => updateDraft(dayIndex, lapNumber, { standardCode: e.target.value })}
-                              >
-                                <option value="">No standard</option>
-                                {standards.map((standard) => (
-                                  <option key={standard.code} value={standard.code}>
-                                    {standard.code} — {standard.description}
-                                  </option>
-                                ))}
-                              </select>
+                            <div className="space-y-3">
+                              <div>
+                                <input
+                                  className="form-control bg-white text-sm text-black"
+                                  value={draft.name}
+                                  placeholder="Type lap name"
+                                  onChange={(e) => updateDraft(dayIndex, lapNumber, { name: e.target.value })}
+                                  onPaste={(e) => {
+                                    const pasted = e.clipboardData.getData("text");
+                                    if (!pasted.includes("\t") && !pasted.includes("\n")) return;
+                                    e.preventDefault();
+                                    handlePaste(dayIndex, lapNumber, pasted);
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <select
+                                  className="form-control bg-white text-sm text-black"
+                                  value={draft.standardCode}
+                                  onChange={(e) => updateDraft(dayIndex, lapNumber, { standardCode: e.target.value })}
+                                >
+                                  <option value="">No standard</option>
+                                  {standards.map((standard) => (
+                                    <option key={standard.code} value={standard.code}>
+                                      {standard.code} — {standard.description}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                           )}
                         </div>

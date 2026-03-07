@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 import { startOfWeek } from "date-fns";
 
@@ -8,7 +9,7 @@ type Block = { id: string; blockNumber: number; blockName: string };
 type Student = { id: string; displayName: string; blockId: string };
 type Standard = { code: string; description: string };
 
-const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const categories = [
   { key: "ml", label: "ML" },
   { key: "mlNew", label: "ML New" },
@@ -18,17 +19,33 @@ const categories = [
   { key: "hiit", label: "HIIT" }
 ] as const;
 
-export default function ReportPage() {
+function parseListParam(value: string | null) {
+  return value
+    ? value
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    : [];
+}
+
+function parseNumberListParam(value: string | null, allowed: number[]) {
+  return parseListParam(value)
+    .map((entry) => Number(entry))
+    .filter((entry) => Number.isFinite(entry) && allowed.includes(entry));
+}
+
+function ReportPageInner() {
+  const searchParams = useSearchParams();
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [standards, setStandards] = useState<Standard[]>([]);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [selectedLaps, setSelectedLaps] = useState<number[]>([1, 2, 3]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<"class" | "student">("class");
+  const [viewMode, setViewMode] = useState<"class" | "student" | "records">("class");
   const [categoriesMatchAll, setCategoriesMatchAll] = useState(false);
   const [weekStart, setWeekStart] = useState<string>(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().slice(0, 10)
@@ -39,6 +56,29 @@ export default function ReportPage() {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [error, setError] = useState<string | null>(null);
+  const autoRunStartedRef = useRef(false);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+
+  const requestedBlockIds = useMemo(() => parseListParam(searchParams.get("blocks")), [searchParams]);
+  const requestedStudentIds = useMemo(() => parseListParam(searchParams.get("students")), [searchParams]);
+  const requestedDays = useMemo(() => parseNumberListParam(searchParams.get("days"), [0, 1, 2, 3, 4, 5, 6]), [searchParams]);
+  const requestedLaps = useMemo(() => parseNumberListParam(searchParams.get("laps"), [1, 2, 3]), [searchParams]);
+  const requestedWeekStart = searchParams.get("weekStart");
+  const requestedViewMode = searchParams.get("viewMode") === "student"
+    ? "student"
+    : searchParams.get("viewMode") === "records"
+    ? "records"
+    : "class";
+  const autoRunRequested = searchParams.get("autoRun") === "1";
+  const linkedFiltersReady = useMemo(() => {
+    const blocksReady = requestedBlockIds.length === 0 || requestedBlockIds.every((id) => selectedBlocks.includes(id));
+    const studentsReady = requestedStudentIds.length === 0 || requestedStudentIds.every((id) => selectedStudents.includes(id));
+    return blocksReady && studentsReady && viewMode === requestedViewMode;
+  }, [requestedBlockIds, selectedBlocks, requestedStudentIds, selectedStudents, viewMode, requestedViewMode]);
+
+  useEffect(() => {
+    autoRunStartedRef.current = false;
+  }, [searchParams]);
 
   useEffect(() => {
     loadBlocks();
@@ -51,12 +91,41 @@ export default function ReportPage() {
     }
   }, [selectedBlocks]);
 
+  useEffect(() => {
+    if (requestedWeekStart) setWeekStart(requestedWeekStart);
+    if (requestedDays.length) setSelectedDays(requestedDays);
+    if (requestedLaps.length) setSelectedLaps(requestedLaps);
+    if (requestedStudentIds.length) setSelectedStudents(requestedStudentIds);
+    setViewMode(requestedViewMode);
+  }, [requestedWeekStart, requestedDays, requestedLaps, requestedStudentIds, requestedViewMode]);
+
+  useEffect(() => {
+    if (!autoRunRequested || autoRunStartedRef.current) return;
+    if (!selectedBlocks.length || !linkedFiltersReady) return;
+    if (viewMode === "student" && selectedStudents.length !== 1) return;
+    autoRunStartedRef.current = true;
+    void runReport();
+  }, [autoRunRequested, selectedBlocks, selectedStudents, viewMode, linkedFiltersReady, weekStart, weeksRange, selectedDays, selectedLaps, selectedCategories, selectedStandards, categoriesMatchAll]);
+
+  useEffect(() => {
+    if (!autoRunRequested || !columns.length) return;
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [autoRunRequested, columns.length]);
+
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
     if (!res.ok) return;
     const data = await res.json();
-    setBlocks(data.blocks || []);
-    if ((data.blocks || []).length) setSelectedBlocks([data.blocks[0].id]);
+    const availableBlocks: Block[] = data.blocks || [];
+    setBlocks(availableBlocks);
+    const matchedBlocks = availableBlocks
+      .filter((block) => requestedBlockIds.includes(block.id))
+      .map((block) => block.id);
+    if (matchedBlocks.length) {
+      setSelectedBlocks(matchedBlocks);
+      return;
+    }
+    if (availableBlocks.length) setSelectedBlocks([availableBlocks[0].id]);
   }
 
   async function loadStudents() {
@@ -146,6 +215,13 @@ export default function ReportPage() {
     () => students.filter((s) => selectedBlocks.includes(s.blockId)),
     [students, selectedBlocks]
   );
+  const linkedBlockSummary = useMemo(() => {
+    if (!requestedBlockIds.length) return null;
+    const labels = blocks
+      .filter((block) => selectedBlocks.includes(block.id))
+      .map((block) => `Block ${block.blockNumber} · ${block.blockName}`);
+    return labels.length ? labels.join(", ") : null;
+  }, [blocks, selectedBlocks, requestedBlockIds]);
 
   const sortedRows = useMemo(() => {
     if (!sortKey) return rows;
@@ -164,6 +240,12 @@ export default function ReportPage() {
         <div className="small-header text-black/60">Report</div>
         <h1 className="section-title">Filters and Export</h1>
       </div>
+
+      {linkedBlockSummary && (
+        <div className="hero-card p-4 text-sm text-black/70">
+          Showing the current-week detail behind the dashboard stats for {linkedBlockSummary}.
+        </div>
+      )}
 
       {error && <div className="hero-card p-4 text-sm text-red-700">{error}</div>}
 
@@ -189,8 +271,19 @@ export default function ReportPage() {
               />
               Student View
             </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="viewMode"
+                checked={viewMode === "records"}
+                onChange={() => setViewMode("records")}
+              />
+              Records View
+            </label>
           </div>
-          <div className="text-xs text-black/60">Student view requires exactly one student selected.</div>
+          <div className="text-xs text-black/60">
+            Student view requires exactly one student selected. Records view shows the raw entries behind a summary.
+          </div>
         </div>
         <div className="feature-card space-y-3">
           <div className="font-semibold">Week</div>
@@ -338,7 +431,7 @@ export default function ReportPage() {
         </div>
       </div>
 
-      <div className="hero-card p-6 space-y-4">
+      <div id="report-results" ref={resultsRef} className="hero-card p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="font-semibold">Results</div>
           <div className="flex gap-2">
@@ -400,5 +493,13 @@ export default function ReportPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ReportPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl px-6 py-10">Loading…</div>}>
+      <ReportPageInner />
+    </Suspense>
   );
 }

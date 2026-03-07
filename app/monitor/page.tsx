@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format, startOfWeek } from "date-fns";
@@ -88,17 +88,19 @@ function MonitorPageInner() {
   const [activeStudents, setActiveStudents] = useState<string[]>([]);
   const [unassignedActiveStudents, setUnassignedActiveStudents] = useState<string[]>([]);
   const [laps, setLaps] = useState<Lap[]>([]);
-  const [selectedLaps, setSelectedLaps] = useState<number[]>([]);
   const [attendancePanel, setAttendancePanel] = useState(false);
   const [activeMode, setActiveMode] = useState<"attendance" | "performance">("attendance");
   const [savedAttendance, setSavedAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [draftAttendance, setDraftAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [savedPerformance, setSavedPerformance] = useState<Record<string, PerformanceColor>>({});
   const [draftPerformance, setDraftPerformance] = useState<Record<string, PerformanceColor>>({});
+  const [attendanceCompletionPromptOpen, setAttendanceCompletionPromptOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveState, setSaveState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const attendanceReadyRef = useRef(false);
+  const attendancePromptInitializedRef = useRef(false);
 
   const dateToUse = new Date();
   const dateKey = format(dateToUse, "yyyy-MM-dd");
@@ -112,7 +114,6 @@ function MonitorPageInner() {
 
   useEffect(() => {
     if (!blockId) return;
-    setSelectedLaps([]);
     loadMonitorData();
   }, [blockId, dateKey]);
 
@@ -125,12 +126,13 @@ function MonitorPageInner() {
   }, [requestedBlockId, blocks, blockId]);
 
   useEffect(() => {
-    if (requestedMode === "performance" && isWeekday) {
-      setActiveMode("performance");
-      return;
-    }
-    setActiveMode("attendance");
-  }, [blockId, requestedMode, isWeekday]);
+    setActiveMode(requestedMode === "performance" ? "performance" : "attendance");
+  }, [blockId, requestedMode]);
+
+  useEffect(() => {
+    attendancePromptInitializedRef.current = false;
+    setAttendanceCompletionPromptOpen(false);
+  }, [blockId, dateKey, activeMode]);
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -223,8 +225,12 @@ function MonitorPageInner() {
   }, [activeStudents, draftAttendance]);
 
   const canTakeAttendance = unassignedActiveStudents.length === 0;
-  const lapsNamed = isWeekday && todayLaps.length === 3;
-  const readyForPerformance = canTakeAttendance && attendanceComplete && lapsNamed && selectedLaps.length > 0;
+  const namedLapMap = useMemo(
+    () => new Map(todayLaps.map((lap) => [lap.lapNumber, lap])),
+    [todayLaps]
+  );
+  const namedLapCount = todayLaps.length;
+  const canMonitorFromSeatMap = canTakeAttendance && isWeekday;
 
   const performanceMap = useMemo(() => draftPerformance, [draftPerformance]);
   const hasUnsavedChanges = useMemo(
@@ -238,6 +244,26 @@ function MonitorPageInner() {
     when: hasUnsavedChanges,
     description: "You have unsaved attendance or monitoring changes on this screen. Leaving now will discard them."
   });
+
+  useEffect(() => {
+    if (loading || activeMode !== "attendance" || !canTakeAttendance) {
+      attendanceReadyRef.current = attendanceComplete;
+      return;
+    }
+
+    if (!attendancePromptInitializedRef.current) {
+      attendancePromptInitializedRef.current = true;
+      attendanceReadyRef.current = attendanceComplete;
+      return;
+    }
+
+    const wasComplete = attendanceReadyRef.current;
+    attendanceReadyRef.current = attendanceComplete;
+
+    if (!wasComplete && attendanceComplete) {
+      setAttendanceCompletionPromptOpen(true);
+    }
+  }, [attendanceComplete, activeMode, canTakeAttendance, loading]);
 
   function cycleAttendance(studentId: string) {
     setDraftAttendance((prev) => {
@@ -293,16 +319,24 @@ function MonitorPageInner() {
     setSaveState(null);
   }
 
-  async function saveChanges(returnToDashboard: boolean) {
+  function lapsSetupHref(includeNotice = false) {
+    const base = `/setup/laps?blockId=${blockId}&focusDate=${dateKey}&returnTo=${encodeURIComponent(
+      `/monitor?blockId=${blockId}&mode=performance`
+    )}`;
+    return includeNotice ? `${base}&notice=name-laps-before-monitoring` : base;
+  }
+
+  async function saveChanges(options: { nextUrl?: string } = {}) {
+    const { nextUrl } = options;
     if (!blockId) {
-      if (returnToDashboard) router.push("/dashboard");
+      if (nextUrl) router.push(nextUrl);
       return;
     }
 
     if (!hasUnsavedChanges) {
       setSaveState("No unsaved changes.");
-      if (returnToDashboard) {
-        router.push("/dashboard");
+      if (nextUrl) {
+        router.push(nextUrl);
       }
       return;
     }
@@ -372,8 +406,8 @@ function MonitorPageInner() {
       setSavedPerformance(cloneRecordMap(draftPerformance));
       setSaveState("Saved.");
 
-      if (returnToDashboard) {
-        router.push("/dashboard");
+      if (nextUrl) {
+        router.push(nextUrl);
       }
     } catch {
       setSaveState("Unable to save changes.");
@@ -382,9 +416,31 @@ function MonitorPageInner() {
     }
   }
 
-  const lapButtons = lapsNamed
-    ? todayLaps.map((lap) => ({ lapNumber: lap.lapNumber, label: lap.name }))
-    : lapNumbers.map((lapNumber) => ({ lapNumber, label: `Lap ${lapNumber}` }));
+  async function handleAttendanceCompletionAction(action: "stay" | "monitor" | "dashboard") {
+    if (action === "stay") {
+      setAttendanceCompletionPromptOpen(false);
+      return;
+    }
+
+    const nextUrl =
+      action === "dashboard"
+        ? "/dashboard"
+        : namedLapCount === 0
+        ? lapsSetupHref(true)
+        : `/monitor?blockId=${blockId}&mode=performance`;
+
+    setAttendanceCompletionPromptOpen(false);
+    await saveChanges({ nextUrl });
+  }
+
+  const monitoringLaps = lapNumbers.map((lapNumber) => {
+    const lap = namedLapMap.get(lapNumber);
+    return {
+      lapNumber,
+      label: lap?.name || `Name Lap ${lapNumber}`,
+      isNamed: Boolean(lap?.name)
+    };
+  });
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
@@ -402,12 +458,17 @@ function MonitorPageInner() {
           <button
             className="btn btn-primary"
             type="button"
-            onClick={() => saveChanges(false)}
+            onClick={() => saveChanges()}
             disabled={!blockId || saving || !hasUnsavedChanges}
           >
             {saving ? "Saving..." : "Save"}
           </button>
-          <button className="btn btn-ghost" type="button" onClick={() => saveChanges(true)} disabled={!blockId || saving}>
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={() => saveChanges({ nextUrl: "/dashboard" })}
+            disabled={!blockId || saving}
+          >
             {saving ? "Saving..." : "Save & Return"}
           </button>
         </div>
@@ -434,84 +495,67 @@ function MonitorPageInner() {
       {blocks.length > 0 && (
         <div className="hero-card p-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2 rounded-full border border-black/20 bg-white/70 px-3 py-2">
-              <button
-                className={`btn px-4 py-2 ${activeMode === "attendance" ? "btn-primary" : "btn-ghost"}`}
-                type="button"
-                onClick={() => setActiveMode("attendance")}
-                disabled={!canTakeAttendance}
-              >
-                Attendance
-              </button>
-              <button
-                className={`btn px-4 py-2 ${activeMode === "performance" ? "btn-primary" : "btn-ghost"}`}
-                type="button"
-                onClick={() => setActiveMode("performance")}
-                disabled={!canTakeAttendance || !attendanceComplete || !lapsNamed || !isWeekday}
-              >
-                Monitoring
-              </button>
-              <button
-                className="btn btn-ghost px-4 py-2"
-                type="button"
-                onClick={() => setAttendancePanel(true)}
-                disabled={!canTakeAttendance}
-              >
-                Attendance List
-              </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="rounded-full border border-black/20 bg-white/70 px-4 py-2 text-sm font-semibold">
+                {activeMode === "attendance" ? "Attendance" : "Monitoring"}
+              </div>
+              {activeMode === "attendance" && (
+                <button
+                  className="btn btn-ghost px-4 py-2"
+                  type="button"
+                  onClick={() => setAttendancePanel(true)}
+                  disabled={!canTakeAttendance}
+                >
+                  Attendance List
+                </button>
+              )}
             </div>
 
             <div className="text-sm text-black/60">
               {loading
                 ? "Loading..."
                 : !canTakeAttendance
-                ? "Seat every active student before taking attendance."
+                ? "Seat every active student before using the seat map."
+                : activeMode === "attendance"
+                ? "Take attendance and save whenever you're ready."
                 : !attendanceComplete
-                ? "Complete attendance before monitoring."
-                : !lapsNamed
-                ? "Name today’s laps before monitoring."
-                : "Select the laps you want to monitor, then save when ready."}
+                ? "Attendance has not been fully taken. You can still monitor, but attendance should be taken first."
+                : namedLapCount === 0
+                ? "Name at least one lap to begin monitoring."
+                : "Named laps can be monitored immediately. Unnamed laps open Name Your Laps."}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-black/10 bg-white/60 p-4">
-            <div className="small-header text-black/60">Select Laps to Monitor</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {lapButtons.map((lap) => {
-                const selected = selectedLaps.includes(lap.lapNumber);
-                return (
-                  <button
-                    key={lap.lapNumber}
-                    className={`btn ${
-                      selected ? "btn-primary" : "btn-ghost border-2 border-dashed border-black/20"
-                    } w-[170px] justify-center text-center`}
-                    type="button"
-                    onClick={() => {
-                      if (!lapsNamed) {
-                        requestNavigation(() =>
-                          router.push(
-                            `/setup/laps?blockId=${blockId}&focusDate=${dateKey}&returnTo=${encodeURIComponent(
-                              `/monitor?blockId=${blockId}&mode=performance`
-                            )}`
-                          )
-                        );
-                        return;
-                      }
-                      setSelectedLaps((prev) =>
-                        prev.includes(lap.lapNumber)
-                          ? prev.filter((value) => value !== lap.lapNumber)
-                          : [...prev, lap.lapNumber].sort((left, right) => left - right)
-                      );
-                    }}
-                    disabled={!canTakeAttendance || !isWeekday || (lapsNamed && !attendanceComplete)}
-                    title={lap.label}
-                  >
-                    {lapsNamed ? lap.label : `Name ${lap.label}`}
-                  </button>
-                );
-              })}
+          {activeMode === "performance" && !attendanceComplete && canTakeAttendance && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Attendance is not complete. Monitoring is still available, but attendance should be taken first.
             </div>
-          </div>
+          )}
+
+          {activeMode === "performance" && (
+            <div className="rounded-2xl border border-black/10 bg-white/60 p-4">
+              <div className="small-header text-black/60">Today&apos;s Laps</div>
+              <div className="mt-3 grid gap-2 md:grid-cols-3">
+                {monitoringLaps.map((lap) =>
+                  lap.isNamed ? (
+                    <div key={lap.lapNumber} className="rounded-xl border border-black/10 bg-white px-3 py-3">
+                      <div className="small-header text-black/45">Lap {lap.lapNumber}</div>
+                      <div className="mt-1 text-sm font-semibold">{lap.label}</div>
+                    </div>
+                  ) : (
+                    <button
+                      key={lap.lapNumber}
+                      type="button"
+                      className="btn btn-ghost justify-center border-2 border-dashed border-black/20 px-3 py-3 text-center"
+                      onClick={() => requestNavigation(() => router.push(lapsSetupHref(true)))}
+                    >
+                      Name Lap {lap.lapNumber}
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+          )}
 
           <div className={`hero-card relative h-[560px] overflow-visible p-4 pr-8 ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
             {!canTakeAttendance && (
@@ -527,29 +571,29 @@ function MonitorPageInner() {
               </div>
             )}
 
-            {canTakeAttendance && activeMode === "performance" && !attendanceComplete && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/65 text-center text-sm font-semibold">
-                Finish attendance before monitoring.
-              </div>
-            )}
-
-            {canTakeAttendance && activeMode === "performance" && attendanceComplete && !lapsNamed && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-white/70 text-center">
-                <div className="text-xl font-semibold">Name today&apos;s laps to unlock monitoring.</div>
-                <Link
-                  href={`/setup/laps?blockId=${blockId}&focusDate=${dateKey}&returnTo=${encodeURIComponent(
-                    `/monitor?blockId=${blockId}&mode=performance`
-                  )}`}
-                  className="btn btn-primary"
-                >
-                  Name Today&apos;s Laps
-                </Link>
-              </div>
-            )}
-
-            {canTakeAttendance && activeMode === "performance" && lapsNamed && selectedLaps.length === 0 && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/60 text-center text-sm font-semibold">
-                Select at least one lap to monitor.
+            {canTakeAttendance && activeMode === "performance" && namedLapCount === 0 && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-2xl bg-white/82 px-6 text-center">
+                <div className="text-2xl font-semibold">Name a lap before monitoring.</div>
+                <div className="max-w-xl text-sm text-black/65">
+                  Monitoring is available from this screen, but at least one lap must be named first. You can name a lap
+                  now or head back to the dashboard.
+                </div>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={() => requestNavigation(() => router.push(lapsSetupHref(true)))}
+                  >
+                    Name Your Laps
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    type="button"
+                    onClick={() => requestNavigation(() => router.push("/dashboard"))}
+                  >
+                    Return to Dashboard
+                  </button>
+                </div>
               </div>
             )}
 
@@ -568,9 +612,7 @@ function MonitorPageInner() {
                   : "bg-slate-200";
               const statusBg =
                 activeMode === "performance"
-                  ? selectedLaps.length > 0
-                    ? "bg-slate-200"
-                    : "bg-transparent"
+                  ? "bg-slate-100/70"
                   : status
                   ? status === "PRESENT"
                     ? "bg-emerald-100"
@@ -697,12 +739,16 @@ function MonitorPageInner() {
                     </div>
                   )}
 
-                  {activeMode === "performance" && selectedLaps.length > 0 && !isAbsent && (
+                  {activeMode === "performance" && !isAbsent && (
                     <div className="absolute inset-0 z-0 flex">
-                      {selectedLaps.map((lapNumber, index) => {
-                        const currentColor = desk.studentId ? performanceMap[performanceKey(desk.studentId, lapNumber)] : undefined;
+                      {monitoringLaps.map((lap, index) => {
+                        const currentColor = desk.studentId
+                          ? performanceMap[performanceKey(desk.studentId, lap.lapNumber)]
+                          : undefined;
                         const background =
-                          currentColor === "GREEN"
+                          !lap.isNamed
+                            ? "repeating-linear-gradient(135deg, rgba(15,23,42,0.05) 0, rgba(15,23,42,0.05) 6px, rgba(255,255,255,0.72) 6px, rgba(255,255,255,0.72) 12px)"
+                            : currentColor === "GREEN"
                             ? "rgba(52, 211, 153, 0.25)"
                             : currentColor === "YELLOW"
                             ? "rgba(253, 224, 71, 0.25)"
@@ -711,12 +757,20 @@ function MonitorPageInner() {
                             : "transparent";
                         return (
                           <button
-                            key={`${desk.id}-${lapNumber}`}
+                            key={`${desk.id}-${lap.lapNumber}`}
                             type="button"
-                            className={index < selectedLaps.length - 1 ? "flex-1 border-r border-black/10" : "flex-1"}
-                            disabled={!readyForPerformance || !desk.studentId}
+                            className={index < monitoringLaps.length - 1 ? "flex-1 border-r border-black/10" : "flex-1"}
+                            disabled={!canMonitorFromSeatMap || !desk.studentId}
                             style={{ background }}
-                            onClick={() => desk.studentId && cyclePerformance(desk.studentId, lapNumber)}
+                            title={lap.isNamed ? `Lap ${lap.lapNumber}: ${lap.label}` : `Lap ${lap.lapNumber}: Name this lap`}
+                            onClick={() => {
+                              if (!desk.studentId) return;
+                              if (!lap.isNamed) {
+                                requestNavigation(() => router.push(lapsSetupHref(true)));
+                                return;
+                              }
+                              cyclePerformance(desk.studentId, lap.lapNumber);
+                            }}
                           />
                         );
                       })}
@@ -799,6 +853,44 @@ function MonitorPageInner() {
                     </div>
                   );
                 })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {attendanceCompletionPromptOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
+          <div className="hero-card w-full max-w-3xl p-8 text-center">
+            <div className="small-header text-black/55">Attendance Complete</div>
+            <h2 className="section-title mt-2">What should happen next?</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-black/65">
+              Every seated student now has an attendance record. You can stay here, move forward into monitoring, or save
+              and head back to the dashboard.
+            </p>
+            <div className="mt-8 grid gap-3 md:grid-cols-3">
+              <button
+                className="btn btn-ghost min-h-[88px] justify-center text-center"
+                type="button"
+                onClick={() => handleAttendanceCompletionAction("stay")}
+              >
+                Return to Attendance
+              </button>
+              <button
+                className="btn btn-primary min-h-[88px] justify-center text-center"
+                type="button"
+                onClick={() => handleAttendanceCompletionAction("monitor")}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save Attendance and Move to Monitoring"}
+              </button>
+              <button
+                className="btn btn-ghost min-h-[88px] justify-center text-center"
+                type="button"
+                onClick={() => handleAttendanceCompletionAction("dashboard")}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save Attendance and Return to Dashboard"}
+              </button>
             </div>
           </div>
         </div>

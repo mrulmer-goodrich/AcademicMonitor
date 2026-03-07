@@ -8,16 +8,22 @@ type SearchParams = {
   error?: string;
 };
 
+type DashboardStatusTone = "complete" | "attention" | "notStarted";
+
+type DashboardTileData = {
+  tone: DashboardStatusTone;
+  status: string;
+  detail: string;
+  href: string;
+};
+
 type DashboardBlock = {
   id: string;
   title: string;
   subtitle: string;
-  attendanceStatus: "Click here to complete" | "Incomplete" | "Complete";
-  lapsStatus: "Incomplete" | "Complete";
-  monitoringStatus: "Incomplete" | "Complete";
-  attendanceHref: string;
-  lapsHref: string;
-  monitoringHref: string;
+  attendance: DashboardTileData;
+  laps: DashboardTileData;
+  monitoring: DashboardTileData;
 };
 
 type WeeklyStats = {
@@ -27,6 +33,7 @@ type WeeklyStats = {
   green: number;
   yellow: number;
   red: number;
+  href: string;
 };
 
 function percentage(count: number, total: number) {
@@ -34,47 +41,82 @@ function percentage(count: number, total: number) {
   return (count / total) * 100;
 }
 
-function statusPillClasses(status: string) {
-  if (status === "Complete") {
-    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+function toneBadgeClasses(tone: DashboardStatusTone) {
+  if (tone === "complete") {
+    return "bg-emerald-100 text-emerald-700";
   }
-  if (status === "Click here to complete") {
-    return "bg-amber-50 text-amber-800 border-amber-200";
+  if (tone === "attention") {
+    return "bg-amber-100 text-amber-800";
   }
-  return "bg-orange-50 text-orange-800 border-orange-200";
+  return "bg-slate-200 text-slate-700";
 }
 
-function tileCardClasses(status: string) {
-  if (status === "Complete") {
+function toneCardClasses(tone: DashboardStatusTone) {
+  if (tone === "complete") {
     return "border-emerald-200 bg-gradient-to-br from-white to-emerald-50";
   }
-  if (status === "Click here to complete") {
+  if (tone === "attention") {
     return "border-amber-200 bg-gradient-to-br from-white to-amber-50";
   }
-  return "border-orange-200 bg-gradient-to-br from-white to-orange-50";
+  return "border-slate-200 bg-gradient-to-br from-white to-slate-50";
+}
+
+function StatusIcon({ tone }: { tone: DashboardStatusTone }) {
+  if (tone === "complete") {
+    return (
+      <span
+        className={`pointer-events-none absolute right-1.5 top-1.5 inline-flex h-14 w-14 items-center justify-center rounded-[1.6rem] ${toneBadgeClasses(tone)}`}
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (tone === "attention") {
+    return (
+      <span
+        className={`pointer-events-none absolute right-1.5 top-1.5 inline-flex h-14 w-14 items-center justify-center rounded-[1.6rem] ${toneBadgeClasses(tone)}`}
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 7.5v5.5" />
+          <circle cx="12" cy="16.5" r="1.4" fill="currentColor" stroke="none" />
+        </svg>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`pointer-events-none absolute right-1.5 top-1.5 inline-flex h-14 w-14 items-center justify-center rounded-[1.6rem] ${toneBadgeClasses(tone)}`}
+    >
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M6.5 12H17.5" />
+      </svg>
+    </span>
+  );
 }
 
 function DashboardTile({
   title,
-  status,
-  href
+  tile
 }: {
   title: string;
-  status: string;
-  href: string;
+  tile: DashboardTileData;
 }) {
   return (
-    <Link href={href} className={`feature-card min-h-[96px] gap-2 border px-4 py-3 ${tileCardClasses(status)}`}>
-      <div className="small-header text-[10px] tracking-[0.08em] text-black/55">{title}</div>
-      <div className="min-h-[2.6em] text-[clamp(1rem,1.15vw,1.45rem)] font-semibold leading-tight text-black">
-        {status}
+    <Link
+      href={tile.href}
+      className={`feature-card relative min-h-[70px] overflow-hidden gap-0 border px-1.5 py-1.5 ${toneCardClasses(tile.tone)}`}
+    >
+      <StatusIcon tone={tile.tone} />
+      <div className="small-header pr-16 text-[9px] tracking-[0.12em] text-black/45">{title}</div>
+      <div className="pr-16 text-[1.72rem] font-bold leading-[0.88] tracking-[-0.05em] text-black lg:text-[1.85rem]">
+        {tile.status}
       </div>
-      <div
-        className={`mt-auto inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusPillClasses(
-          status
-        )}`}
-      >
-        Open
+      <div className="pr-16 text-[11px] font-medium leading-[1.05] text-black/50">
+        {tile.detail}
       </div>
     </Link>
   );
@@ -90,7 +132,7 @@ function DashboardQuickAction({
   return (
     <Link
       href={href}
-      className="inline-flex min-h-0 items-center justify-center rounded-full border border-black/15 bg-white/85 px-3 py-2 text-center text-[11px] font-semibold leading-none text-black/80 shadow-sm transition hover:-translate-y-px hover:bg-white"
+      className="inline-flex min-h-0 items-center justify-center rounded-full border border-black/15 bg-white/85 px-3 py-1.5 text-center text-[11px] font-semibold leading-none text-black/80 shadow-sm transition hover:-translate-y-px hover:bg-white"
     >
       <div>{label}</div>
     </Link>
@@ -106,30 +148,45 @@ function WeeklyStatsCard({ stats }: { stats: WeeklyStats }) {
     : "conic-gradient(#e5e7eb 0% 100%)";
 
   return (
-    <div className="rounded-[18px] border border-black/10 bg-white/80 p-3">
-      <div className="text-center text-sm font-semibold">{stats.title}</div>
-      <div className="mt-3 flex items-center justify-center gap-3">
-        <div className="relative h-16 w-16 shrink-0 rounded-full" style={{ background: donutBackground }}>
-          <div className="absolute inset-[12px] flex items-center justify-center rounded-full bg-white text-xs font-semibold">
+    <Link href={stats.href} className="feature-card min-h-[84px] gap-1 border border-black/10 px-2 py-1.5">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="small-header text-[10px] tracking-[0.08em] text-black/55">Current Week</div>
+          <div className="text-sm font-semibold">{stats.title}</div>
+        </div>
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-black/45">View</div>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="relative h-11 w-11 shrink-0 rounded-full" style={{ background: donutBackground }}>
+          <div className="absolute inset-[8px] flex items-center justify-center rounded-full bg-white text-[10px] font-semibold">
             {stats.total}
           </div>
         </div>
-        <div className="space-y-1 text-xs text-black/65">
-          <div>Green: {stats.green}</div>
-          <div>Yellow: {stats.yellow}</div>
-          <div>Red: {stats.red}</div>
+        <div className="grid flex-1 grid-cols-3 gap-1 text-center text-[10px] leading-tight text-black/65">
+          <div>
+            <div className="font-semibold text-emerald-700">{stats.green}</div>
+            <div>Green</div>
+          </div>
+          <div>
+            <div className="font-semibold text-amber-700">{stats.yellow}</div>
+            <div>Yellow</div>
+          </div>
+          <div>
+            <div className="font-semibold text-red-700">{stats.red}</div>
+            <div>Red</div>
+          </div>
         </div>
       </div>
-      <div className="mt-3 text-center text-xs font-semibold text-black/75">
+      <div className="text-[10px] font-semibold text-black/75">
         {stats.total} data point{stats.total === 1 ? "" : "s"}
       </div>
-    </div>
+    </Link>
   );
 }
 
 function DashboardReportsButton({
-  href,
-  label
+      href,
+      label
 }: {
   href: string;
   label: string;
@@ -137,10 +194,10 @@ function DashboardReportsButton({
   return (
     <Link
       href={href}
-      className="feature-card min-h-[150px] items-center justify-center border border-black/10 px-4 py-5 text-center"
+      className="feature-card min-h-[84px] items-center justify-center border border-black/10 px-2 py-1.5 text-center"
     >
       <div className="small-header text-black/50">Reports</div>
-      <div className="text-lg font-semibold leading-tight">{label}</div>
+      <div className="text-[15px] font-semibold leading-tight">{label}</div>
     </Link>
   );
 }
@@ -169,6 +226,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
   const error = searchParams?.error || null;
   const today = normalizeDate(new Date());
   const todayIso = today.toISOString().slice(0, 10);
+  const currentWeekStartIso = startOfWeek(today, { weekStartsOn: 1 }).toISOString().slice(0, 10);
 
   let dashboardBlocks: DashboardBlock[] = [];
   let weeklyStats: WeeklyStats[] = [];
@@ -275,28 +333,99 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
         const activeCount = activeStudentCounts.get(block.id) || 0;
         const todaysLaps = lapCoverage.get(block.id) || new Set<number>();
         const monitoringLaps = monitoringCoverage.get(block.id) || new Set<number>();
-        const attendanceStatus: DashboardBlock["attendanceStatus"] =
-          activeCount > 0 && attendanceCount >= activeCount
-            ? "Complete"
+        const namedLapCount = todaysLaps.size;
+        const monitoredLapCount = Array.from(todaysLaps).filter((lapNumber) => monitoringLaps.has(lapNumber)).length;
+        const attendanceHref = `/monitor?blockId=${block.id}&mode=attendance`;
+        const lapsHref = `/setup/laps?blockId=${block.id}&focusDate=${todayIso}`;
+        const monitoringHref = `/monitor?blockId=${block.id}&mode=performance`;
+
+        const attendance =
+          activeCount === 0
+            ? {
+                tone: "notStarted" as const,
+                status: "No students",
+                detail: "Add students to begin",
+                href: attendanceHref
+              }
+            : attendanceCount >= activeCount
+            ? {
+                tone: "complete" as const,
+                status: "Complete",
+                detail: `${attendanceCount}/${activeCount} marked`,
+                href: attendanceHref
+              }
             : attendanceCount === 0
-            ? "Click here to complete"
-            : "Incomplete";
-        const lapsStatus: DashboardBlock["lapsStatus"] = todaysLaps.size === 3 ? "Complete" : "Incomplete";
-        const monitoringStatus: DashboardBlock["monitoringStatus"] =
-          todaysLaps.size === 3 && Array.from(todaysLaps).every((lapNumber) => monitoringLaps.has(lapNumber))
-            ? "Complete"
-            : "Incomplete";
+            ? {
+                tone: "notStarted" as const,
+                status: "Not started",
+                detail: `${activeCount} students pending`,
+                href: attendanceHref
+              }
+            : {
+                tone: "attention" as const,
+                status: "Needs attention",
+                detail: `${attendanceCount}/${activeCount} marked`,
+                href: attendanceHref
+              };
+
+        const laps =
+          namedLapCount === 3
+            ? {
+                tone: "complete" as const,
+                status: "Complete",
+                detail: "3 of 3 laps named",
+                href: lapsHref
+              }
+            : namedLapCount === 0
+            ? {
+                tone: "notStarted" as const,
+                status: "Not started",
+                detail: "0 of 3 laps named",
+                href: lapsHref
+              }
+            : {
+                tone: "attention" as const,
+                status: "Needs attention",
+                detail: `${namedLapCount} of 3 laps named`,
+                href: lapsHref
+              };
+
+        const monitoring =
+          namedLapCount === 0
+            ? {
+                tone: "notStarted" as const,
+                status: "Waiting on LAPs",
+                detail: "Name today's laps first",
+                href: monitoringHref
+              }
+            : namedLapCount === 3 && monitoredLapCount === 3
+            ? {
+                tone: "complete" as const,
+                status: "Complete",
+                detail: "3 of 3 laps entered",
+                href: monitoringHref
+              }
+            : monitoredLapCount === 0
+            ? {
+                tone: "notStarted" as const,
+                status: "Not started",
+                detail: `0 of ${namedLapCount} laps entered`,
+                href: monitoringHref
+              }
+            : {
+                tone: "attention" as const,
+                status: "Needs attention",
+                detail: `${monitoredLapCount} of ${namedLapCount} laps entered`,
+                href: monitoringHref
+              };
 
         return {
           id: block.id,
           title: `Block ${block.blockNumber}`,
           subtitle: block.blockName,
-          attendanceStatus,
-          lapsStatus,
-          monitoringStatus,
-          attendanceHref: `/monitor?blockId=${block.id}&mode=attendance`,
-          lapsHref: `/setup/laps?blockId=${block.id}&focusDate=${todayIso}`,
-          monitoringHref: `/monitor?blockId=${block.id}&mode=performance`
+          attendance,
+          laps,
+          monitoring
         };
       });
 
@@ -308,14 +437,15 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
           total: counts.green + counts.yellow + counts.red,
           green: counts.green,
           yellow: counts.yellow,
-          red: counts.red
+          red: counts.red,
+          href: `/report?blocks=${block.id}&weekStart=${currentWeekStartIso}&days=0,1,2,3,4,5,6&laps=1,2,3&viewMode=records&autoRun=1`
         };
       });
     }
   }
 
   return (
-    <div className="mx-auto flex max-w-[1380px] flex-col gap-3 px-4 py-3 lg:min-h-[calc(100vh-var(--topbar-height)-12px)]">
+    <div className="mx-auto flex max-w-[1120px] flex-col gap-1 px-1.5 py-1 lg:min-h-[calc(100vh-var(--topbar-height)-6px)]">
       {!isAuthed && (
         <div id="login" className="hero-card p-6">
           <h2 className="text-lg font-semibold">Login or create your teacher account</h2>
@@ -374,13 +504,10 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
 
       {isAuthed && (
         <>
-          <div className="hero-card flex flex-1 flex-col gap-3 overflow-hidden p-4 lg:p-5">
-            <div className="flex flex-col gap-3 border-b border-black/10 pb-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="min-w-0">
-                <div className="small-header text-black/55">Overview</div>
-                <h1 className="section-title mb-0 text-[clamp(2rem,2.3vw,2.7rem)]">Today&apos;s Dashboard</h1>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
+          <div className="hero-card flex flex-1 flex-col gap-1 overflow-hidden p-1.5 lg:p-2">
+            <div className="flex flex-col gap-1 border-b border-black/10 pb-1 xl:flex-row xl:items-end xl:justify-between">
+              <h1 className="section-title mb-0 text-[clamp(1.7rem,1.85vw,2.15rem)]">Today&apos;s Dashboard</h1>
+              <div className="flex flex-wrap items-center gap-1">
                 <DashboardQuickAction href="/setup/seating" label="Seating Chart" />
                 <DashboardQuickAction href="/setup/laps" label="Name Your Laps" />
                 <DashboardQuickAction href="/setup/blocks" label="update BLOCKS" />
@@ -394,22 +521,18 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
                   Create your blocks and students to start today&apos;s dashboard.
                 </div>
               ) : (
-                <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_170px] xl:grid-rows-[minmax(0,1fr)_auto]">
-                  <div className={`grid content-start gap-3 md:grid-cols-2 ${desktopGridCols(dashboardBlocks.length)}`}>
+                <div className="grid min-h-0 flex-1 gap-1 xl:grid-cols-[minmax(0,1fr)_136px] xl:grid-rows-[minmax(0,1fr)_auto]">
+                  <div className={`grid content-start gap-1 md:grid-cols-2 ${desktopGridCols(dashboardBlocks.length)}`}>
                     {dashboardBlocks.map((block) => (
-                      <div key={block.id} className="min-w-0 rounded-[22px] border border-black/10 bg-white/72 p-3 lg:p-4">
-                        <div className="text-center">
-                          <div className="text-lg font-semibold lg:text-xl">{block.title}</div>
-                          <div className="truncate text-sm text-black/60">{block.subtitle}</div>
+                      <div key={block.id} className="min-w-0 rounded-[18px] border border-black/10 bg-white/72 p-1.5">
+                        <div className="flex min-w-0 items-baseline justify-center gap-1.5 text-center">
+                          <div className="shrink-0 text-[16px] font-semibold lg:text-[17px]">{block.title}</div>
+                          <div className="truncate text-[12px] text-black/55">{block.subtitle}</div>
                         </div>
-                        <div className="mt-3 grid gap-2.5">
-                          <DashboardTile title="Attendance" status={block.attendanceStatus} href={block.attendanceHref} />
-                          <DashboardTile title="LAP Status" status={block.lapsStatus} href={block.lapsHref} />
-                          <DashboardTile
-                            title="Monitoring Status"
-                            status={block.monitoringStatus}
-                            href={block.monitoringHref}
-                          />
+                        <div className="mt-1 grid gap-1">
+                          <DashboardTile title="Attendance" tile={block.attendance} />
+                          <DashboardTile title="LAP Status" tile={block.laps} />
+                          <DashboardTile title="Monitoring" tile={block.monitoring} />
                         </div>
                       </div>
                     ))}
@@ -417,18 +540,11 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
 
                   <div className="hidden xl:block" />
 
-                  <div className="border-t border-black/10 pt-3">
+                  <div className="border-t border-black/10 pt-1">
                     <div className="small-header text-center text-black/60">Current Week · Monday to Sunday</div>
-                    <div className={`mt-3 grid gap-3 md:grid-cols-2 ${desktopGridCols(weeklyStats.length || 1)}`}>
-                      {dashboardBlocks.map((block) => (
-                        <WeeklyStatsCard key={block.id} stats={weeklyStats.find((stats) => stats.id === block.id) || {
-                          id: block.id,
-                          title: block.title,
-                          total: 0,
-                          green: 0,
-                          yellow: 0,
-                          red: 0
-                        }} />
+                    <div className={`mt-1 grid gap-1 md:grid-cols-2 ${desktopGridCols(weeklyStats.length || 1)}`}>
+                      {weeklyStats.map((stats) => (
+                        <WeeklyStatsCard key={stats.id} stats={stats} />
                       ))}
                     </div>
                   </div>

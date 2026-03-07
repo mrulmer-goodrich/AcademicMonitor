@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     ? startOfWeek(parseISO(body.weekStart), { weekStartsOn: 1 })
     : startOfWeek(new Date(), { weekStartsOn: 1 });
   const weeksRange = Math.min(Math.max(Number(body.weeksRange || 1), 1), 4);
-  const days: number[] = Array.isArray(body.days) ? body.days : [0, 1, 2, 3, 4];
+  const days: number[] = Array.isArray(body.days) ? body.days : [0, 1, 2, 3, 4, 5, 6];
   const laps: number[] = Array.isArray(body.laps) ? body.laps : [1, 2, 3];
   const blockIds: string[] = Array.isArray(body.blocks) ? body.blocks : [];
   const studentIds: string[] = Array.isArray(body.students) ? body.students : [];
@@ -36,12 +36,17 @@ export async function POST(req: Request) {
       date: normalizeDate(addDays(base, day))
     }));
   });
+  const weekEnd = normalizeDate(addDays(weekStart, weeksRange * 7 - 1));
+  const allowedDateKeys = new Set(dateMap.map(({ date }) => date.toISOString().slice(0, 10)));
 
   const lapDefinitions = await prisma.lapDefinition.findMany({
     where: {
       schoolYearId: schoolYear.id,
       blockId: { in: blockIds },
-      weekStart: { in: Array.from({ length: weeksRange }).map((_, i) => addDays(weekStart, i * 7)) },
+      weekStart: {
+        gte: weekStart,
+        lte: normalizeDate(addDays(weekStart, (weeksRange - 1) * 7))
+      },
       dayIndex: { in: days },
       lapNumber: { in: laps }
     }
@@ -108,13 +113,19 @@ export async function POST(req: Request) {
         schoolYearId: schoolYear.id,
         blockId: { in: blockIds },
         studentId: student.id,
-        date: { in: dateMap.map((d) => d.date) },
+        date: {
+          gte: weekStart,
+          lte: weekEnd
+        },
         lapNumber: { in: laps }
       },
       orderBy: [{ date: "desc" }, { lapNumber: "asc" }]
     });
+    const filteredPerformances = performances.filter((performance) =>
+      allowedDateKeys.has(performance.date.toISOString().slice(0, 10))
+    );
 
-    const rows = performances.map((p) => ({
+    const rows = filteredPerformances.map((p) => ({
       student: student.displayName,
       date: p.date.toISOString().slice(0, 10),
       lap: String(p.lapNumber),
@@ -128,6 +139,60 @@ export async function POST(req: Request) {
     });
   }
 
+  if (viewMode === "records") {
+    const performances = await prisma.lapPerformance.findMany({
+      where: {
+        schoolYearId: schoolYear.id,
+        blockId: { in: blockIds },
+        studentId: { in: students.map((student) => student.id) },
+        date: {
+          gte: weekStart,
+          lte: weekEnd
+        },
+        lapNumber: { in: laps }
+      },
+      orderBy: [{ date: "asc" }, { lapNumber: "asc" }, { studentId: "asc" }],
+      include: {
+        student: {
+          include: { block: true }
+        }
+      }
+    });
+    const filteredPerformances = performances.filter((performance) =>
+      allowedDateKeys.has(performance.date.toISOString().slice(0, 10))
+    );
+
+    const rows = filteredPerformances.map((performance) => {
+      const performanceWeekStart = startOfWeek(performance.date, { weekStartsOn: 1 }).toISOString().slice(0, 10);
+      const performanceDayIndex = (performance.date.getDay() + 6) % 7;
+      const lapDefinition = lapDefinitions.find(
+        (lap) =>
+          lap.blockId === performance.blockId &&
+          lap.dayIndex === performanceDayIndex &&
+          lap.lapNumber === performance.lapNumber &&
+          lap.weekStart.toISOString().slice(0, 10) === performanceWeekStart
+      );
+
+      return {
+        ...(blockIds.length > 1
+          ? { block: `Block ${performance.student.block.blockNumber} · ${performance.student.block.blockName}` }
+          : {}),
+        student: performance.student.displayName,
+        date: performance.date.toISOString().slice(0, 10),
+        lap: `Lap ${performance.lapNumber}`,
+        lapName: lapDefinition?.name || "",
+        standard: lapDefinition?.standardCode || "",
+        color: performance.color
+      };
+    });
+
+    return NextResponse.json({
+      columns: [...(blockIds.length > 1 ? ["block"] : []), "student", "date", "lap", "lapName", "standard", "color"],
+      rows,
+      meta: { weekStart: weekStart.toISOString(), detailMode: "records" }
+    });
+  }
+
   const studentIdSet = new Set(students.map((s) => s.id));
 
   const performances = await prisma.lapPerformance.findMany({
@@ -135,12 +200,18 @@ export async function POST(req: Request) {
       schoolYearId: schoolYear.id,
       blockId: { in: blockIds },
       studentId: { in: Array.from(studentIdSet) },
-      date: { in: dateMap.map((d) => d.date) },
+      date: {
+        gte: weekStart,
+        lte: weekEnd
+      },
       lapNumber: { in: laps }
     }
   });
+  const filteredPerformances = performances.filter((performance) =>
+    allowedDateKeys.has(performance.date.toISOString().slice(0, 10))
+  );
 
-  const perfMap = new Map(performances.map((p) => [`${p.studentId}-${p.date.toISOString()}-${p.lapNumber}`, p.color]));
+  const perfMap = new Map(filteredPerformances.map((p) => [`${p.studentId}-${p.date.toISOString()}-${p.lapNumber}`, p.color]));
 
   const includeBlock = blockIds.length > 1;
 
