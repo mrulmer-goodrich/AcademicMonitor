@@ -44,12 +44,12 @@ function percentage(count: number, total: number) {
 
 function tileAccentClasses(tone: DashboardStatusTone) {
   if (tone === "complete") {
-    return "bg-emerald-500";
+    return "border-emerald-200 bg-[linear-gradient(145deg,#ffffff_0%,#eefbf3_55%,#ddf3e6_100%)]";
   }
   if (tone === "attention") {
-    return "bg-amber-500";
+    return "border-amber-200 bg-[linear-gradient(145deg,#ffffff_0%,#fff7e6_55%,#ffe8bc_100%)]";
   }
-  return "bg-slate-400";
+  return "border-red-200 bg-[linear-gradient(145deg,#ffffff_0%,#fff0ee_55%,#ffd8d2_100%)]";
 }
 
 function toneIconClasses(tone: DashboardStatusTone) {
@@ -59,80 +59,25 @@ function toneIconClasses(tone: DashboardStatusTone) {
   if (tone === "attention") {
     return "border-amber-200 bg-amber-50 text-amber-700";
   }
-  return "border-slate-200 bg-slate-100 text-slate-700";
-}
-
-function toneCardClasses(tone: DashboardStatusTone) {
-  if (tone === "complete") {
-    return "border-emerald-200 bg-[linear-gradient(145deg,#ffffff_0%,#f2fbf6_52%,#e4f6ec_100%)]";
-  }
-  if (tone === "attention") {
-    return "border-amber-200 bg-[linear-gradient(145deg,#ffffff_0%,#fff7e7_52%,#ffe9bb_100%)]";
-  }
-  return "border-slate-200 bg-[linear-gradient(145deg,#ffffff_0%,#f5f7fb_52%,#e7ecf4_100%)]";
-}
-
-function dashboardTileLabel(kind: DashboardTileKind) {
-  if (kind === "attendance") return "Attendance";
-  if (kind === "laps") return "Laps";
-  return "Monitoring";
+  return "border-red-200 bg-red-50 text-red-700";
 }
 
 function dashboardTileCopy(kind: DashboardTileKind, tile: DashboardTileData) {
   if (tile.tone === "complete") {
-    return {
-      eyebrow: dashboardTileLabel(kind),
-      headline: "Complete"
-    };
+    if (kind === "attendance") return "ATTENDANCE COMPLETE";
+    if (kind === "laps") return "LAP NAMES COMPLETE";
+    return "MONITORING COMPLETE";
   }
 
   if (kind === "attendance") {
-    if (tile.status === "No students") {
-      return {
-        eyebrow: "Add",
-        headline: "Students"
-      };
-    }
-
-    return tile.tone === "attention"
-      ? {
-          eyebrow: "Finish",
-          headline: "Attendance"
-        }
-      : {
-          eyebrow: "Take",
-          headline: "Attendance"
-        };
+    return tile.tone === "attention" ? "FINISH ATTENDANCE" : "TAKE ATTENDANCE";
   }
 
   if (kind === "laps") {
-    return tile.tone === "attention"
-      ? {
-          eyebrow: "Finish",
-          headline: "Naming Laps"
-        }
-      : {
-          eyebrow: "Name",
-          headline: "Your Laps"
-        };
+    return tile.tone === "attention" ? "FINISH NAMING LAPS" : "NAME YOUR LAPS";
   }
 
-  if (tile.status === "Waiting on LAPs") {
-    return {
-      eyebrow: "Name",
-      headline: "Your Laps"
-    };
-  }
-
-  return tile.tone === "attention"
-    ? {
-        eyebrow: "Finish",
-        headline: "Monitoring"
-      }
-    : {
-        eyebrow: "Start",
-        headline: "Monitoring"
-      };
+  return tile.tone === "attention" ? "FINISH MONITORING" : "START MONITORING";
 }
 
 function DashboardTileIcon({ tone }: { tone: DashboardStatusTone }) {
@@ -140,8 +85,8 @@ function DashboardTileIcon({ tone }: { tone: DashboardStatusTone }) {
 
   if (tone === "complete") {
     return (
-      <span className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${iconClasses}`}>
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <span className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${iconClasses}`}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="2.2">
           <path d="M5 12.5l4.5 4.5L19 7.5" />
         </svg>
       </span>
@@ -150,8 +95,8 @@ function DashboardTileIcon({ tone }: { tone: DashboardStatusTone }) {
 
   if (tone === "attention") {
     return (
-      <span className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${iconClasses}`}>
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <span className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${iconClasses}`}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="2.2">
           <path d="M12 7.5v5.5" />
           <circle cx="12" cy="16.5" r="1.4" fill="currentColor" stroke="none" />
         </svg>
@@ -160,10 +105,10 @@ function DashboardTileIcon({ tone }: { tone: DashboardStatusTone }) {
   }
 
   return (
-    <span className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${iconClasses}`}>
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2">
-        <path d="M12 6v12" />
-        <path d="M6 12h12" />
+    <span className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${iconClasses}`}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="2.2">
+        <path d="M5.5 12h11" />
+        <path d="M12.5 8.5 18 12l-5.5 3.5" />
       </svg>
     </span>
   );
@@ -176,28 +121,16 @@ function DashboardTile({
   kind: DashboardTileKind;
   tile: DashboardTileData;
 }) {
-  const copy = dashboardTileCopy(kind, tile);
+  const label = dashboardTileCopy(kind, tile);
 
   return (
     <Link
       href={tile.href}
-      className={`group relative overflow-hidden rounded-[24px] border px-4 py-3.5 shadow-[0_10px_24px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(11,27,42,0.12)] ${toneCardClasses(tile.tone)}`}
+      className={`flex min-h-[112px] items-center gap-4 rounded-[24px] border px-5 py-4 shadow-[0_10px_24px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(11,27,42,0.12)] ${tileAccentClasses(tile.tone)}`}
     >
-      <span className={`absolute inset-y-3 left-0 w-1 rounded-full ${tileAccentClasses(tile.tone)}`} />
-      <div className="flex items-center gap-3 pl-2">
-        <DashboardTileIcon tone={tile.tone} />
-        <div className="min-w-0 flex-1">
-          <div className="small-header text-[11px] tracking-[0.1em] text-black/55">{copy.eyebrow}</div>
-          <div className="text-[1.45rem] font-semibold leading-[0.95] tracking-[-0.05em] text-black">
-            {copy.headline}
-          </div>
-        </div>
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-black/[0.08] pt-2.5">
-        <div className="text-[11px] font-medium leading-none text-black/55">Today</div>
-        <div className="rounded-full border border-black/10 bg-white/[0.72] px-2.5 py-1 text-[11px] font-semibold leading-none text-black/65">
-          {tile.detail}
-        </div>
+      <DashboardTileIcon tone={tile.tone} />
+      <div className="text-[1.45rem] font-bold uppercase leading-[1.02] tracking-[-0.04em] text-black lg:text-[1.6rem]">
+        {label}
       </div>
     </Link>
   );
@@ -587,10 +520,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
         <>
           <div className="hero-card flex flex-1 flex-col gap-4 overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-3 lg:p-4">
             <div className="flex flex-col gap-3 border-b border-black/10 pb-3 xl:flex-row xl:items-end xl:justify-between">
-              <div>
-                <div className="small-header text-[11px] tracking-[0.14em] text-black/45">Daily Overview</div>
-                <h1 className="section-title mb-0 mt-1 text-[clamp(1.85rem,2vw,2.35rem)]">Today&apos;s Dashboard</h1>
-              </div>
+              <h1 className="section-title mb-0 text-[clamp(1.85rem,2vw,2.35rem)]">Today&apos;s Dashboard</h1>
               <div className="flex flex-wrap items-center gap-2">
                 <DashboardQuickAction href="/setup/seating" label="Seating Chart" />
                 <DashboardQuickAction href="/setup/laps" label="Name Your Laps" />
@@ -613,8 +543,12 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
                         className="min-w-0 rounded-[30px] border border-[#dbcdb7] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,241,232,0.94)_100%)] p-4 shadow-[0_14px_34px_rgba(11,27,42,0.08)]"
                       >
                         <div className="border-b border-black/[0.08] pb-3 text-center">
-                          <div className="small-header text-[11px] tracking-[0.14em] text-black/45">{block.title}</div>
-                          <div className="mt-1 truncate text-[15px] font-medium text-black/65">{block.subtitle}</div>
+                          <div className="text-[27px] font-bold uppercase leading-none tracking-[-0.04em] text-black">
+                            {block.title}
+                          </div>
+                          <div className="mt-1 truncate text-[27px] font-bold leading-none tracking-[-0.04em] text-black/72">
+                            {block.subtitle}
+                          </div>
                         </div>
                         <div className="mt-4 grid gap-3">
                           <DashboardTile kind="attendance" tile={block.attendance} />
