@@ -286,21 +286,23 @@ function LapsSetupPageInner() {
               ))}
             </select>
 
-            <button
-              className="btn btn-ghost shrink-0 whitespace-nowrap"
-              type="button"
-              onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, -7)))}
-            >
-              Previous Week
-            </button>
-            <div className="text-lg font-semibold">Week of {format(weekStart, "MM/dd/yy")}</div>
-            <button
-              className="btn btn-ghost shrink-0 whitespace-nowrap"
-              type="button"
-              onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, 7)))}
-            >
-              Next Week
-            </button>
+            <div className="flex shrink-0 items-center gap-3 whitespace-nowrap">
+              <button
+                className="btn btn-ghost shrink-0 whitespace-nowrap"
+                type="button"
+                onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, -7)))}
+              >
+                Previous Week
+              </button>
+              <div className="text-lg font-semibold">Week of {format(weekStart, "MM/dd/yy")}</div>
+              <button
+                className="btn btn-ghost shrink-0 whitespace-nowrap"
+                type="button"
+                onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, 7)))}
+              >
+                Next Week
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

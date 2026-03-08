@@ -11,7 +11,7 @@ export default function HomePage() {
       <section className="grid gap-8 md:grid-cols-[1.1fr_0.9fr] hero-layout items-center">
         <div className="space-y-6">
           <span className="badge badge-hero">Academic Monitoring</span>
-          <h1 className="text-4xl font-bold leading-tight" style={{ fontFamily: "Space Grotesk" }}>
+          <h1 className="text-4xl font-bold leading-tight">
             Track learning while it’s happening.
           </h1>
           <p className="text-lg text-black/70">

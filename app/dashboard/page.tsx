@@ -25,11 +25,11 @@ type DashboardBlock = {
   attendance: DashboardTileData;
   laps: DashboardTileData;
   monitoring: DashboardTileData;
+  reportsHref: string;
 };
 
 type WeeklyStats = {
   id: string;
-  title: string;
   total: number;
   green: number;
   yellow: number;
@@ -82,11 +82,17 @@ function dashboardTileCopy(kind: DashboardTileKind, tile: DashboardTileData) {
 
 function DashboardTileIcon({ tone }: { tone: DashboardStatusTone }) {
   const iconClasses = toneIconClasses(tone);
+  const motionClass =
+    tone === "complete"
+      ? "dashboard-icon-check"
+      : tone === "attention"
+      ? "dashboard-icon-alert"
+      : "dashboard-icon-arrow";
 
   if (tone === "complete") {
     return (
-      <span className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${iconClasses}`}>
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <span className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${iconClasses} ${motionClass}`}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.2">
           <path d="M5 12.5l4.5 4.5L19 7.5" />
         </svg>
       </span>
@@ -95,8 +101,8 @@ function DashboardTileIcon({ tone }: { tone: DashboardStatusTone }) {
 
   if (tone === "attention") {
     return (
-      <span className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${iconClasses}`}>
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <span className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${iconClasses} ${motionClass}`}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.2">
           <path d="M12 7.5v5.5" />
           <circle cx="12" cy="16.5" r="1.4" fill="currentColor" stroke="none" />
         </svg>
@@ -105,8 +111,8 @@ function DashboardTileIcon({ tone }: { tone: DashboardStatusTone }) {
   }
 
   return (
-    <span className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${iconClasses}`}>
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="2.2">
+    <span className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${iconClasses} ${motionClass}`}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.2">
         <path d="M5.5 12h11" />
         <path d="M12.5 8.5 18 12l-5.5 3.5" />
       </svg>
@@ -126,11 +132,15 @@ function DashboardTile({
   return (
     <Link
       href={tile.href}
-      className={`flex min-h-[112px] items-center gap-4 rounded-[24px] border px-5 py-4 shadow-[0_10px_24px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(11,27,42,0.12)] ${tileAccentClasses(tile.tone)}`}
+      className={`grid h-[112px] grid-rows-[1fr_auto] rounded-[22px] border px-4 py-3 text-center shadow-[0_8px_18px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(11,27,42,0.12)] ${tileAccentClasses(tile.tone)}`}
     >
-      <DashboardTileIcon tone={tile.tone} />
-      <div className="text-[1.45rem] font-bold uppercase leading-[1.02] tracking-[-0.04em] text-black lg:text-[1.6rem]">
-        {label}
+      <div className="flex min-h-0 items-center justify-center">
+        <div className="w-full overflow-hidden text-[1.12rem] font-semibold uppercase leading-[0.96] tracking-[-0.035em] text-black lg:text-[1.18rem]">
+          {label}
+        </div>
+      </div>
+      <div className="flex items-end justify-center">
+        <DashboardTileIcon tone={tile.tone} />
       </div>
     </Link>
   );
@@ -146,7 +156,7 @@ function DashboardQuickAction({
   return (
     <Link
       href={href}
-      className="inline-flex min-h-0 items-center justify-center rounded-full border border-[#d9ccb4] bg-[rgba(255,250,243,0.92)] px-3.5 py-2 text-center text-[11px] font-semibold leading-none tracking-[0.04em] text-black/80 shadow-[0_8px_18px_rgba(11,27,42,0.07)] transition hover:-translate-y-px hover:bg-white"
+      className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-[#d9ccb4] bg-[rgba(255,250,243,0.92)] px-5 py-2.5 text-center text-[14px] font-medium leading-none tracking-[0.01em] text-black/80 shadow-[0_8px_18px_rgba(11,27,42,0.07)] transition hover:-translate-y-px hover:bg-white"
     >
       <div>{label}</div>
     </Link>
@@ -162,37 +172,33 @@ function WeeklyStatsCard({ stats }: { stats: WeeklyStats }) {
     : "conic-gradient(#e5e7eb 0% 100%)";
 
   return (
-    <Link href={stats.href} className="feature-card min-h-[84px] gap-1 border border-black/10 px-2 py-1.5">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="small-header text-[10px] tracking-[0.08em] text-black/55">Current Week</div>
-          <div className="text-sm font-semibold">{stats.title}</div>
-        </div>
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-black/45">View</div>
+    <Link
+      href={stats.href}
+      className="feature-card relative h-[112px] gap-2 border border-black/10 px-3 py-2.5"
+    >
+      <div className="absolute left-3 right-3 top-2 text-center text-[10px] font-semibold uppercase tracking-[0.05em] text-black/55">
+        Weekly Data Collected
       </div>
-      <div className="flex items-center gap-2">
-        <div className="relative h-11 w-11 shrink-0 rounded-full" style={{ background: donutBackground }}>
-          <div className="absolute inset-[8px] flex items-center justify-center rounded-full bg-white text-[10px] font-semibold">
+      <div className="flex min-h-0 flex-1 items-center justify-center gap-3 pt-4">
+        <div className="relative h-[72px] w-[72px] shrink-0 rounded-full" style={{ background: donutBackground }}>
+          <div className="absolute inset-[11px] flex items-center justify-center rounded-full bg-white text-[17px] font-semibold">
             {stats.total}
           </div>
         </div>
-        <div className="grid flex-1 grid-cols-3 gap-1 text-center text-[10px] leading-tight text-black/65">
-          <div>
+        <div className="flex min-w-0 flex-col gap-1.5 text-[11px] leading-none text-black/70">
+          <div className="flex w-[54px] items-center justify-start gap-1.5 rounded-lg bg-emerald-50 px-1.5 py-1">
+            <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
             <div className="font-semibold text-emerald-700">{stats.green}</div>
-            <div>Green</div>
           </div>
-          <div>
+          <div className="flex w-[54px] items-center justify-start gap-1.5 rounded-lg bg-amber-50 px-1.5 py-1">
+            <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
             <div className="font-semibold text-amber-700">{stats.yellow}</div>
-            <div>Yellow</div>
           </div>
-          <div>
+          <div className="flex w-[54px] items-center justify-start gap-1.5 rounded-lg bg-red-50 px-1.5 py-1">
+            <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
             <div className="font-semibold text-red-700">{stats.red}</div>
-            <div>Red</div>
           </div>
         </div>
-      </div>
-      <div className="text-[10px] font-semibold text-black/75">
-        {stats.total} data point{stats.total === 1 ? "" : "s"}
       </div>
     </Link>
   );
@@ -208,30 +214,13 @@ function DashboardReportsButton({
   return (
     <Link
       href={href}
-      className="feature-card min-h-[92px] items-center justify-center border border-black/10 px-3 py-2 text-center"
+      className="flex h-[112px] items-center justify-center rounded-[22px] border border-black/10 bg-[linear-gradient(145deg,#ffffff_0%,#f7f1e9_100%)] px-4 py-3 text-center shadow-[0_8px_18px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(11,27,42,0.12)]"
     >
-      <div className="small-header text-black/50">Reports</div>
-      <div className="text-[15px] font-semibold leading-tight">{label}</div>
+      <div className="text-[1.04rem] font-semibold uppercase leading-[1.08] tracking-[0.01em] text-black/80">
+        {label}
+      </div>
     </Link>
   );
-}
-
-function desktopGridCols(count: number) {
-  const clamped = Math.max(1, Math.min(count, 6));
-  switch (clamped) {
-    case 1:
-      return "xl:grid-cols-1";
-    case 2:
-      return "xl:grid-cols-2";
-    case 3:
-      return "xl:grid-cols-3";
-    case 4:
-      return "xl:grid-cols-4";
-    case 5:
-      return "xl:grid-cols-5";
-    default:
-      return "xl:grid-cols-6";
-  }
 }
 
 export default async function DashboardPage({ searchParams }: { searchParams?: SearchParams }) {
@@ -439,7 +428,8 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
           subtitle: block.blockName,
           attendance,
           laps,
-          monitoring
+          monitoring,
+          reportsHref: `/report?blocks=${block.id}`
         };
       });
 
@@ -447,7 +437,6 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
         const counts = weeklyCounts.get(block.id) || { green: 0, yellow: 0, red: 0 };
         return {
           id: block.id,
-          title: `Block ${block.blockNumber}`,
           total: counts.green + counts.yellow + counts.red,
           green: counts.green,
           yellow: counts.yellow,
@@ -457,6 +446,8 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
       });
     }
   }
+
+  const weeklyStatsByBlockId = new Map(weeklyStats.map((stats) => [stats.id, stats]));
 
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col gap-1 px-1.5 py-1 lg:min-h-[calc(100vh-var(--topbar-height)-6px)]">
@@ -518,10 +509,10 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
 
       {isAuthed && (
         <>
-          <div className="hero-card flex flex-1 flex-col gap-4 overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-3 lg:p-4">
-            <div className="flex flex-col gap-3 border-b border-black/10 pb-3 xl:flex-row xl:items-end xl:justify-between">
-              <h1 className="section-title mb-0 text-[clamp(1.85rem,2vw,2.35rem)]">Today&apos;s Dashboard</h1>
-              <div className="flex flex-wrap items-center gap-2">
+          <div className="hero-card flex flex-1 flex-col gap-3 overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-3 lg:p-3.5">
+            <div className="flex flex-col gap-2 border-b border-black/10 pb-2.5 xl:flex-row xl:items-end xl:justify-between">
+              <h1 className="section-title mb-0 text-[clamp(1.85rem,2vw,2.35rem)]">Command Center</h1>
+              <div className="flex flex-wrap items-center gap-2.5">
                 <DashboardQuickAction href="/setup/seating" label="Seating Chart" />
                 <DashboardQuickAction href="/setup/laps" label="Name Your Laps" />
                 <DashboardQuickAction href="/setup/blocks" label="Update Blocks" />
@@ -535,44 +526,30 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
                   Create your blocks and students to start today&apos;s dashboard.
                 </div>
               ) : (
-                <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_148px] xl:grid-rows-[minmax(0,1fr)_auto]">
-                  <div className={`grid content-start gap-3 md:grid-cols-2 ${desktopGridCols(dashboardBlocks.length)}`}>
-                    {dashboardBlocks.map((block) => (
+                <div className="flex min-h-0 flex-1 flex-col gap-3">
+                  {dashboardBlocks.map((block) => {
+                    const stats = weeklyStatsByBlockId.get(block.id);
+
+                    return (
                       <div
                         key={block.id}
-                        className="min-w-0 rounded-[30px] border border-[#dbcdb7] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,241,232,0.94)_100%)] p-4 shadow-[0_14px_34px_rgba(11,27,42,0.08)]"
+                        className="min-w-0 rounded-[22px] border border-[#dbcdb7] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,241,232,0.94)_100%)] p-2.5 shadow-[0_12px_26px_rgba(11,27,42,0.08)]"
                       >
-                        <div className="border-b border-black/[0.08] pb-3 text-center">
-                          <div className="text-[27px] font-bold uppercase leading-none tracking-[-0.04em] text-black">
-                            {block.title}
+                        <div className="grid gap-2.5 lg:grid-cols-[40px_minmax(0,1.02fr)_minmax(0,1.02fr)_minmax(0,1.02fr)_250px_138px] xl:grid-cols-[40px_minmax(0,1.05fr)_minmax(0,1.05fr)_minmax(0,1.05fr)_260px_138px]">
+                          <div className="flex h-[112px] items-center justify-center rounded-[22px] bg-white/[0.72] px-0.5 py-0.5">
+                            <div className="[writing-mode:vertical-rl] rotate-180 text-[18px] font-bold uppercase leading-none tracking-[0.03em] text-black">
+                              {block.title}
+                            </div>
                           </div>
-                          <div className="mt-1 truncate text-[27px] font-bold leading-none tracking-[-0.04em] text-black/72">
-                            {block.subtitle}
-                          </div>
-                        </div>
-                        <div className="mt-4 grid gap-3">
                           <DashboardTile kind="attendance" tile={block.attendance} />
                           <DashboardTile kind="laps" tile={block.laps} />
                           <DashboardTile kind="monitoring" tile={block.monitoring} />
+                          {stats ? <WeeklyStatsCard stats={stats} /> : <div />}
+                          <DashboardReportsButton href={block.reportsHref} label="OTHER REPORTS" />
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="hidden xl:block" />
-
-                  <div className="rounded-[28px] border border-black/[0.08] bg-white/[0.55] px-3 py-3">
-                    <div className="small-header text-center text-black/60">Current Week · Monday to Sunday</div>
-                    <div className={`mt-3 grid gap-3 md:grid-cols-2 ${desktopGridCols(weeklyStats.length || 1)}`}>
-                      {weeklyStats.map((stats) => (
-                        <WeeklyStatsCard key={stats.id} stats={stats} />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="xl:self-end">
-                    <DashboardReportsButton href="/report" label="other REPORTS" />
-                  </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

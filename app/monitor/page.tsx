@@ -76,6 +76,16 @@ function attendanceLabel(status: AttendanceStatus) {
   return status.replace("_", " ");
 }
 
+function performanceBackground(color?: PerformanceColor) {
+  return color === "GREEN"
+    ? "rgba(52, 211, 153, 0.25)"
+    : color === "YELLOW"
+    ? "rgba(253, 224, 71, 0.25)"
+    : color === "RED"
+    ? "rgba(248, 113, 113, 0.25)"
+    : "transparent";
+}
+
 function MonitorPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -94,6 +104,7 @@ function MonitorPageInner() {
   const [draftAttendance, setDraftAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [savedPerformance, setSavedPerformance] = useState<Record<string, PerformanceColor>>({});
   const [draftPerformance, setDraftPerformance] = useState<Record<string, PerformanceColor>>({});
+  const [selectedLaps, setSelectedLaps] = useState<number[]>([]);
   const [attendanceCompletionPromptOpen, setAttendanceCompletionPromptOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -133,6 +144,21 @@ function MonitorPageInner() {
     attendancePromptInitializedRef.current = false;
     setAttendanceCompletionPromptOpen(false);
   }, [blockId, dateKey, activeMode]);
+
+  useEffect(() => {
+    const availableLapNumbers = laps
+      .filter((lap) => lap.dayIndex === dayIndex)
+      .sort((left, right) => left.lapNumber - right.lapNumber)
+      .map((lap) => lap.lapNumber);
+
+    setSelectedLaps((prev) => {
+      const filtered = prev.filter((lapNumber) => availableLapNumbers.includes(lapNumber));
+      if (availableLapNumbers.length === 0) {
+        return filtered.length === 0 ? prev : [];
+      }
+      return filtered.length > 0 ? filtered : availableLapNumbers;
+    });
+  }, [laps, dayIndex]);
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -208,11 +234,6 @@ function MonitorPageInner() {
       setLoading(false);
     }
   }
-
-  const selectedBlock = useMemo(
-    () => blocks.find((block) => block.id === blockId) || null,
-    [blocks, blockId]
-  );
 
   const todayLaps = useMemo(
     () => laps.filter((lap) => lap.dayIndex === dayIndex).sort((a, b) => a.lapNumber - b.lapNumber),
@@ -438,20 +459,17 @@ function MonitorPageInner() {
     return {
       lapNumber,
       label: lap?.name || `Name Lap ${lapNumber}`,
-      isNamed: Boolean(lap?.name)
+      isNamed: Boolean(lap?.name),
+      isSelected: selectedLaps.includes(lapNumber)
     };
   });
+  const selectedMonitoringLaps = monitoringLaps.filter((lap) => lap.isNamed && lap.isSelected);
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <ReturnToDashboardButton />
         <div className="flex flex-wrap items-center gap-3">
-          {selectedBlock && (
-            <div className="rounded-full border border-black/15 bg-white/80 px-4 py-2 text-sm font-semibold">
-              Block {selectedBlock.blockNumber} · {selectedBlock.blockName}
-            </div>
-          )}
           <div className="text-sm text-black/60">
             {saveState || (hasUnsavedChanges ? "Unsaved changes" : "No unsaved changes")}
           </div>
@@ -496,9 +514,6 @@ function MonitorPageInner() {
         <div className="hero-card p-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-full border border-black/20 bg-white/70 px-4 py-2 text-sm font-semibold">
-                {activeMode === "attendance" ? "Attendance" : "Monitoring"}
-              </div>
               {activeMode === "attendance" && (
                 <button
                   className="btn btn-ghost px-4 py-2"
@@ -518,10 +533,10 @@ function MonitorPageInner() {
                 ? "Seat every active student before using the seat map."
                 : activeMode === "attendance"
                 ? "Take attendance and save whenever you're ready."
-                : !attendanceComplete
-                ? "Attendance has not been fully taken. You can still monitor, but attendance should be taken first."
                 : namedLapCount === 0
                 ? "Name at least one lap to begin monitoring."
+                : selectedMonitoringLaps.length === 0
+                ? "Select one or more named laps to begin monitoring."
                 : "Named laps can be monitored immediately. Unnamed laps open Name Your Laps."}
             </div>
           </div>
@@ -534,14 +549,28 @@ function MonitorPageInner() {
 
           {activeMode === "performance" && (
             <div className="rounded-2xl border border-black/10 bg-white/60 p-4">
-              <div className="small-header text-black/60">Today&apos;s Laps</div>
-              <div className="mt-3 grid gap-2 md:grid-cols-3">
+              <div className="grid gap-2 md:grid-cols-3">
                 {monitoringLaps.map((lap) =>
                   lap.isNamed ? (
-                    <div key={lap.lapNumber} className="rounded-xl border border-black/10 bg-white px-3 py-3">
+                    <button
+                      key={lap.lapNumber}
+                      type="button"
+                      className={`rounded-xl border px-3 py-3 text-left transition ${
+                        lap.isSelected
+                          ? "border-sky-500 bg-sky-50 shadow-[0_10px_24px_rgba(14,116,144,0.12)]"
+                          : "border-black/10 bg-white hover:border-black/20"
+                      }`}
+                      onClick={() =>
+                        setSelectedLaps((prev) =>
+                          prev.includes(lap.lapNumber)
+                            ? prev.filter((lapNumber) => lapNumber !== lap.lapNumber)
+                            : [...prev, lap.lapNumber].sort((left, right) => left - right)
+                        )
+                      }
+                    >
                       <div className="small-header text-black/45">Lap {lap.lapNumber}</div>
                       <div className="mt-1 text-sm font-semibold">{lap.label}</div>
-                    </div>
+                    </button>
                   ) : (
                     <button
                       key={lap.lapNumber}
@@ -572,27 +601,29 @@ function MonitorPageInner() {
             )}
 
             {canTakeAttendance && activeMode === "performance" && namedLapCount === 0 && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-2xl bg-white/82 px-6 text-center">
-                <div className="text-2xl font-semibold">Name a lap before monitoring.</div>
-                <div className="max-w-xl text-sm text-black/65">
-                  Monitoring is available from this screen, but at least one lap must be named first. You can name a lap
-                  now or head back to the dashboard.
-                </div>
-                <div className="flex flex-wrap justify-center gap-3">
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    onClick={() => requestNavigation(() => router.push(lapsSetupHref(true)))}
-                  >
-                    Name Your Laps
-                  </button>
-                  <button
-                    className="btn btn-ghost"
-                    type="button"
-                    onClick={() => requestNavigation(() => router.push("/dashboard"))}
-                  >
-                    Return to Dashboard
-                  </button>
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-[rgba(255,250,243,0.78)] px-6 backdrop-blur-sm">
+                <div className="max-w-xl rounded-[24px] border border-black/10 bg-white/92 px-8 py-7 text-center shadow-[0_18px_40px_rgba(11,27,42,0.14)]">
+                  <div className="text-2xl font-semibold">Name a lap before monitoring.</div>
+                  <div className="mx-auto mt-3 max-w-xl text-sm text-black/65">
+                    Monitoring is available from this screen, but at least one lap must be named first. You can name a lap
+                    now or head back to the dashboard.
+                  </div>
+                  <div className="mt-5 flex flex-wrap justify-center gap-3">
+                    <button
+                      className="btn btn-primary"
+                      type="button"
+                      onClick={() => requestNavigation(() => router.push(lapsSetupHref(true)))}
+                    >
+                      Name Your Laps
+                    </button>
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      onClick={() => requestNavigation(() => router.push("/dashboard"))}
+                    >
+                      Return to Dashboard
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -739,36 +770,22 @@ function MonitorPageInner() {
                     </div>
                   )}
 
-                  {activeMode === "performance" && !isAbsent && (
+                  {activeMode === "performance" && !isAbsent && selectedMonitoringLaps.length > 0 && (
                     <div className="absolute inset-0 z-0 flex">
-                      {monitoringLaps.map((lap, index) => {
+                      {selectedMonitoringLaps.map((lap, index) => {
                         const currentColor = desk.studentId
                           ? performanceMap[performanceKey(desk.studentId, lap.lapNumber)]
                           : undefined;
-                        const background =
-                          !lap.isNamed
-                            ? "repeating-linear-gradient(135deg, rgba(15,23,42,0.05) 0, rgba(15,23,42,0.05) 6px, rgba(255,255,255,0.72) 6px, rgba(255,255,255,0.72) 12px)"
-                            : currentColor === "GREEN"
-                            ? "rgba(52, 211, 153, 0.25)"
-                            : currentColor === "YELLOW"
-                            ? "rgba(253, 224, 71, 0.25)"
-                            : currentColor === "RED"
-                            ? "rgba(248, 113, 113, 0.25)"
-                            : "transparent";
                         return (
                           <button
                             key={`${desk.id}-${lap.lapNumber}`}
                             type="button"
-                            className={index < monitoringLaps.length - 1 ? "flex-1 border-r border-black/10" : "flex-1"}
+                            className={index < selectedMonitoringLaps.length - 1 ? "flex-1 border-r border-black/10" : "flex-1"}
                             disabled={!canMonitorFromSeatMap || !desk.studentId}
-                            style={{ background }}
-                            title={lap.isNamed ? `Lap ${lap.lapNumber}: ${lap.label}` : `Lap ${lap.lapNumber}: Name this lap`}
+                            style={{ background: performanceBackground(currentColor) }}
+                            title={`Lap ${lap.lapNumber}: ${lap.label}`}
                             onClick={() => {
                               if (!desk.studentId) return;
-                              if (!lap.isNamed) {
-                                requestNavigation(() => router.push(lapsSetupHref(true)));
-                                return;
-                              }
                               cyclePerformance(desk.studentId, lap.lapNumber);
                             }}
                           />

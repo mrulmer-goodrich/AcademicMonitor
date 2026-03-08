@@ -17,8 +17,8 @@ const config: Config = {
         mint: "#6bbf8a"
       },
       fontFamily: {
-        display: ["'Space Grotesk'", "ui-sans-serif", "system-ui"],
-        body: ["'IBM Plex Sans'", "ui-sans-serif", "system-ui"]
+        display: ["'Poppins'", "ui-sans-serif", "system-ui"],
+        body: ["'Poppins'", "ui-sans-serif", "system-ui"]
       },
       boxShadow: {
         soft: "0 10px 30px rgba(11, 27, 42, 0.12)",
