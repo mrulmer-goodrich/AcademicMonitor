@@ -221,9 +221,8 @@ Demo login:
 
 ### Local Preview Stability
 
-- `npm run dev` now writes to `.next-dev`
-- `npm run build` and `npm run start` now write/read from `.next-prod`
-- This keeps local dev and production preview artifacts separate so styles and client assets do not get stripped by mixed Next.js build output
+- Next.js uses the default `.next` build directory for local and production builds
+- This keeps the project aligned with Vercel's expected output layout
 - Email: `demo@academicmonitor.test`
 - Password: `demo1234`
 
