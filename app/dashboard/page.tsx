@@ -135,8 +135,13 @@ function DashboardTile({
       className={`grid h-[112px] grid-rows-[1fr_auto] rounded-[22px] border px-4 py-3 text-center shadow-[0_8px_18px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(11,27,42,0.12)] ${tileAccentClasses(tile.tone)}`}
     >
       <div className="flex min-h-0 items-center justify-center">
-        <div className="w-full overflow-hidden text-[1.12rem] font-semibold uppercase leading-[0.96] tracking-[-0.035em] text-black lg:text-[1.18rem]">
-          {label}
+        <div className="flex w-full flex-col items-center gap-1 overflow-hidden">
+          <div className="w-full overflow-hidden text-[1.02rem] font-semibold uppercase leading-[0.96] tracking-[-0.035em] text-black lg:text-[1.08rem]">
+            {label}
+          </div>
+          <div className="text-[0.68rem] font-semibold uppercase leading-none tracking-[0.06em] text-black/55">
+            {tile.detail}
+          </div>
         </div>
       </div>
       <div className="flex items-end justify-center">
@@ -229,7 +234,6 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
   const error = searchParams?.error || null;
   const today = normalizeDate(new Date());
   const todayIso = today.toISOString().slice(0, 10);
-  const currentWeekStartIso = startOfWeek(today, { weekStartsOn: 1 }).toISOString().slice(0, 10);
 
   let dashboardBlocks: DashboardBlock[] = [];
   let weeklyStats: WeeklyStats[] = [];
@@ -254,7 +258,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
             blockId: { in: blockIds },
             active: true
           },
-          select: { blockId: true }
+          select: { id: true, blockId: true }
         }),
         prisma.attendanceRecord.findMany({
           where: {
@@ -262,7 +266,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
             blockId: { in: blockIds },
             date: today
           },
-          select: { studentId: true, blockId: true }
+          select: { studentId: true, blockId: true, status: true }
         }),
         isWeekday
           ? prisma.lapDefinition.findMany({
@@ -282,7 +286,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
                 blockId: { in: blockIds },
                 date: today
               },
-              select: { blockId: true, lapNumber: true }
+              select: { blockId: true, lapNumber: true, studentId: true }
             })
           : Promise.resolve([]),
         prisma.lapPerformance.findMany({
@@ -299,13 +303,21 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
       ]);
 
       const activeStudentCounts = new Map<string, number>();
+      const activeStudentIdsByBlock = new Map<string, string[]>();
       activeStudents.forEach((student) => {
         activeStudentCounts.set(student.blockId, (activeStudentCounts.get(student.blockId) || 0) + 1);
+        activeStudentIdsByBlock.set(student.blockId, [...(activeStudentIdsByBlock.get(student.blockId) || []), student.id]);
       });
 
       const attendanceCounts = new Map<string, number>();
+      const absentStudentIdsByBlock = new Map<string, Set<string>>();
       todayAttendance.forEach((record) => {
         attendanceCounts.set(record.blockId, (attendanceCounts.get(record.blockId) || 0) + 1);
+        if (record.status === "ABSENT") {
+          const set = absentStudentIdsByBlock.get(record.blockId) || new Set<string>();
+          set.add(record.studentId);
+          absentStudentIdsByBlock.set(record.blockId, set);
+        }
       });
 
       const lapCoverage = new Map<string, Set<number>>();
@@ -315,10 +327,10 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
         lapCoverage.set(lap.blockId, set);
       });
 
-      const monitoringCoverage = new Map<string, Set<number>>();
+      const monitoringCoverage = new Map<string, Set<string>>();
       todayPerformance.forEach((record) => {
-        const set = monitoringCoverage.get(record.blockId) || new Set<number>();
-        set.add(record.lapNumber);
+        const set = monitoringCoverage.get(record.blockId) || new Set<string>();
+        set.add(`${record.studentId}-${record.lapNumber}`);
         monitoringCoverage.set(record.blockId, set);
       });
 
@@ -334,10 +346,19 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
       dashboardBlocks = blocks.map((block) => {
         const attendanceCount = attendanceCounts.get(block.id) || 0;
         const activeCount = activeStudentCounts.get(block.id) || 0;
+        const activeStudentIds = activeStudentIdsByBlock.get(block.id) || [];
+        const absentStudentIds = absentStudentIdsByBlock.get(block.id) || new Set<string>();
         const todaysLaps = lapCoverage.get(block.id) || new Set<number>();
-        const monitoringLaps = monitoringCoverage.get(block.id) || new Set<number>();
+        const monitoringEntries = monitoringCoverage.get(block.id) || new Set<string>();
         const namedLapCount = todaysLaps.size;
-        const monitoredLapCount = Array.from(todaysLaps).filter((lapNumber) => monitoringLaps.has(lapNumber)).length;
+        const monitorableStudentIds = activeStudentIds.filter((studentId) => !absentStudentIds.has(studentId));
+        const totalMonitoringCells = monitorableStudentIds.length * namedLapCount;
+        const monitoredCellCount = Array.from(todaysLaps).reduce((count, lapNumber) => {
+          return (
+            count +
+            monitorableStudentIds.filter((studentId) => monitoringEntries.has(`${studentId}-${lapNumber}`)).length
+          );
+        }, 0);
         const attendanceHref = `/monitor?blockId=${block.id}&mode=attendance`;
         const lapsHref = `/setup/laps?blockId=${block.id}&focusDate=${todayIso}`;
         const monitoringHref = `/monitor?blockId=${block.id}&mode=performance`;
@@ -354,7 +375,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
             ? {
                 tone: "complete" as const,
                 status: "Complete",
-                detail: `${attendanceCount}/${activeCount} marked`,
+                detail: `${attendanceCount}/${activeCount} students`,
                 href: attendanceHref
               }
             : attendanceCount === 0
@@ -367,7 +388,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
             : {
                 tone: "attention" as const,
                 status: "Needs attention",
-                detail: `${attendanceCount}/${activeCount} marked`,
+                detail: `${attendanceCount}/${activeCount} students`,
                 href: attendanceHref
               };
 
@@ -401,24 +422,31 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
                 detail: "Name today's laps first",
                 href: monitoringHref
               }
-            : namedLapCount === 3 && monitoredLapCount === 3
+            : totalMonitoringCells === 0
             ? {
                 tone: "complete" as const,
                 status: "Complete",
-                detail: "3 of 3 laps entered",
+                detail: "No present students to monitor",
                 href: monitoringHref
               }
-            : monitoredLapCount === 0
+            : monitoredCellCount >= totalMonitoringCells
+            ? {
+                tone: "complete" as const,
+                status: "Complete",
+                detail: `${monitoredCellCount}/${totalMonitoringCells} records`,
+                href: monitoringHref
+              }
+            : monitoredCellCount === 0
             ? {
                 tone: "notStarted" as const,
                 status: "Not started",
-                detail: `0 of ${namedLapCount} laps entered`,
+                detail: `0/${totalMonitoringCells} records`,
                 href: monitoringHref
               }
             : {
                 tone: "attention" as const,
                 status: "Needs attention",
-                detail: `${monitoredLapCount} of ${namedLapCount} laps entered`,
+                detail: `${monitoredCellCount}/${totalMonitoringCells} records`,
                 href: monitoringHref
               };
 
@@ -429,7 +457,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
           attendance,
           laps,
           monitoring,
-          reportsHref: `/report?blocks=${block.id}`
+          reportsHref: `/report?blockId=${block.id}`
         };
       });
 
@@ -441,7 +469,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
           green: counts.green,
           yellow: counts.yellow,
           red: counts.red,
-          href: `/report?blocks=${block.id}&weekStart=${currentWeekStartIso}&days=0,1,2,3,4,5,6&laps=1,2,3&viewMode=records&autoRun=1`
+          href: `/report?blockId=${block.id}&reportType=monitoring&scope=class&date=${todayIso}`
         };
       });
     }

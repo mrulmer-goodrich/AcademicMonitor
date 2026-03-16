@@ -437,21 +437,14 @@ function MonitorPageInner() {
     }
   }
 
-  async function handleAttendanceCompletionAction(action: "stay" | "monitor" | "dashboard") {
+  async function handleAttendanceCompletionAction(action: "stay" | "dashboard") {
     if (action === "stay") {
       setAttendanceCompletionPromptOpen(false);
       return;
     }
 
-    const nextUrl =
-      action === "dashboard"
-        ? "/dashboard"
-        : namedLapCount === 0
-        ? lapsSetupHref(true)
-        : `/monitor?blockId=${blockId}&mode=performance`;
-
     setAttendanceCompletionPromptOpen(false);
-    await saveChanges({ nextUrl });
+    await saveChanges({ nextUrl: "/dashboard" });
   }
 
   const monitoringLaps = lapNumbers.map((lapNumber) => {
@@ -881,10 +874,10 @@ function MonitorPageInner() {
             <div className="small-header text-black/55">Attendance Complete</div>
             <h2 className="section-title mt-2">What should happen next?</h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm text-black/65">
-              Every seated student now has an attendance record. You can stay here, move forward into monitoring, or save
-              and head back to the dashboard.
+              Every seated student now has an attendance record. You can keep working in attendance without saving yet, or
+              save the record and return to Command Center.
             </p>
-            <div className="mt-8 grid gap-3 md:grid-cols-3">
+            <div className="mt-8 grid gap-3 md:grid-cols-2">
               <button
                 className="btn btn-ghost min-h-[88px] justify-center text-center"
                 type="button"
@@ -895,18 +888,10 @@ function MonitorPageInner() {
               <button
                 className="btn btn-primary min-h-[88px] justify-center text-center"
                 type="button"
-                onClick={() => handleAttendanceCompletionAction("monitor")}
-                disabled={saving}
-              >
-                {saving ? "Saving..." : "Save Attendance and Move to Monitoring"}
-              </button>
-              <button
-                className="btn btn-ghost min-h-[88px] justify-center text-center"
-                type="button"
                 onClick={() => handleAttendanceCompletionAction("dashboard")}
                 disabled={saving}
               >
-                {saving ? "Saving..." : "Save Attendance and Return to Dashboard"}
+                {saving ? "Saving..." : "Save Attendance and Return to Command Center"}
               </button>
             </div>
           </div>
