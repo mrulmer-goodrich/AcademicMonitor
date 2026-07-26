@@ -71,6 +71,7 @@ function LapsSetupPageInner() {
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeDayIndex, setActiveDayIndex] = useState(() => Math.min(Math.max((new Date().getDay() + 6) % 7, 0), 4));
 
   useEffect(() => {
     loadBlocks();
@@ -81,6 +82,7 @@ function LapsSetupPageInner() {
     if (!focusDate) return;
     const focus = new Date(`${focusDate}T09:00:00`);
     setWeekStart(startOfWeek(focus, { weekStartsOn: 1 }));
+    setActiveDayIndex(Math.min(Math.max((focus.getDay() + 6) % 7, 0), 4));
   }, [focusDate]);
 
   useEffect(() => {
@@ -232,6 +234,25 @@ function LapsSetupPageInner() {
     }));
   }
 
+  async function copyPreviousWeek() {
+    if (!blockId) return;
+    const previousWeek = addDays(weekStart, -7);
+    const res = await fetch(`/api/laps?blockId=${blockId}&weekStart=${previousWeek.toISOString()}`);
+    if (!res.ok) {
+      setStatusMessage("Unable to load the previous week.");
+      return;
+    }
+    const data = await res.json();
+    const previousLaps: Lap[] = data.laps || [];
+    if (previousLaps.length === 0) {
+      setStatusMessage("The previous week has no lap names to copy.");
+      return;
+    }
+    setDrafts(buildDraftMap(previousLaps));
+    setEditing(true);
+    setStatusMessage("Previous week copied. Review, then save.");
+  }
+
   const blockOptions = useMemo(
     () => blocks.map((block) => ({ id: block.id, label: `Block ${block.blockNumber} · ${block.blockName}` })),
     [blocks]
@@ -313,6 +334,9 @@ function LapsSetupPageInner() {
             )}
             {editing && (
               <>
+                <button className="btn btn-ghost" type="button" onClick={copyPreviousWeek} disabled={saving}>
+                  Copy Previous Week
+                </button>
                 <button className="btn btn-primary" type="button" onClick={saveAll} disabled={saving}>
                   {saving ? "Saving..." : "Save"}
                 </button>
@@ -328,7 +352,50 @@ function LapsSetupPageInner() {
           <div>{statusMessage || ""}</div>
         </div>
 
-        <div className="overflow-x-auto overflow-y-visible">
+        <div className="space-y-4 xl:hidden">
+          <div className="grid grid-cols-5 gap-1 rounded-2xl bg-black/5 p-1">
+            {weekdays.map((day, dayIndex) => (
+              <button
+                key={`tab-${day}`}
+                type="button"
+                className={`min-h-[48px] rounded-xl px-2 py-2 text-center text-xs font-semibold transition ${activeDayIndex === dayIndex ? "bg-white text-black shadow-sm" : "text-black/55"}`}
+                onClick={() => setActiveDayIndex(dayIndex)}
+              >
+                <span className="block">{day}</span>
+                <span className="block text-[10px] font-normal">{format(addDays(weekStart, dayIndex), "MM/dd")}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="grid gap-3">
+            {lapNumbers.map((lapNumber) => {
+              const key = draftKey(activeDayIndex, lapNumber);
+              const draft = drafts[key] || { name: "", standardCode: "" };
+              const lap = laps.find((entry) => entry.dayIndex === activeDayIndex && entry.lapNumber === lapNumber);
+              return (
+                <div key={`mobile-${key}`} className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+                  <div className="small-header text-black/45">Lap {lapNumber}</div>
+                  {editing ? (
+                    <div className="mt-3 grid gap-3">
+                      <input className="form-control" value={draft.name} placeholder="Type lap name" onChange={(event) => updateDraft(activeDayIndex, lapNumber, { name: event.target.value })} />
+                      <select className="form-control" value={draft.standardCode} onChange={(event) => updateDraft(activeDayIndex, lapNumber, { standardCode: event.target.value })}>
+                        <option value="">No standard</option>
+                        {standards.map((standard) => <option key={`mobile-${key}-${standard.code}`} value={standard.code}>{standard.code} — {standard.description}</option>)}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      <div className="font-semibold">{lap?.name || <span className="text-black/35">No lap name</span>}</div>
+                      <div className="mt-1 text-xs text-black/55">{lap?.standardCode || "No standard selected"}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="hidden overflow-x-auto overflow-y-visible xl:block">
           <table className="table w-full min-w-[980px] table-fixed">
             <thead>
               <tr>

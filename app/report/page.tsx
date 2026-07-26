@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 import { addDays, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
+import ClassroomCanvas from "@/components/ClassroomCanvas";
 
 type Block = {
   id: string;
@@ -147,6 +148,19 @@ function downloadWorkbook(filename: string, sheetName: string, rows: Record<stri
   URL.revokeObjectURL(link.href);
 }
 
+function downloadCsv(filename: string, rows: Record<string, string | number>[]) {
+  if (rows.length === 0) return;
+  const columns = Object.keys(rows[0]);
+  const escapeCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+  const csv = [columns.map(escapeCell).join(","), ...rows.map((row) => columns.map((column) => escapeCell(row[column] ?? "")).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 function attendanceSeatClasses(status?: AttendanceStatus) {
   if (status === "ABSENT") return "bg-red-200 border-red-500";
   if (status === "TARDY") return "bg-yellow-100 border-yellow-400";
@@ -261,7 +275,7 @@ function AttendanceSeatChart({
   attendanceByStudentId: Map<string, AttendanceStatus>;
 }) {
   return (
-    <div className="hero-card relative h-[560px] overflow-hidden p-4">
+    <ClassroomCanvas className="h-[min(560px,70vh)] min-h-[390px] p-4">
       {desks.length === 0 ? (
         <div className="flex h-full items-center justify-center text-sm text-black/60">
           No seating chart found for this block.
@@ -289,7 +303,7 @@ function AttendanceSeatChart({
           );
         })
       )}
-    </div>
+    </ClassroomCanvas>
   );
 }
 
@@ -305,7 +319,7 @@ function MonitoringSeatChart({
   selectedLaps: MonitoringReport["laps"];
 }) {
   return (
-    <div className="hero-card relative h-[560px] overflow-hidden p-4">
+    <ClassroomCanvas className="h-[min(560px,70vh)] min-h-[390px] p-4">
       {desks.length === 0 ? (
         <div className="flex h-full items-center justify-center text-sm text-black/60">
           No seating chart found for this block.
@@ -351,7 +365,7 @@ function MonitoringSeatChart({
           );
         })
       )}
-    </div>
+    </ClassroomCanvas>
   );
 }
 
@@ -391,6 +405,10 @@ function ReportPageInner() {
     () => blocks.find((block) => block.id === selectedBlockId) || null,
     [blocks, selectedBlockId]
   );
+  const selectedDateIsTest = useMemo(() => {
+    const day = parseIsoDate(selectedDate).getDay();
+    return day === 0 || day === 6;
+  }, [selectedDate]);
   const activeStudents = useMemo(
     () => students.filter((student) => student.active),
     [students]
@@ -522,7 +540,7 @@ function ReportPageInner() {
   }, [reportType, scope, selectedBlockId, selectedDate]);
 
   useEffect(() => {
-    if (reportType !== "monitoring" || scope !== "class" || !selectedBlockId) {
+    if (reportType !== "monitoring" || !selectedBlockId) {
       setMonitoringReport(null);
       return;
     }
@@ -546,7 +564,7 @@ function ReportPageInner() {
     }
 
     void loadMonitoringReport();
-  }, [reportType, scope, selectedBlockId, selectedDate]);
+  }, [reportType, selectedBlockId, selectedDate]);
 
   useEffect(() => {
     const namedLapNumbers = monitoringReport?.laps.map((lap) => lap.lapNumber) || [];
@@ -618,24 +636,32 @@ function ReportPageInner() {
     [monitoringReport, selectedMonitoringLapNumbers]
   );
 
-  function downloadAttendanceStudentXlsx() {
-    if (!attendanceStudentReport) return;
-    const rows = attendanceStudentReport.records.map((record) => ({
+  const selectedStudentMonitoringRows = useMemo(() => {
+    if (!monitoringReport || !selectedStudentId) return [];
+    const student = activeStudents.find((entry) => entry.id === selectedStudentId);
+    if (!student) return [];
+    return monitoringReport.laps.map((lap) => ({
+      Name: student.displayName,
+      Date: monitoringReport.date,
+      "Lap #": lap.lapNumber,
+      "Lap Name": lap.name,
+      "NC Standard": lap.standardCode || "",
+      Color: monitoringPerformanceByCell.get(`${student.id}-${lap.lapNumber}`) || "Not recorded"
+    }));
+  }, [monitoringReport, selectedStudentId, activeStudents, monitoringPerformanceByCell]);
+
+  function attendanceStudentRows() {
+    if (!attendanceStudentReport) return [];
+    return attendanceStudentReport.records.map((record) => ({
       Name: attendanceStudentReport.student.displayName,
       Date: record.date,
       "Attendance Status": attendanceLabel(record.status)
     }));
-
-    downloadWorkbook(
-      `attendance-${attendanceStudentReport.student.displayName}-${todayIso}.xlsx`,
-      "Attendance",
-      rows
-    );
   }
 
-  function downloadAttendanceClassXlsx() {
-    if (!attendanceClassReport) return;
-    const rows = attendanceClassReport.students.map((student) => ({
+  function attendanceClassRows() {
+    if (!attendanceClassReport) return [];
+    return attendanceClassReport.students.map((student) => ({
       Name: student.displayName,
       Date: attendanceClassReport.date,
       "Attendance Status": attendanceLabel(attendanceByStudentId.get(student.id) || ""),
@@ -644,18 +670,11 @@ function ReportPageInner() {
       "Tardy Count": attendanceClassReport.summary.TARDY,
       "Left Early Count": attendanceClassReport.summary.LEFT_EARLY
     }));
-
-    downloadWorkbook(
-      `attendance-class-${attendanceClassReport.date}.xlsx`,
-      "Attendance",
-      rows
-    );
   }
 
-  function downloadMonitoringClassXlsx() {
-    if (!monitoringReport || selectedMonitoringLaps.length === 0) return;
-
-    const rows = monitoringReport.desks
+  function monitoringClassRows() {
+    if (!monitoringReport || selectedMonitoringLaps.length === 0) return [];
+    return monitoringReport.desks
       .filter((desk) => Boolean(desk.studentId && desk.student))
       .flatMap((desk) =>
         selectedMonitoringLaps.map((lap) => ({
@@ -666,6 +685,33 @@ function ReportPageInner() {
           Color: desk.studentId ? monitoringPerformanceByCell.get(`${desk.studentId}-${lap.lapNumber}`) || "" : ""
         }))
       );
+  }
+
+  function downloadAttendanceStudentXlsx() {
+    if (!attendanceStudentReport) return;
+    const rows = attendanceStudentRows();
+
+    downloadWorkbook(
+      `attendance-${attendanceStudentReport.student.displayName}-${todayIso}.xlsx`,
+      "Attendance",
+      rows
+    );
+  }
+
+  function downloadAttendanceClassXlsx() {
+    if (!attendanceClassReport) return;
+    const rows = attendanceClassRows();
+
+    downloadWorkbook(
+      `attendance-class-${attendanceClassReport.date}.xlsx`,
+      "Attendance",
+      rows
+    );
+  }
+
+  function downloadMonitoringClassXlsx() {
+    if (!monitoringReport || selectedMonitoringLaps.length === 0) return;
+    const rows = monitoringClassRows();
 
     downloadWorkbook(
       `monitoring-class-${monitoringReport.date}.xlsx`,
@@ -681,6 +727,14 @@ function ReportPageInner() {
           <h1 className="text-[clamp(1.9rem,4vw,2.8rem)] font-bold tracking-[-0.04em] text-black">
             {selectedBlock ? `REPORTS FOR BLOCK ${selectedBlock.blockNumber} / ${selectedBlock.blockName}` : "REPORTS"}
           </h1>
+          {blocks.length > 1 && (
+            <label className="mx-auto mt-4 block max-w-sm text-left">
+              <span className="small-header text-black/45">Class block</span>
+              <select className="form-control mt-1 bg-white" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
+                {blocks.map((block) => <option key={block.id} value={block.id}>Block {block.blockNumber} · {block.blockName}</option>)}
+              </select>
+            </label>
+          )}
         </div>
 
         {error && (
@@ -690,8 +744,9 @@ function ReportPageInner() {
         )}
 
         {!selectedBlock && !error && (
-          <div className="mt-6 text-center text-sm text-black/60">
-            Loading report options...
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
+            <div className="h-44 animate-pulse rounded-2xl bg-black/5" />
+            <div className="h-44 animate-pulse rounded-2xl bg-black/5" />
           </div>
         )}
 
@@ -763,6 +818,12 @@ function ReportPageInner() {
                   </button>
                 </div>
 
+                {selectedDateIsTest && scope === "class" && (
+                  <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950">
+                    Weekend records are test data and are intentionally excluded from standard reports. Choose a weekday to view class results.
+                  </div>
+                )}
+
                 {reportType === "attendance" && scope === "student" && (
                   <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
                     <div className="feature-card">
@@ -799,6 +860,9 @@ function ReportPageInner() {
                       >
                         Export XLSX
                       </button>
+                      <button type="button" className="btn btn-ghost" onClick={() => downloadCsv(`attendance-${attendanceStudentReport?.student.displayName || "student"}-${todayIso}.csv`, attendanceStudentRows())} disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}>
+                        Export CSV
+                      </button>
                     </div>
 
                     <div className="space-y-4">
@@ -820,16 +884,16 @@ function ReportPageInner() {
                 {reportType === "attendance" && scope === "class" && (
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-end justify-between gap-3">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid w-full max-w-xl grid-cols-[auto_minmax(150px,1fr)_auto] gap-2 sm:w-auto">
                         <button
                           type="button"
                           className="btn btn-ghost"
                           onClick={() => setSelectedDate((current) => shiftIsoDate(current, -1))}
                         >
-                          Previous Day
+                          ← <span className="hidden sm:inline">Previous</span>
                         </button>
                         <input
-                          className="form-control min-w-[180px]"
+                          className="form-control min-w-0 bg-white"
                           type="date"
                           value={selectedDate}
                           onChange={(event) => setSelectedDate(event.target.value)}
@@ -839,17 +903,13 @@ function ReportPageInner() {
                           className="btn btn-ghost"
                           onClick={() => setSelectedDate((current) => shiftIsoDate(current, 1))}
                         >
-                          Next Day
+                          <span className="hidden sm:inline">Next</span> →
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={downloadAttendanceClassXlsx}
-                        disabled={!attendanceClassReport}
-                      >
-                        Export XLSX
-                      </button>
+                      <div className="flex gap-2">
+                        <button type="button" className="btn btn-primary" onClick={downloadAttendanceClassXlsx} disabled={!attendanceClassReport}>Export XLSX</button>
+                        <button type="button" className="btn btn-ghost" onClick={() => downloadCsv(`attendance-class-${attendanceClassReport?.date || selectedDate}.csv`, attendanceClassRows())} disabled={!attendanceClassReport}>Export CSV</button>
+                      </div>
                     </div>
 
                     {attendanceClassReport && (
@@ -883,24 +943,47 @@ function ReportPageInner() {
                 )}
 
                 {reportType === "monitoring" && scope === "student" && (
-                  <div className="hero-card p-8 text-center text-lg font-semibold text-black/70">
-                    Coming soon
+                  <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+                    <div className="feature-card h-fit">
+                      <label className="small-header text-black/50" htmlFor="monitoring-student-select">Student</label>
+                      <select id="monitoring-student-select" className="form-control" value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)}>
+                        {activeStudents.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
+                      </select>
+                      <label className="small-header text-black/50" htmlFor="monitoring-student-date">Date</label>
+                      <input id="monitoring-student-date" className="form-control" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" className="btn btn-primary" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadWorkbook(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.xlsx`, "Monitoring", selectedStudentMonitoringRows)}>Export XLSX</button>
+                        <button type="button" className="btn btn-ghost" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadCsv(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.csv`, selectedStudentMonitoringRows)}>Export CSV</button>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {loading && <div className="h-40 animate-pulse rounded-2xl bg-black/5" />}
+                      {!loading && monitoringReport && selectedStudentMonitoringRows.length > 0 && selectedStudentMonitoringRows.map((row) => (
+                        <div key={`${row["Lap #"]}`} className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div><div className="small-header text-black/45">Lap {row["Lap #"]}</div><div className="mt-1 font-semibold">{row["Lap Name"]}</div><div className="text-xs text-black/55">{row["NC Standard"] || "No standard"}</div></div>
+                            <div className={`rounded-full px-4 py-2 text-sm font-semibold ${row.Color === "GREEN" ? "bg-emerald-100 text-emerald-800" : row.Color === "YELLOW" ? "bg-yellow-100 text-yellow-900" : row.Color === "RED" ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-600"}`}>{row.Color}</div>
+                          </div>
+                        </div>
+                      ))}
+                      {!loading && monitoringReport && selectedStudentMonitoringRows.length === 0 && <div className="rounded-2xl border border-dashed border-black/15 p-8 text-center text-sm text-black/55">No named laps are available for this date.</div>}
+                    </div>
                   </div>
                 )}
 
                 {reportType === "monitoring" && scope === "class" && (
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-end justify-between gap-3">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid w-full max-w-xl grid-cols-[auto_minmax(150px,1fr)_auto] gap-2 sm:w-auto">
                         <button
                           type="button"
                           className="btn btn-ghost"
                           onClick={() => setSelectedDate((current) => shiftIsoDate(current, -1))}
                         >
-                          Previous Day
+                          ← <span className="hidden sm:inline">Previous</span>
                         </button>
                         <input
-                          className="form-control min-w-[180px]"
+                          className="form-control min-w-0 bg-white"
                           type="date"
                           value={selectedDate}
                           onChange={(event) => setSelectedDate(event.target.value)}
@@ -910,17 +993,13 @@ function ReportPageInner() {
                           className="btn btn-ghost"
                           onClick={() => setSelectedDate((current) => shiftIsoDate(current, 1))}
                         >
-                          Next Day
+                          <span className="hidden sm:inline">Next</span> →
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={downloadMonitoringClassXlsx}
-                        disabled={!monitoringReport || selectedMonitoringLaps.length === 0}
-                      >
-                        Export XLSX
-                      </button>
+                      <div className="flex gap-2">
+                        <button type="button" className="btn btn-primary" onClick={downloadMonitoringClassXlsx} disabled={!monitoringReport || selectedMonitoringLaps.length === 0}>Export XLSX</button>
+                        <button type="button" className="btn btn-ghost" onClick={() => downloadCsv(`monitoring-class-${monitoringReport?.date || selectedDate}.csv`, monitoringClassRows())} disabled={!monitoringReport || selectedMonitoringLaps.length === 0}>Export CSV</button>
+                      </div>
                     </div>
 
                     {monitoringReport && monitoringReport.laps.length > 0 && (

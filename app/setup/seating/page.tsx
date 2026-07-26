@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import ClassroomCanvas from "@/components/ClassroomCanvas";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 
 type Block = { id: string; blockNumber: number; blockName: string };
@@ -50,6 +51,7 @@ function SeatingSetupPageInner() {
   const [snapTargetId, setSnapTargetId] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [teacherName, setTeacherName] = useState<string>("Teacher");
+  const [canvasScale, setCanvasScale] = useState(1);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     id: string;
@@ -195,16 +197,15 @@ function SeatingSetupPageInner() {
   function onPointerMove(event: React.PointerEvent) {
     if (!dragRef.current) return;
     const { id, startX, startY, originX, originY, groupPositions } = dragRef.current;
-    const dx = event.clientX - startX;
-    const dy = event.clientY - startY;
-    const container = containerRef.current?.getBoundingClientRect();
+    const dx = (event.clientX - startX) / canvasScale;
+    const dy = (event.clientY - startY) / canvasScale;
 
     setDesks((prev) => {
       const current = prev.find((d) => d.id === id);
       if (!current) return prev;
       const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-      const maxX = container ? container.width - current.width : Infinity;
-      const maxY = container ? container.height - current.height : Infinity;
+      const maxX = 1040 - current.width;
+      const maxY = 528 - current.height;
       if (current.groupId) {
         return prev.map((desk) =>
           desk.groupId === current.groupId
@@ -377,20 +378,20 @@ function SeatingSetupPageInner() {
         </div>
       </div>
 
-      <div className="hero-card h-[560px] p-0 relative overflow-hidden">
-        <div className="absolute inset-4 rounded-2xl border border-black/10 pointer-events-none" />
-        <div
-          className="absolute inset-4"
-          ref={containerRef}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
-          style={{
-            backgroundImage: `linear-gradient(to right, rgba(11,27,42,0.06) 1px, transparent 1px),
-               linear-gradient(to bottom, rgba(11,27,42,0.06) 1px, transparent 1px)`,
-            backgroundSize: `${gridSize}px ${gridSize}px`
-          }}
-        >
+      <ClassroomCanvas
+        className="h-[min(560px,calc(100vh-190px))] min-h-[390px] p-4"
+        canvasClassName="rounded-2xl border border-black/10"
+        onScaleChange={setCanvasScale}
+        canvasRef={containerRef}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+        canvasStyle={{
+          backgroundImage: `linear-gradient(to right, rgba(11,27,42,0.06) 1px, transparent 1px),
+             linear-gradient(to bottom, rgba(11,27,42,0.06) 1px, transparent 1px)`,
+          backgroundSize: `${gridSize}px ${gridSize}px`
+        }}
+      >
         {desks.map((desk) => (
           <div
             key={desk.id}
@@ -515,8 +516,7 @@ function SeatingSetupPageInner() {
             Seating chart canvas placeholder
           </div>
         )}
-        </div>
-      </div>
+      </ClassroomCanvas>
     </div>
   );
 }

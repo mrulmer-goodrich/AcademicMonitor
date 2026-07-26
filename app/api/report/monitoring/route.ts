@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { startOfWeek, parseISO } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { getActiveSchoolYear, normalizeDate, requireUser } from "@/lib/server";
+import { isStandardReportingDay } from "@/lib/reporting";
 
 function parseDateParam(value: string | null) {
   if (!value) return normalizeDate(new Date());
@@ -37,6 +38,7 @@ export async function GET(req: Request) {
   }
 
   const date = parseDateParam(searchParams.get("date"));
+  const reportableDate = isStandardReportingDay(date);
   const weekStart = startOfWeek(date, { weekStartsOn: 1 });
   const dayIndex = (date.getDay() + 6) % 7;
 
@@ -75,7 +77,7 @@ export async function GET(req: Request) {
         seatNumber: true
       }
     }),
-    prisma.attendanceRecord.findMany({
+    reportableDate ? prisma.attendanceRecord.findMany({
       where: {
         schoolYearId: schoolYear.id,
         blockId,
@@ -85,8 +87,8 @@ export async function GET(req: Request) {
         studentId: true,
         status: true
       }
-    }),
-    prisma.lapPerformance.findMany({
+    }) : Promise.resolve([]),
+    reportableDate ? prisma.lapPerformance.findMany({
       where: {
         schoolYearId: schoolYear.id,
         blockId,
@@ -97,7 +99,7 @@ export async function GET(req: Request) {
         lapNumber: true,
         color: true
       }
-    }),
+    }) : Promise.resolve([]),
     prisma.lapDefinition.findMany({
       where: {
         schoolYearId: schoolYear.id,
@@ -120,6 +122,7 @@ export async function GET(req: Request) {
     block,
     date: date.toISOString().slice(0, 10),
     usesCurrentSeatingLayout: true,
+    excludesTestRecords: true,
     desks: desks.map((desk) => ({
       id: desk.id,
       studentId: desk.studentId,

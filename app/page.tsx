@@ -10,7 +10,7 @@ export default function HomePage() {
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-6xl flex-col gap-10 px-6 py-10">
       <section className="grid gap-8 md:grid-cols-[1.1fr_0.9fr] hero-layout items-center">
         <div className="space-y-6">
-          <span className="badge badge-hero">Academic Monitoring</span>
+          <span className="badge badge-hero">Academic Monitor</span>
           <h1 className="text-4xl font-bold leading-tight">
             Track learning while it’s happening.
           </h1>
@@ -22,7 +22,7 @@ export default function HomePage() {
               {isAuthed ? "Open today’s class" : "Login or Create Account"}
             </Link>
             <Link href="/about" className="btn btn-ghost">
-              Why Academic Monitoring
+              Why Academic Monitor
             </Link>
           </div>
         </div>

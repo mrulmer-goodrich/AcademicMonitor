@@ -14,6 +14,8 @@ The core teacher workflow is implemented:
 - Attendance gating before monitoring begins
 - Tap-to-cycle performance capture: proficient, developing, and nothing written
 - Class, monitoring, and attendance reports with CSV/XLSX export
+- Responsive classroom layouts that keep seats, indicators, and lap controls together across Chromebook and tablet sizes
+- Weekend test sessions that can be used for practice without entering standard reports
 - Public landing, about, and contact pages
 
 The production build passes. There is no automated test suite yet.
@@ -88,7 +90,8 @@ scripts/      Database seed script
 - A block is a class period within that school year.
 - Each student receives an immutable internal ID and a school-year seat number that is never reused.
 - A teaching day has exactly three laps, and each lap must be named.
-- Monitoring stays locked until a block is selected, attendance is recorded, all three laps are named, and at least one lap is selected.
+- Weekday monitoring requires a seated class and at least one named, selected lap; incomplete attendance produces a warning without blocking the teacher.
+- Saturday and Sunday monitor records are test data and are excluded from standard reports and weekly reporting totals.
 - Desk segments run left to right from Lap 1 through Lap 3.
 - Tapping a segment cycles green to yellow to red and back to green.
 - Absent students are masked and cannot be scored.

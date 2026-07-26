@@ -9,7 +9,7 @@ export default function AboutPage() {
           Every day, teachers deliver instruction across multiple tasks and activities. But without a structured way to
           capture what students actually understand—in real time, across each component of the lesson—critical signals
           get lost. The student who nailed the warm‑up but fell apart during guided practice. The group that sailed
-          through computation but couldn't apply it in context. These patterns matter, and they disappear by the end of
+          through computation but couldn&apos;t apply it in context. These patterns matter, and they disappear by the end of
           the period.
         </p>
         <p className="mt-4 text-base font-semibold text-black/90">
@@ -54,9 +54,9 @@ export default function AboutPage() {
         <div className="hero-card p-6 space-y-4">
           <div className="text-lg font-semibold">Visible Learning &amp; Teacher Clarity</div>
           <p className="text-base text-black/70">
-            John Hattie's synthesis of over 1,200 meta‑analyses across millions of students established that the most
+            John Hattie&apos;s synthesis of over 1,200 meta‑analyses across millions of students established that the most
             powerful classroom practices share a common thread: teachers who monitor student progress in real time and
-            adjust instruction based on what they see. In Hattie's framework, feedback carries an effect size of 0.70,
+            adjust instruction based on what they see. In Hattie&apos;s framework, feedback carries an effect size of 0.70,
             formative evaluation registers at 0.48, and teacher clarity—knowing what students should learn, where they
             are, and what comes next—is among the strongest predictors of achievement. Academic Monitoring gives
             teachers a lightweight structure to practice all three simultaneously.
@@ -94,7 +94,7 @@ export default function AboutPage() {
           Academic Monitoring was designed by a classroom teacher, tested with students, and built for the realities of daily instruction.
           There are no lengthy rubrics to complete, no forms to fill out after school, and no
           separate assessment platform to learn. Teachers tap through performance levels as they circulate—the same
-          instructional laps they're already taking.
+          instructional laps they&apos;re already taking.
         </p>
         <p className="text-base text-black/70">
           The tool then organizes that data into clear, exportable reports that support weekly planning meetings, PLC
@@ -153,7 +153,7 @@ export default function AboutPage() {
       </div>
 
       <p className="text-sm text-black/50 italic text-center">
-        Academic Monitoring was created by a practicing educator committed to respecting teachers'
+        Academic Monitoring was created by a practicing educator committed to respecting teachers&apos;
         time and improving student outcomes.
       </p>
     </div>

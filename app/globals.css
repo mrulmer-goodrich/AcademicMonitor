@@ -88,6 +88,11 @@ a {
   box-shadow: 0 10px 20px rgba(11, 27, 42, 0.12);
 }
 
+:focus-visible {
+  outline: 3px solid rgba(14, 116, 144, 0.55);
+  outline-offset: 3px;
+}
+
 .btn:disabled {
   opacity: 0.35;
   filter: grayscale(1);
@@ -211,18 +216,18 @@ a {
 }
 
 .topbar {
-  background: transparent;
-  border-bottom: 0;
+  background: rgba(255, 250, 243, 0.88);
+  border-bottom: 1px solid rgba(11, 27, 42, 0.08);
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   height: var(--topbar-height);
   z-index: 20;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  box-shadow: none;
-  overflow: visible;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 6px 24px rgba(11, 27, 42, 0.06);
+  overflow: hidden;
 }
 
 .nav-pill {
@@ -285,7 +290,20 @@ a {
 }
 
 @media (max-width: 768px) {
+  body {
+    background-attachment: scroll, scroll;
+  }
+
   .hero-layout {
     grid-template-columns: 1fr;
+  }
+
+  .nav-pill {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .classroom-canvas-viewport {
+    scrollbar-width: thin;
   }
 }

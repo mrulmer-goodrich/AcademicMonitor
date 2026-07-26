@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { endOfMonth, parseISO, startOfMonth } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { getActiveSchoolYear, normalizeDate, requireUser } from "@/lib/server";
+import { isStandardReportingDay } from "@/lib/reporting";
 
 function parseDateParam(value: string | null) {
   if (!value) return normalizeDate(new Date());
@@ -83,7 +84,7 @@ export async function GET(req: Request) {
       student,
       monthStart: monthStart.toISOString().slice(0, 10),
       monthEnd: monthEnd.toISOString().slice(0, 10),
-      records: allRecords.map((record) => ({
+      records: allRecords.filter((record) => isStandardReportingDay(record.date)).map((record) => ({
         date: record.date.toISOString().slice(0, 10),
         status: record.status
       }))
@@ -91,6 +92,7 @@ export async function GET(req: Request) {
   }
 
   const date = parseDateParam(searchParams.get("date"));
+  const reportableDate = isStandardReportingDay(date);
   const [desks, students, attendance] = await Promise.all([
     prisma.desk.findMany({
       where: {
@@ -126,7 +128,7 @@ export async function GET(req: Request) {
         seatNumber: true
       }
     }),
-    prisma.attendanceRecord.findMany({
+    reportableDate ? prisma.attendanceRecord.findMany({
       where: {
         schoolYearId: schoolYear.id,
         blockId,
@@ -146,7 +148,7 @@ export async function GET(req: Request) {
           }
         }
       }
-    })
+    }) : Promise.resolve([])
   ]);
 
   const summary = {
@@ -160,6 +162,7 @@ export async function GET(req: Request) {
     block,
     date: date.toISOString().slice(0, 10),
     usesCurrentSeatingLayout: true,
+    excludesTestRecords: true,
     desks: desks.map((desk) => ({
       id: desk.id,
       studentId: desk.studentId,

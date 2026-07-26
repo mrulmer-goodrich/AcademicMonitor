@@ -25,43 +25,40 @@ export default function SetupNav() {
   const seatingReady = (status?.desksCount || 0) > 0;
 
   const links = [
-    { href: "/setup/blocks", label: "Blocks", enabled: true, helper: "Create your first block." },
+    { href: "/setup/blocks", label: "1. Blocks", complete: blocksReady, helper: "Create class blocks." },
     {
       href: "/setup/students",
-      label: "Students",
-      enabled: blocksReady,
-      helper: "Add at least one block to unlock students."
+      label: "2. Students",
+      complete: studentsReady,
+      helper: blocksReady ? "Add or import students." : "Create a block first."
     },
     {
       href: "/setup/seating",
-      label: "Seating",
-      enabled: studentsReady,
-      helper: "Add at least one student to unlock seating."
+      label: "3. Seating",
+      complete: seatingReady,
+      helper: studentsReady ? "Arrange the classroom." : "Add students first."
     },
     {
       href: "/setup/laps",
-      label: "Laps",
-      enabled: seatingReady,
-      helper: "Create a seating chart to unlock laps."
+      label: "4. Laps",
+      complete: (status?.lapsCount || 0) > 0,
+      helper: seatingReady ? "Name the week’s laps." : "Create seating first."
     }
   ];
 
   return (
-    <div className="flex flex-wrap gap-2 text-sm">
-      {links.map((link) =>
-        link.enabled ? (
-          <Link key={link.href} href={link.href} className="btn btn-ghost">
-            {link.label}
-          </Link>
-        ) : (
-          <div
-            key={link.href}
-            className="rounded-xl border border-black/10 bg-white/70 px-4 py-2 text-xs text-black/50"
-          >
-            {link.label} · {link.helper}
+    <div className="grid gap-3 text-sm sm:grid-cols-2">
+      {links.map((link) => (
+        <Link key={link.href} href={link.href} className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-semibold">{link.label}</span>
+            <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${link.complete ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+              {link.complete ? "Complete" : "Open"}
+            </span>
           </div>
-        )
-      )}
+          <div className="mt-2 text-xs text-black/55">{link.helper}</div>
+        </Link>
+      ))}
     </div>
   );
 }

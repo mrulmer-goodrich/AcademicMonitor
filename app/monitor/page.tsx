@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format, startOfWeek } from "date-fns";
+import ClassroomCanvas from "@/components/ClassroomCanvas";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
 import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
@@ -146,10 +147,12 @@ function MonitorPageInner() {
   }, [blockId, dateKey, activeMode]);
 
   useEffect(() => {
-    const availableLapNumbers = laps
-      .filter((lap) => lap.dayIndex === dayIndex)
-      .sort((left, right) => left.lapNumber - right.lapNumber)
-      .map((lap) => lap.lapNumber);
+    const availableLapNumbers = isWeekday
+      ? laps
+          .filter((lap) => lap.dayIndex === dayIndex)
+          .sort((left, right) => left.lapNumber - right.lapNumber)
+          .map((lap) => lap.lapNumber)
+      : lapNumbers;
 
     setSelectedLaps((prev) => {
       const filtered = prev.filter((lapNumber) => availableLapNumbers.includes(lapNumber));
@@ -158,7 +161,7 @@ function MonitorPageInner() {
       }
       return filtered.length > 0 ? filtered : availableLapNumbers;
     });
-  }, [laps, dayIndex]);
+  }, [laps, dayIndex, isWeekday]);
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -169,6 +172,7 @@ function MonitorPageInner() {
     const data = await res.json();
     const nextBlocks: Block[] = data.blocks || [];
     setBlocks(nextBlocks);
+    if (nextBlocks.length === 0) setLoading(false);
     if (!blockId && nextBlocks.length) {
       const matchedBlock = requestedBlockId ? nextBlocks.find((block) => block.id === requestedBlockId) : null;
       setBlockId(matchedBlock ? matchedBlock.id : nextBlocks[0].id);
@@ -251,7 +255,8 @@ function MonitorPageInner() {
     [todayLaps]
   );
   const namedLapCount = todayLaps.length;
-  const canMonitorFromSeatMap = canTakeAttendance && isWeekday;
+  const isTestSession = !isWeekday;
+  const canMonitorFromSeatMap = canTakeAttendance;
 
   const performanceMap = useMemo(() => draftPerformance, [draftPerformance]);
   const hasUnsavedChanges = useMemo(
@@ -451,8 +456,8 @@ function MonitorPageInner() {
     const lap = namedLapMap.get(lapNumber);
     return {
       lapNumber,
-      label: lap?.name || `Name Lap ${lapNumber}`,
-      isNamed: Boolean(lap?.name),
+      label: lap?.name || (isTestSession ? `Test Lap ${lapNumber}` : `Name Lap ${lapNumber}`),
+      isNamed: isTestSession || Boolean(lap?.name),
       isSelected: selectedLaps.includes(lapNumber)
     };
   });
@@ -492,12 +497,13 @@ function MonitorPageInner() {
       )}
 
       {!isWeekday && (
-        <div className="hero-card p-4 text-sm text-black/70">
-          Monitoring is available Monday through Friday. Today is outside the school-week workflow.
+        <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950 shadow-sm">
+          <span className="font-semibold">Weekend test session.</span> You can take attendance and monitor all three test
+          laps today. Saturday and Sunday records are automatically excluded from standard reports.
         </div>
       )}
 
-      {blocks.length === 0 && (
+      {!loading && blocks.length === 0 && (
         <div className="hero-card p-4 text-sm text-black/70">
           No blocks yet. Create a block first from the dashboard setup actions.
         </div>
@@ -593,7 +599,7 @@ function MonitorPageInner() {
               </div>
             )}
 
-            {canTakeAttendance && activeMode === "performance" && namedLapCount === 0 && (
+            {canTakeAttendance && activeMode === "performance" && namedLapCount === 0 && !isTestSession && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-[rgba(255,250,243,0.78)] px-6 backdrop-blur-sm">
                 <div className="max-w-xl rounded-[24px] border border-black/10 bg-white/92 px-8 py-7 text-center shadow-[0_18px_40px_rgba(11,27,42,0.14)]">
                   <div className="text-2xl font-semibold">Name a lap before monitoring.</div>
@@ -621,6 +627,7 @@ function MonitorPageInner() {
               </div>
             )}
 
+            <ClassroomCanvas className="h-full border-0 bg-transparent shadow-none">
             {desks.map((desk) => {
               const status = desk.studentId ? draftAttendance[desk.studentId] : undefined;
               const isAbsent = status === "ABSENT";
@@ -795,6 +802,7 @@ function MonitorPageInner() {
                 No seating chart found. Add desks from Seating Chart setup.
               </div>
             )}
+            </ClassroomCanvas>
           </div>
 
           {desks.length === 0 && !loading && (

@@ -240,7 +240,7 @@ export default function StudentsSetupPage() {
       )}
 
       <div className="hero-card p-6 space-y-4">
-        <div className="grid w-full grid-cols-[200px_minmax(120px,1fr)_auto_auto] items-center gap-2">
+        <div className="grid w-full gap-2 sm:grid-cols-[minmax(180px,0.8fr)_minmax(180px,1fr)] lg:grid-cols-[200px_minmax(120px,1fr)_auto_auto] lg:items-center">
           <select
             className="form-control w-full truncate"
             value={blockId}
@@ -265,10 +265,10 @@ export default function StudentsSetupPage() {
             }}
             disabled={editingLocked}
           />
-          <button className="btn btn-primary shrink-0 px-3 py-2 text-sm" type="button" onClick={addStudent} disabled={editingLocked}>
+          <button className="btn btn-primary justify-center px-3 py-2 text-sm" type="button" onClick={addStudent} disabled={editingLocked}>
             Add Student
           </button>
-          <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={() => setShowImport(true)} disabled={editingLocked}>
+          <button className="btn btn-ghost justify-center px-3 py-2 text-sm" type="button" onClick={() => setShowImport(true)} disabled={editingLocked}>
             Import List
           </button>
         </div>
@@ -284,7 +284,8 @@ export default function StudentsSetupPage() {
           </button>
         </div>
 
-        <table className="table">
+        <div className="hidden overflow-x-auto lg:block">
+        <table className="table min-w-[940px]">
           <thead>
             <tr>
               <th className="text-center">
@@ -485,6 +486,64 @@ export default function StudentsSetupPage() {
             )}
           </tbody>
         </table>
+        </div>
+
+        <div className="grid gap-3 lg:hidden">
+          {sortedStudents.map((student) => {
+            const isEditing = editingId === student.id;
+            const draftRow = draft[student.id] || student;
+            const hasChanges = studentHasChanges(student, draftRow);
+            const activeCategories = categories.filter((category) => Boolean(draftRow[category.key]));
+            return (
+              <div key={`card-${student.id}`} className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    {isEditing ? (
+                      <input className="form-control" value={draftRow.displayName} onChange={(event) => setDraft((prev) => ({ ...prev, [student.id]: { ...draftRow, displayName: event.target.value } }))} />
+                    ) : (
+                      <div className="truncate text-lg font-semibold">{student.displayName}</div>
+                    )}
+                    <div className="mt-1 text-xs text-black/55">Seat {student.seatNumber} · {draftRow.active ? "Active" : "Inactive"}</div>
+                  </div>
+                  {!isEditing && (
+                    <button className="btn btn-ghost px-3 py-2 text-sm" type="button" disabled={Boolean(editingId)} onClick={() => { setEditingId(student.id); setDraft((prev) => ({ ...prev, [student.id]: student })); }}>
+                      Edit
+                    </button>
+                  )}
+                </div>
+
+                {isEditing ? (
+                  <div className="mt-4 space-y-4">
+                    <button className="btn btn-ghost w-full justify-center" type="button" onClick={() => setDraft((prev) => ({ ...prev, [student.id]: { ...draftRow, active: !draftRow.active } }))}>
+                      {draftRow.active ? "Active student" : "Inactive student"}
+                    </button>
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                      {categories.map((category) => {
+                        const active = Boolean(draftRow[category.key]);
+                        return <button key={`mobile-${student.id}-${category.key}`} type="button" className="min-h-[44px] rounded-full border border-black/30 px-2 text-[10px] font-bold" style={{ background: active ? category.color : "#e8e8e8" }} onClick={() => setDraft((prev) => ({ ...prev, [student.id]: { ...draftRow, [category.key]: !active } }))}>{category.label}</button>;
+                      })}
+                    </div>
+                    <select className="form-control" value={draftRow.eog || ""} onChange={(event) => setDraft((prev) => ({ ...prev, [student.id]: { ...draftRow, eog: (event.target.value || null) as Student["eog"] } }))}>
+                      {eogOptions.map((option) => <option key={option || "none"} value={option || ""}>EOG {option ? option.replace("FIVE", "5").replace("FOUR", "4").replace("THREE", "3") : "not set"}</option>)}
+                    </select>
+                    <div className="flex flex-wrap gap-2">
+                      <button className="btn btn-primary" type="button" disabled={!hasChanges} onClick={() => updateStudent(student.id, draftRow)}>Save</button>
+                      <button className="btn btn-ghost" type="button" onClick={() => { setEditingId(null); setDraft((prev) => { const next = { ...prev }; delete next[student.id]; return next; }); }}>Cancel</button>
+                      <button className="btn btn-ghost" type="button" onClick={() => deleteStudent(student)}>Delete</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {activeCategories.map((category) => <span key={`badge-${student.id}-${category.key}`} className="rounded-full border border-black/15 px-2 py-1 text-[10px] font-bold" style={{ background: category.color }}>{category.label}</span>)}
+                    {draftRow.eog && <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold">EOG {draftRow.eog.replace("FIVE", "5").replace("FOUR", "4").replace("THREE", "3")}</span>}
+                    <button className="ml-auto text-sm font-semibold text-ocean underline-offset-4 hover:underline" type="button" onClick={() => setNotesEditor({ id: student.id, name: student.displayName, notes: student.notes || "" })}>Notes{student.notes?.trim() ? " •" : ""}</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {sortedStudents.length === 0 && <div className="rounded-2xl border border-dashed border-black/15 p-6 text-center text-sm text-black/55">No students yet.</div>}
+        </div>
       </div>
 
       {showImport && (

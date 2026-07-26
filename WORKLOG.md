@@ -1,5 +1,35 @@
 # Worklog
 
+## 2026-07-26 — Site-wide classroom and reporting polish
+
+Completed:
+
+- Added one shared responsive classroom canvas for seating setup, live monitoring, and class reports
+- Preserved proportional seat contents, including names, category indicators, EOG markers, and lap performance slices
+- Enabled clearly labeled weekend test sessions with three test laps
+- Excluded Saturday and Sunday attendance and performance data from standard reports and dashboard weekly totals
+- Reworked Command Center into wide-screen, Chromebook, tablet, and phone layouts without page-level horizontal overflow
+- Added an optional guided setup page while keeping direct mid-year access to every setup screen
+- Added tablet and phone student cards, a single-day lap planner, and a Copy Previous Week action
+- Replaced the unfinished individual-student monitoring report with a dated lap-by-lap report
+- Added CSV export alongside XLSX, persistent block selection, responsive date controls, loading placeholders, and responsive report seating charts
+- Stabilized the header, simplified the footer, added visible keyboard focus, and disabled fixed backgrounds on small screens
+- Removed two unused interface components
+- Verified a successful production build and checked the main flows at 1366×768, 1024×768, 768×1024, and 390×844 with no browser console errors
+
+Remaining:
+
+- Validate touch dragging on the classroom iPad with the teacher's real seating layout
+- Consider multi-week student trend charts and a print-specific report layout in a later reporting pass
+
+Decisions:
+
+- Classroom coordinates remain unchanged; the complete classroom scene scales as one unit at Chromebook and tablet widths
+- Phones retain a minimum classroom scale and use intentional horizontal movement instead of shrinking touch targets too far
+- Guided setup is optional and never blocks direct one-off changes
+- Weekend records are identified by their calendar date, require no schema migration, and remain available for testing while standard reports stay Monday through Friday
+- ESLint uses the standard Next.js core-web-vitals rules and runs non-interactively
+
 ## 2026-07-26 — Repository cleanup
 
 Completed:

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveSchoolYear, normalizeDate, requireUser } from "@/lib/server";
 import { addDays, parseISO, startOfWeek } from "date-fns";
+import { standardReportingDayIndexes } from "@/lib/reporting";
 
 export async function POST(req: Request) {
   const user = await requireUser();
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
     ? startOfWeek(parseISO(body.weekStart), { weekStartsOn: 1 })
     : startOfWeek(new Date(), { weekStartsOn: 1 });
   const weeksRange = Math.min(Math.max(Number(body.weeksRange || 1), 1), 4);
-  const days: number[] = Array.isArray(body.days) ? body.days : [0, 1, 2, 3, 4, 5, 6];
+  const days = standardReportingDayIndexes(body.days);
   const laps: number[] = Array.isArray(body.laps) ? body.laps : [1, 2, 3];
   const blockIds: string[] = Array.isArray(body.blocks) ? body.blocks : [];
   const studentIds: string[] = Array.isArray(body.students) ? body.students : [];

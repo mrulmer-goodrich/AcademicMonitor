@@ -2,6 +2,7 @@ import Link from "next/link";
 import { addDays, startOfWeek } from "date-fns";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isStandardReportingDay } from "@/lib/reporting";
 import { getActiveSchoolYear, normalizeDate } from "@/lib/server";
 
 type SearchParams = {
@@ -219,7 +220,7 @@ function DashboardReportsButton({
   return (
     <Link
       href={href}
-      className="flex h-[112px] items-center justify-center rounded-[22px] border border-black/10 bg-[linear-gradient(145deg,#ffffff_0%,#f7f1e9_100%)] px-4 py-3 text-center shadow-[0_8px_18px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(11,27,42,0.12)]"
+      className="flex h-[112px] items-center justify-center rounded-[22px] border border-black/10 bg-[linear-gradient(145deg,#ffffff_0%,#f7f1e9_100%)] px-4 py-3 text-center shadow-[0_8px_18px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(11,27,42,0.12)] md:col-span-2 xl:col-span-1"
     >
       <div className="text-[1.04rem] font-semibold uppercase leading-[1.08] tracking-[0.01em] text-black/80">
         {label}
@@ -251,7 +252,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
     const weekEnd = normalizeDate(addDays(weekStart, 6));
 
     if (blockIds.length > 0) {
-      const [activeStudents, todayAttendance, todayLaps, todayPerformance, weeklyPerformance] = await Promise.all([
+      const [activeStudents, todayAttendance, todayLaps, todayPerformance, weeklyPerformanceRecords] = await Promise.all([
         prisma.student.findMany({
           where: {
             schoolYearId: schoolYear.id,
@@ -298,9 +299,10 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
               lte: weekEnd
             }
           },
-          select: { blockId: true, color: true }
+          select: { blockId: true, color: true, date: true }
         })
       ]);
+      const weeklyPerformance = weeklyPerformanceRecords.filter((record) => isStandardReportingDay(record.date));
 
       const activeStudentCounts = new Map<string, number>();
       const activeStudentIdsByBlock = new Map<string, string[]>();
@@ -482,7 +484,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
       {!isAuthed && (
         <div id="login" className="hero-card p-6">
           <h2 className="text-lg font-semibold">Login or create your teacher account</h2>
-          <p className="text-sm text-black/60">Passwords are stored securely. Email reset is stubbed for now.</p>
+          <p className="text-sm text-black/60">Sign in to continue, or create a teacher account to get started.</p>
           {error && (
             <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error === "missing" && "Please fill out all required fields."}
@@ -563,9 +565,9 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
                         key={block.id}
                         className="min-w-0 rounded-[22px] border border-[#dbcdb7] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,241,232,0.94)_100%)] p-2.5 shadow-[0_12px_26px_rgba(11,27,42,0.08)]"
                       >
-                        <div className="grid gap-2.5 lg:grid-cols-[40px_minmax(0,1.02fr)_minmax(0,1.02fr)_minmax(0,1.02fr)_250px_138px] xl:grid-cols-[40px_minmax(0,1.05fr)_minmax(0,1.05fr)_minmax(0,1.05fr)_260px_138px]">
-                          <div className="flex h-[112px] items-center justify-center rounded-[22px] bg-white/[0.72] px-0.5 py-0.5">
-                            <div className="[writing-mode:vertical-rl] rotate-180 text-[18px] font-bold uppercase leading-none tracking-[0.03em] text-black">
+                        <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-[40px_minmax(0,1.05fr)_minmax(0,1.05fr)_minmax(0,1.05fr)_260px_138px]">
+                          <div className="flex min-h-[52px] items-center justify-center rounded-[18px] bg-white/[0.72] px-3 py-2 md:col-span-2 xl:col-span-1 xl:h-[112px] xl:min-h-0 xl:rounded-[22px] xl:px-0.5 xl:py-0.5">
+                            <div className="text-[18px] font-bold uppercase leading-none tracking-[0.03em] text-black xl:[writing-mode:vertical-rl] xl:rotate-180">
                               {block.title}
                             </div>
                           </div>
