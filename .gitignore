@@ -1,8 +1,7 @@
-node_modules
-.next
-.next-dev
-.next-prod
+node_modules/
+.next*/
 .env
 .env.local
 .DS_Store
 prisma/dev.db
+*.tsbuildinfo
