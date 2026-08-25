@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
+import { CLASSROOM_HEIGHT, CLASSROOM_WIDTH, normalizeDeskGeometry } from "@/lib/classroomGeometry";
 
 type Block = { id: string; blockNumber: number; blockName: string };
 
@@ -108,15 +109,7 @@ function SeatingSetupPageInner() {
   async function loadDesks() {
     const res = await fetch(`/api/desks?blockId=${blockId}`);
     const data = await res.json();
-    const normalized = (data.desks || []).map((desk: Desk) => {
-      const targetWidth = desk.type === "TEACHER" ? 156 : 116;
-      const targetHeight = desk.type === "TEACHER" ? 92 : 82;
-      return {
-        ...desk,
-        width: desk.width > targetWidth ? targetWidth : desk.width,
-        height: desk.height > targetHeight ? targetHeight : desk.height
-      };
-    });
+    const normalized = (data.desks || []).map((desk: Desk) => normalizeDeskGeometry(desk));
     setDesks(normalized);
   }
 
@@ -204,8 +197,8 @@ function SeatingSetupPageInner() {
       const current = prev.find((d) => d.id === id);
       if (!current) return prev;
       const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-      const maxX = 1040 - current.width;
-      const maxY = 528 - current.height;
+      const maxX = CLASSROOM_WIDTH - current.width;
+      const maxY = CLASSROOM_HEIGHT - current.height;
       if (current.groupId) {
         return prev.map((desk) =>
           desk.groupId === current.groupId
@@ -311,7 +304,7 @@ function SeatingSetupPageInner() {
 
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-6 space-y-4">
+    <div className="mx-auto max-w-[1600px] space-y-4 px-4 py-4 sm:px-6 sm:py-6">
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">
           {error} <Link className="underline" href="/dashboard">Go to login</Link>
@@ -379,8 +372,9 @@ function SeatingSetupPageInner() {
       </div>
 
       <ClassroomCanvas
-        className="h-[min(560px,calc(100vh-190px))] min-h-[390px] p-4"
+        className="h-[min(720px,calc(100vh-190px))] min-h-[390px] p-3 sm:p-4"
         canvasClassName="rounded-2xl border border-black/10"
+        maxScale={1.35}
         onScaleChange={setCanvasScale}
         canvasRef={containerRef}
         onPointerMove={onPointerMove}
@@ -523,7 +517,7 @@ function SeatingSetupPageInner() {
 
 export default function SeatingSetupPage() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-6xl px-6 py-6">Loading…</div>}>
+    <Suspense fallback={<div className="mx-auto max-w-[1600px] px-6 py-6">Loading…</div>}>
       <SeatingSetupPageInner />
     </Suspense>
   );

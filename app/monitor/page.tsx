@@ -8,6 +8,7 @@ import ClassroomCanvas from "@/components/ClassroomCanvas";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
 import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
+import { normalizeDeskGeometry } from "@/lib/classroomGeometry";
 
 type Block = { id: string; blockNumber: number; blockName: string };
 
@@ -202,11 +203,7 @@ function MonitorPageInner() {
 
       const nextDesks = (desksData.desks || [])
         .filter((desk: Desk) => desk.type === "STUDENT")
-        .map((desk: Desk) => ({
-          ...desk,
-          width: desk.width > 116 ? 116 : desk.width,
-          height: desk.height > 82 ? 82 : desk.height
-        }));
+        .map((desk: Desk) => normalizeDeskGeometry(desk));
 
       const activeStudentIds = (studentsData.students || [])
         .filter((student: { active: boolean }) => student.active)
@@ -464,7 +461,7 @@ function MonitorPageInner() {
   const selectedMonitoringLaps = monitoringLaps.filter((lap) => lap.isNamed && lap.isSelected);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-6 space-y-6">
+    <div className="mx-auto max-w-[1600px] space-y-6 px-4 py-4 sm:px-6 sm:py-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <ReturnToDashboardButton />
         <div className="flex flex-wrap items-center gap-3">
@@ -585,7 +582,7 @@ function MonitorPageInner() {
             </div>
           )}
 
-          <div className={`hero-card relative h-[560px] overflow-visible p-4 pr-8 ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
+          <div className={`hero-card relative h-[min(720px,calc(100vh-240px))] min-h-[420px] overflow-visible p-3 sm:p-4 ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
             {!canTakeAttendance && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-2xl bg-black/45 px-6 text-center text-white">
                 <div className="text-4xl font-semibold">Assign Seats</div>
@@ -627,7 +624,7 @@ function MonitorPageInner() {
               </div>
             )}
 
-            <ClassroomCanvas className="h-full border-0 bg-transparent shadow-none">
+            <ClassroomCanvas className="h-full border-0 bg-transparent shadow-none" maxScale={1.35}>
             {desks.map((desk) => {
               const status = desk.studentId ? draftAttendance[desk.studentId] : undefined;
               const isAbsent = status === "ABSENT";
@@ -913,7 +910,7 @@ function MonitorPageInner() {
 
 export default function MonitorPage() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-6xl px-6 py-10">Loading…</div>}>
+    <Suspense fallback={<div className="mx-auto max-w-[1600px] px-6 py-10">Loading…</div>}>
       <MonitorPageInner />
     </Suspense>
   );

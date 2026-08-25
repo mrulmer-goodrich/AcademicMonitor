@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { DeskType } from "@prisma/client";
 import { getActiveSchoolYear, requireUser } from "@/lib/server";
+import { normalizeDeskGeometry } from "@/lib/classroomGeometry";
 
 export async function GET(req: Request) {
   const user = await requireUser();
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
     },
     include: { student: true }
   });
-  return NextResponse.json({ desks });
+  return NextResponse.json({ desks: desks.map((desk) => normalizeDeskGeometry(desk)) });
 }
 
 export async function POST(req: Request) {

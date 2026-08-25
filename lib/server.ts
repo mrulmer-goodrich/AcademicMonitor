@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { startOfDay } from "date-fns";
+import { currentSchoolYearLabel } from "@/lib/schoolYear";
 
 export async function requireUser() {
   const user = getSessionUser();
@@ -19,7 +20,7 @@ export async function getActiveSchoolYear(userId: string) {
   return prisma.schoolYear.create({
     data: {
       userId,
-      label: "2025-2026",
+      label: currentSchoolYearLabel(),
       active: true
     }
   });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { setSessionCookie } from "@/lib/session";
+import { currentSchoolYearLabel } from "@/lib/schoolYear";
 
 export async function POST(req: Request) {
   try {
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
           displayName: "Mr. UG",
           schoolYears: {
             create: {
-              label: "2025-2026",
+              label: currentSchoolYearLabel(),
               active: true
             }
           }

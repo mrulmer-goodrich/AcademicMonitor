@@ -13,6 +13,7 @@ type ClassroomCanvasProps = {
   logicalWidth?: number;
   logicalHeight?: number;
   minPhoneScale?: number;
+  maxScale?: number;
   onScaleChange?: (scale: number) => void;
   onPointerMove?: PointerEventHandler<HTMLDivElement>;
   onPointerUp?: PointerEventHandler<HTMLDivElement>;
@@ -29,6 +30,7 @@ export default function ClassroomCanvas({
   logicalWidth = 1040,
   logicalHeight = 528,
   minPhoneScale = 0.62,
+  maxScale = 1,
   onScaleChange,
   onPointerMove,
   onPointerUp,
@@ -43,7 +45,8 @@ export default function ClassroomCanvas({
 
     const updateScale = () => {
       const availableWidth = viewport.clientWidth;
-      const fitScale = Math.min(1, availableWidth / logicalWidth);
+      const availableHeight = viewport.clientHeight;
+      const fitScale = Math.min(maxScale, availableWidth / logicalWidth, availableHeight / logicalHeight);
       const nextScale = window.innerWidth < 640 ? Math.max(minPhoneScale, fitScale) : fitScale;
       setScale(nextScale);
       onScaleChange?.(nextScale);
@@ -53,14 +56,14 @@ export default function ClassroomCanvas({
     const observer = new ResizeObserver(updateScale);
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [logicalWidth, minPhoneScale, onScaleChange]);
+  }, [logicalHeight, logicalWidth, maxScale, minPhoneScale, onScaleChange]);
 
   return (
     <div className={`classroom-canvas hero-card relative overflow-hidden ${className}`}>
       {overlay}
       <div ref={viewportRef} className="classroom-canvas-viewport h-full w-full overflow-x-auto overflow-y-hidden">
         <div
-          className="relative"
+          className="relative mx-auto"
           style={{
             width: logicalWidth * scale,
             height: logicalHeight * scale,

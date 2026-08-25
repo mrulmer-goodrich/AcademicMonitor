@@ -11,8 +11,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (body.blockName !== undefined) data.blockName = String(body.blockName).trim();
   if (body.archived !== undefined) data.archived = Boolean(body.archived);
 
+  const ownedBlock = await prisma.block.findFirst({
+    where: { id: params.id, schoolYear: { userId: user.id } },
+    select: { id: true }
+  });
+  if (!ownedBlock) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
   const block = await prisma.block.update({
-    where: { id: params.id },
+    where: { id: ownedBlock.id },
     data
   });
   return NextResponse.json({ block });
@@ -21,6 +27,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  await prisma.block.delete({ where: { id: params.id } });
+  const ownedBlock = await prisma.block.findFirst({
+    where: { id: params.id, schoolYear: { userId: user.id } },
+    select: { id: true }
+  });
+  if (!ownedBlock) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  await prisma.block.delete({ where: { id: ownedBlock.id } });
   return NextResponse.json({ ok: true });
 }

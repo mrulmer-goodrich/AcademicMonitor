@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveSchoolYear, requireUser } from "@/lib/server";
 
-export async function GET() {
+export async function GET(req: Request) {
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const schoolYear = await getActiveSchoolYear(user.id);
+  const { searchParams } = new URL(req.url);
+  const includeArchived = searchParams.get("includeArchived") === "1";
   const blocks = await prisma.block.findMany({
-    where: { schoolYearId: schoolYear.id },
+    where: { schoolYearId: schoolYear.id, ...(includeArchived ? {} : { archived: false }) },
     orderBy: { blockNumber: "asc" }
   });
   return NextResponse.json({ blocks, schoolYear });

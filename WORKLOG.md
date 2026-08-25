@@ -1,5 +1,22 @@
 # Worklog
 
+## 2026-08-24 — School-year rollover and classroom canvas fit
+
+Completed:
+
+- Made the shared classroom canvas fit both available width and height so older bottom-row desk positions are not clipped
+- Normalized historical desk coordinates into the supported classroom bounds across seating setup, attendance/monitoring, and seating-chart reports
+- Expanded seating and live monitoring workspaces on large screens while preserving proportional touch targets
+- Separated active classes from a collapsible archived section and grouped historical classes by editable school-year labels
+- Required concise `25/26` school-year labels and added a guarded new-year rollover that preserves the prior year's records
+- Kept archived classes out of normal setup and monitoring block lists
+
+Decisions:
+
+- School year remains the owner of class history; blocks do not receive a duplicate year field
+- Starting a new year archives the complete prior school year without cloning classes, students, or seating charts
+- Older out-of-bounds desk coordinates are corrected when rendered; ordinary drag saves remain clamped at the API boundary
+
 ## 2026-07-26 — Site-wide classroom and reporting polish
 
 Completed:

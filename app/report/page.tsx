@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 import { addDays, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
+import { normalizeDeskGeometry } from "@/lib/classroomGeometry";
 
 type Block = {
   id: string;
@@ -282,16 +283,17 @@ function AttendanceSeatChart({
         </div>
       ) : (
         desks.map((desk) => {
+          const normalizedDesk = normalizeDeskGeometry({ ...desk, type: "STUDENT" as const });
           const status = desk.studentId ? attendanceByStudentId.get(desk.studentId) : undefined;
           return (
             <div
               key={desk.id}
               className={`absolute rounded-2xl border px-2 py-2 text-center shadow ${attendanceSeatClasses(status)}`}
               style={{
-                left: desk.x,
-                top: desk.y,
-                width: desk.width > 116 ? 116 : desk.width,
-                height: desk.height > 82 ? 82 : desk.height,
+                left: normalizedDesk.x,
+                top: normalizedDesk.y,
+                width: normalizedDesk.width,
+                height: normalizedDesk.height,
                 transform: `rotate(${desk.rotation}deg)`
               }}
             >
@@ -326,6 +328,7 @@ function MonitoringSeatChart({
         </div>
       ) : (
         desks.map((desk) => {
+          const normalizedDesk = normalizeDeskGeometry({ ...desk, type: "STUDENT" as const });
           const status = desk.studentId ? attendanceByStudentId.get(desk.studentId) : undefined;
           const isAbsent = status === "ABSENT";
 
@@ -336,10 +339,10 @@ function MonitoringSeatChart({
                 isAbsent ? "bg-red-200 opacity-35" : "bg-slate-100/75"
               }`}
               style={{
-                left: desk.x,
-                top: desk.y,
-                width: desk.width > 116 ? 116 : desk.width,
-                height: desk.height > 82 ? 82 : desk.height,
+                left: normalizedDesk.x,
+                top: normalizedDesk.y,
+                width: normalizedDesk.width,
+                height: normalizedDesk.height,
                 transform: `rotate(${desk.rotation}deg)`
               }}
             >

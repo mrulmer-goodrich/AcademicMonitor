@@ -7,7 +7,7 @@ Academic Monitor is a touch-first classroom tool for recording attendance and st
 The core teacher workflow is implemented:
 
 - Account registration, login, profile, and password changes
-- School-year-scoped blocks and students
+- Required school-year-scoped blocks and students, with archived-year rollover
 - Student categories, EOG levels, and active/inactive status
 - Drag-and-drop seating charts with student and teacher desks
 - Three named laps per instructional day
@@ -25,7 +25,7 @@ Known limitations:
 - Authentication uses a lightweight cookie/JWT implementation
 - Password reset is a stub; signed-in password changes work
 - Standards are a built-in seventh-grade math list
-- The database schema supports school-year archiving, but the full archive/clone workflow is not complete
+- Starting a new school year preserves the prior year and its classes in a collapsible archive; automatic class cloning is not implemented
 
 See [NEXT_TASK.md](NEXT_TASK.md) for current work and [WORKLOG.md](WORKLOG.md) for recent changes.
 
