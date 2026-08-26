@@ -45,7 +45,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Set `DATABASE_URL` in `.env.local`, then initialize and run the app:
+Set `DATABASE_URL` in `.env.local`. `SCHOOL_TIME_ZONE` defaults to `America/New_York` and can be overridden with another IANA timezone. Then initialize and run the app:
 
 ```bash
 npm run db:generate

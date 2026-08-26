@@ -12,6 +12,8 @@ Completed:
 - Reworked Command Center cards to fit at normal desktop zoom with side-positioned icons and compact weekly summaries
 - Clarified completed attendance as recorded statuses and displayed the actual present, absent, tardy, and left-early mix
 - Forced fresh Command Center data on every server render and hard-refreshed all Return to Dashboard actions
+- Anchored the Command Center's current day to the configured school timezone so evening records do not disappear at midnight UTC
+- Removed internal canvas padding that could clip the final grid line or a desk positioned at the classroom's bottom boundary
 - Disabled student-import controls during processing and exposed progress and partial-failure feedback
 
 Verification:
@@ -19,6 +21,7 @@ Verification:
 - Passed `tsc --noEmit` and `git diff --check`
 - Development-compiled dashboard, seating, monitor, and related API routes without browser console errors
 - Visually accepted Command Center, seating setup, locked seat-map attendance, and the full active-student Attendance List at 1280×720 and normal zoom
+- Read-only production verification confirmed all August 25 attendance records remained intact: 22 present in Block 1 and 20 present plus 7 absent in Blocks 2 and 3
 - Stopped `next build` after it stalled silently during optimized compilation; this remains an explicit local verification blocker
 
 ## 2026-08-24 — School-year rollover and classroom canvas fit

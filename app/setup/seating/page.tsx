@@ -445,9 +445,8 @@ function SeatingSetupPageInner() {
       )}
 
       <ClassroomCanvas
-        className="aspect-[1040/528] w-full p-3 sm:p-4"
+        className="aspect-[1040/528] w-full"
         canvasClassName="rounded-2xl border border-black/10"
-        fit="width"
         maxScale={2}
         onScaleChange={setCanvasScale}
         canvasRef={containerRef}

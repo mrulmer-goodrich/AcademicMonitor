@@ -595,7 +595,7 @@ function MonitorPageInner() {
             </div>
           )}
 
-          <div className={`hero-card relative aspect-[1040/528] w-full overflow-visible p-3 sm:p-4 ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
+          <div className={`hero-card relative aspect-[1040/528] w-full overflow-visible ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
             {!canUseSeatMap && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-2xl bg-black/45 px-6 text-center text-white">
                 <div className="text-4xl font-semibold">Assign Seats</div>
@@ -637,7 +637,7 @@ function MonitorPageInner() {
               </div>
             )}
 
-            <ClassroomCanvas className="h-full border-0 bg-transparent shadow-none" fit="width" maxScale={2}>
+            <ClassroomCanvas className="h-full border-0 bg-transparent shadow-none" maxScale={2}>
             {desks.map((desk) => {
               const status = desk.studentId ? draftAttendance[desk.studentId] : undefined;
               const isAbsent = status === "ABSENT";

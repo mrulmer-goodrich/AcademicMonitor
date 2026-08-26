@@ -9,6 +9,7 @@ Review checklist:
 - Confirm Add All places a full real roster without overlap and that legacy overlaps are highlighted clearly
 - Confirm Attendance List remains available with unseated students while seat-map attendance and monitoring remain guarded
 - Confirm the Command Center refreshes immediately after Save & Return and reports the attendance status mix clearly
+- Confirm the Command Center continues showing the current school day after midnight UTC but before midnight Eastern
 - Confirm the seating editor and attendance/monitoring canvas use the available screen and show every row on the classroom device
 - Archive the remaining 25/26 class, start 26/27, and create the new classes
 - Confirm weekend attendance and performance entries behave as expected and remain absent from standard reports

@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { addDays, startOfWeek } from "date-fns";
+import { addDays } from "date-fns";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isStandardReportingDay } from "@/lib/reporting";
-import { getActiveSchoolYear, normalizeDate } from "@/lib/server";
+import { getActiveSchoolYear, getSchoolDate, normalizeDate } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -234,7 +234,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
   const user = getSessionUser();
   const isAuthed = Boolean(user);
   const error = searchParams?.error || null;
-  const today = normalizeDate(new Date());
+  const today = getSchoolDate();
   const todayIso = today.toISOString().slice(0, 10);
 
   let dashboardBlocks: DashboardBlock[] = [];
@@ -247,10 +247,10 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
       orderBy: { blockNumber: "asc" }
     });
     const blockIds = blocks.map((block) => block.id);
-    const todayDayIndex = (today.getDay() + 6) % 7;
+    const todayDayIndex = (today.getUTCDay() + 6) % 7;
     const isWeekday = todayDayIndex >= 0 && todayDayIndex <= 4;
-    const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-    const weekEnd = normalizeDate(addDays(weekStart, 6));
+    const weekStart = addDays(today, -todayDayIndex);
+    const weekEnd = addDays(weekStart, 6);
 
     if (blockIds.length > 0) {
       const [activeStudents, todayAttendance, todayLaps, todayPerformance, weeklyPerformanceRecords] = await Promise.all([
