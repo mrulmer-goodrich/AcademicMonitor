@@ -90,7 +90,10 @@ scripts/      Database seed script
 - A block is a class period within that school year.
 - Each student receives an immutable internal ID and a school-year seat number that is never reused.
 - A teaching day has exactly three laps, and each lap must be named.
+- Attendance List is available before seating is complete; seat-map attendance and lap monitoring require every active student to have a desk.
+- Attendance is complete when every active student has a recorded status. The Command Center separately summarizes present, absent, tardy, and left-early totals.
 - Weekday monitoring requires a seated class and at least one named, selected lap; incomplete attendance produces a warning without blocking the teacher.
+- Student imports and desk creation are single-flight operations so repeated clicks cannot create overlapping requests.
 - Saturday and Sunday monitor records are test data and are excluded from standard reports and weekly reporting totals.
 - Desk segments run left to right from Lap 1 through Lap 3.
 - Tapping a segment cycles green to yellow to red and back to green.

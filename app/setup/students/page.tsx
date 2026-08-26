@@ -61,13 +61,15 @@ export default function StudentsSetupPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, Student>>({});
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ completed: 0, total: 0 });
   const [sortKey, setSortKey] = useState<"displayName" | "eog" | "ml" | "mlNew" | "iep504" | "ec" | "ca" | "hiit">(
     "displayName"
   );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [showInactive, setShowInactive] = useState(false);
   const [notesEditor, setNotesEditor] = useState<{ id: string; name: string; notes: string } | null>(null);
-  const editingLocked = Boolean(editingId);
+  const editingLocked = Boolean(editingId) || importing;
 
   useEffect(() => {
     loadBlocks();
@@ -147,20 +149,35 @@ export default function StudentsSetupPage() {
   }
 
   async function importStudents() {
-    if (!importText.trim() || !blockId) return;
+    if (!importText.trim() || !blockId || importing) return;
     const lines = importText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     if (!lines.length) return;
-    for (const line of lines) {
-      const name = line.trim();
-      if (!name) continue;
-      await fetch("/api/students", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName: name, blockId })
-      });
+    setImporting(true);
+    setImportProgress({ completed: 0, total: lines.length });
+    setError(null);
+    const failedNames: string[] = [];
+    try {
+      for (let index = 0; index < lines.length; index += 1) {
+        const name = lines[index];
+        const res = await fetch("/api/students", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ displayName: name, blockId })
+        });
+        if (!res.ok) failedNames.push(name);
+        setImportProgress({ completed: index + 1, total: lines.length });
+      }
+      setImportText(failedNames.join("\n"));
+      await loadStudents();
+      if (failedNames.length === 0) {
+        setStatusMessage(`${lines.length} student${lines.length === 1 ? "" : "s"} imported.`);
+        setShowImport(false);
+      } else {
+        setError(`${failedNames.length} student${failedNames.length === 1 ? "" : "s"} could not be imported. The remaining names are still in the import box.`);
+      }
+    } finally {
+      setImporting(false);
     }
-    setImportText("");
-    await loadStudents();
   }
 
   const blockOptions = useMemo(
@@ -565,17 +582,15 @@ export default function StudentsSetupPage() {
               <button
                 className="btn btn-primary"
                 type="button"
-                onClick={async () => {
-                  await importStudents();
-                  setShowImport(false);
-                }}
+                onClick={importStudents}
                 disabled={editingLocked}
               >
-                Import
+                {importing ? `Importing ${importProgress.completed}/${importProgress.total}…` : "Import"}
               </button>
               <button
                 className="btn btn-ghost"
                 type="button"
+                disabled={importing}
                 onClick={() => {
                   if (!importText.trim()) {
                     setShowImport(false);

@@ -1,5 +1,26 @@
 # Worklog
 
+## 2026-08-25 — First-day attendance and classroom workflow correction
+
+Completed:
+
+- Made student-desk creation single-flight and server-idempotent, added Add All, and placed new desks into open grid positions
+- Added a visible warning and highlight for overlapping desks while preserving drag-and-drop correction
+- Reserved a stable save-status row so the seating chart no longer jumps when Saved appears
+- Expanded setup and monitoring canvases to use available desktop width without changing classroom coordinates
+- Made Attendance List available for every active student before seating is complete while keeping seat-map attendance and lap monitoring seating-gated
+- Reworked Command Center cards to fit at normal desktop zoom with side-positioned icons and compact weekly summaries
+- Clarified completed attendance as recorded statuses and displayed the actual present, absent, tardy, and left-early mix
+- Forced fresh Command Center data on every server render and hard-refreshed all Return to Dashboard actions
+- Disabled student-import controls during processing and exposed progress and partial-failure feedback
+
+Verification:
+
+- Passed `tsc --noEmit` and `git diff --check`
+- Development-compiled dashboard, seating, monitor, and related API routes without browser console errors
+- Visually accepted Command Center, seating setup, locked seat-map attendance, and the full active-student Attendance List at 1280×720 and normal zoom
+- Stopped `next build` after it stalled silently during optimized compilation; this remains an explicit local verification blocker
+
 ## 2026-08-24 — School-year rollover and classroom canvas fit
 
 Completed:

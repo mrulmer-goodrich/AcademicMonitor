@@ -47,14 +47,29 @@ export async function POST(req: Request) {
     : DeskType.STUDENT;
   if (!blockId) return NextResponse.json({ error: "invalid" }, { status: 400 });
 
+  const block = await prisma.block.findFirst({
+    where: { id: blockId, schoolYearId: schoolYear.id }
+  });
+  if (!block) return NextResponse.json({ error: "block_not_found" }, { status: 404 });
+
   let studentId: string | null = null;
   let seatNumber: number | null = null;
   if (type === "STUDENT") {
     studentId = String(body.studentId || "");
     if (!studentId) return NextResponse.json({ error: "student_required" }, { status: 400 });
-    const student = await prisma.student.findUnique({ where: { id: studentId } });
+    const student = await prisma.student.findFirst({
+      where: { id: studentId, blockId, schoolYearId: schoolYear.id, active: true }
+    });
     if (!student) return NextResponse.json({ error: "student_not_found" }, { status: 404 });
     seatNumber = student.seatNumber;
+
+    const existingDesk = await prisma.desk.findFirst({
+      where: { blockId, schoolYearId: schoolYear.id, studentId },
+      include: { student: true }
+    });
+    if (existingDesk) {
+      return NextResponse.json({ desk: normalizeDeskGeometry(existingDesk), alreadyAssigned: true });
+    }
   }
 
   const desk = await prisma.desk.create({
@@ -73,5 +88,5 @@ export async function POST(req: Request) {
     },
     include: { student: true }
   });
-  return NextResponse.json({ desk });
+  return NextResponse.json({ desk: normalizeDeskGeometry(desk) });
 }

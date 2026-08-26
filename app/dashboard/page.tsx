@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { isStandardReportingDay } from "@/lib/reporting";
 import { getActiveSchoolYear, normalizeDate } from "@/lib/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type SearchParams = {
   error?: string;
 };
@@ -65,7 +68,7 @@ function toneIconClasses(tone: DashboardStatusTone) {
 
 function dashboardTileCopy(kind: DashboardTileKind, tile: DashboardTileData) {
   if (tile.tone === "complete") {
-    if (kind === "attendance") return "ATTENDANCE COMPLETE";
+    if (kind === "attendance") return "ATTENDANCE RECORDED";
     if (kind === "laps") return "LAP NAMES COMPLETE";
     return "MONITORING COMPLETE";
   }
@@ -92,8 +95,8 @@ function DashboardTileIcon({ tone }: { tone: DashboardStatusTone }) {
 
   if (tone === "complete") {
     return (
-      <span className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${iconClasses} ${motionClass}`}>
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${iconClasses} ${motionClass}`}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.2">
           <path d="M5 12.5l4.5 4.5L19 7.5" />
         </svg>
       </span>
@@ -102,8 +105,8 @@ function DashboardTileIcon({ tone }: { tone: DashboardStatusTone }) {
 
   if (tone === "attention") {
     return (
-      <span className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${iconClasses} ${motionClass}`}>
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${iconClasses} ${motionClass}`}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.2">
           <path d="M12 7.5v5.5" />
           <circle cx="12" cy="16.5" r="1.4" fill="currentColor" stroke="none" />
         </svg>
@@ -112,8 +115,8 @@ function DashboardTileIcon({ tone }: { tone: DashboardStatusTone }) {
   }
 
   return (
-    <span className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${iconClasses} ${motionClass}`}>
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.2">
+    <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${iconClasses} ${motionClass}`}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.2">
         <path d="M5.5 12h11" />
         <path d="M12.5 8.5 18 12l-5.5 3.5" />
       </svg>
@@ -133,19 +136,17 @@ function DashboardTile({
   return (
     <Link
       href={tile.href}
-      className={`grid h-[112px] grid-rows-[1fr_auto] rounded-[22px] border px-4 py-3 text-center shadow-[0_8px_18px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(11,27,42,0.12)] ${tileAccentClasses(tile.tone)}`}
+      className={`grid h-[104px] grid-cols-[minmax(0,1fr)_42px] items-center gap-2 rounded-[22px] border px-3 py-3 text-left shadow-[0_8px_18px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(11,27,42,0.12)] ${tileAccentClasses(tile.tone)}`}
     >
-      <div className="flex min-h-0 items-center justify-center">
-        <div className="flex w-full flex-col items-center gap-1 overflow-hidden">
-          <div className="w-full overflow-hidden text-[1.02rem] font-semibold uppercase leading-[0.96] tracking-[-0.035em] text-black lg:text-[1.08rem]">
+      <div className="flex min-w-0 flex-col gap-1">
+          <div className="w-full text-[0.94rem] font-semibold uppercase leading-[1.02] tracking-[-0.025em] text-black xl:text-[1rem]">
             {label}
           </div>
-          <div className="text-[0.68rem] font-semibold uppercase leading-none tracking-[0.06em] text-black/55">
+          <div className="text-[0.66rem] font-semibold uppercase leading-[1.2] tracking-[0.035em] text-black/55">
             {tile.detail}
           </div>
-        </div>
       </div>
-      <div className="flex items-end justify-center">
+      <div className="flex items-center justify-center">
         <DashboardTileIcon tone={tile.tone} />
       </div>
     </Link>
@@ -180,14 +181,14 @@ function WeeklyStatsCard({ stats }: { stats: WeeklyStats }) {
   return (
     <Link
       href={stats.href}
-      className="feature-card relative h-[112px] gap-2 border border-black/10 px-3 py-2.5"
+      className="feature-card relative h-[104px] gap-1 border border-black/10 px-2.5 py-2"
     >
       <div className="absolute left-3 right-3 top-2 text-center text-[10px] font-semibold uppercase tracking-[0.05em] text-black/55">
         Weekly Data Collected
       </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center gap-3 pt-4">
-        <div className="relative h-[72px] w-[72px] shrink-0 rounded-full" style={{ background: donutBackground }}>
-          <div className="absolute inset-[11px] flex items-center justify-center rounded-full bg-white text-[17px] font-semibold">
+      <div className="flex min-h-0 flex-1 items-center justify-center gap-2 pt-4">
+        <div className="relative h-[62px] w-[62px] shrink-0 rounded-full" style={{ background: donutBackground }}>
+          <div className="absolute inset-[10px] flex items-center justify-center rounded-full bg-white text-[16px] font-semibold">
             {stats.total}
           </div>
         </div>
@@ -220,7 +221,7 @@ function DashboardReportsButton({
   return (
     <Link
       href={href}
-      className="flex h-[112px] items-center justify-center rounded-[22px] border border-black/10 bg-[linear-gradient(145deg,#ffffff_0%,#f7f1e9_100%)] px-4 py-3 text-center shadow-[0_8px_18px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(11,27,42,0.12)] md:col-span-2 xl:col-span-1"
+      className="flex h-[104px] items-center justify-center rounded-[22px] border border-black/10 bg-[linear-gradient(145deg,#ffffff_0%,#f7f1e9_100%)] px-3 py-3 text-center shadow-[0_8px_18px_rgba(11,27,42,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(11,27,42,0.12)] md:col-span-2 lg:col-span-1"
     >
       <div className="text-[1.04rem] font-semibold uppercase leading-[1.08] tracking-[0.01em] text-black/80">
         {label}
@@ -312,9 +313,17 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
       });
 
       const attendanceCounts = new Map<string, number>();
+      const attendanceStatusCounts = new Map<string, { present: number; absent: number; tardy: number; leftEarly: number }>();
       const absentStudentIdsByBlock = new Map<string, Set<string>>();
       todayAttendance.forEach((record) => {
+        if (!(activeStudentIdsByBlock.get(record.blockId) || []).includes(record.studentId)) return;
         attendanceCounts.set(record.blockId, (attendanceCounts.get(record.blockId) || 0) + 1);
+        const statusCounts = attendanceStatusCounts.get(record.blockId) || { present: 0, absent: 0, tardy: 0, leftEarly: 0 };
+        if (record.status === "PRESENT") statusCounts.present += 1;
+        if (record.status === "ABSENT") statusCounts.absent += 1;
+        if (record.status === "TARDY") statusCounts.tardy += 1;
+        if (record.status === "LEFT_EARLY") statusCounts.leftEarly += 1;
+        attendanceStatusCounts.set(record.blockId, statusCounts);
         if (record.status === "ABSENT") {
           const set = absentStudentIdsByBlock.get(record.blockId) || new Set<string>();
           set.add(record.studentId);
@@ -347,6 +356,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
 
       dashboardBlocks = blocks.map((block) => {
         const attendanceCount = attendanceCounts.get(block.id) || 0;
+        const attendanceStatuses = attendanceStatusCounts.get(block.id) || { present: 0, absent: 0, tardy: 0, leftEarly: 0 };
         const activeCount = activeStudentCounts.get(block.id) || 0;
         const activeStudentIds = activeStudentIdsByBlock.get(block.id) || [];
         const absentStudentIds = absentStudentIdsByBlock.get(block.id) || new Set<string>();
@@ -377,7 +387,12 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
             ? {
                 tone: "complete" as const,
                 status: "Complete",
-                detail: `${attendanceCount}/${activeCount} students`,
+                detail: [
+                  `${attendanceStatuses.present} present`,
+                  attendanceStatuses.absent ? `${attendanceStatuses.absent} absent` : "",
+                  attendanceStatuses.tardy ? `${attendanceStatuses.tardy} tardy` : "",
+                  attendanceStatuses.leftEarly ? `${attendanceStatuses.leftEarly} left early` : ""
+                ].filter(Boolean).join(" · "),
                 href: attendanceHref
               }
             : attendanceCount === 0
@@ -390,7 +405,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
             : {
                 tone: "attention" as const,
                 status: "Needs attention",
-                detail: `${attendanceCount}/${activeCount} students`,
+                detail: `${attendanceCount}/${activeCount} recorded · ${activeCount - attendanceCount} pending`,
                 href: attendanceHref
               };
 
@@ -480,7 +495,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
   const weeklyStatsByBlockId = new Map(weeklyStats.map((stats) => [stats.id, stats]));
 
   return (
-    <div className="mx-auto flex max-w-[1120px] flex-col gap-1 px-1.5 py-1 lg:min-h-[calc(100vh-var(--topbar-height)-6px)]">
+    <div className="mx-auto flex max-w-[1440px] flex-col gap-1 px-3 py-2 lg:min-h-[calc(100vh-var(--topbar-height)-6px)]">
       {!isAuthed && (
         <div id="login" className="hero-card p-6">
           <h2 className="text-lg font-semibold">Login or create your teacher account</h2>
@@ -540,7 +555,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
       {isAuthed && (
         <>
           <div className="hero-card flex flex-1 flex-col gap-3 overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-3 lg:p-3.5">
-            <div className="flex flex-col gap-2 border-b border-black/10 pb-2.5 xl:flex-row xl:items-end xl:justify-between">
+            <div className="flex flex-col gap-2 border-b border-black/10 pb-2.5 lg:flex-row lg:items-end lg:justify-between">
               <h1 className="section-title mb-0 text-[clamp(1.85rem,2vw,2.35rem)]">Command Center</h1>
               <div className="flex flex-wrap items-center gap-2.5">
                 <DashboardQuickAction href="/setup/seating" label="Seating Chart" />
@@ -565,9 +580,9 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
                         key={block.id}
                         className="min-w-0 rounded-[22px] border border-[#dbcdb7] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,241,232,0.94)_100%)] p-2.5 shadow-[0_12px_26px_rgba(11,27,42,0.08)]"
                       >
-                        <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-[40px_minmax(0,1.05fr)_minmax(0,1.05fr)_minmax(0,1.05fr)_260px_138px]">
-                          <div className="flex min-h-[52px] items-center justify-center rounded-[18px] bg-white/[0.72] px-3 py-2 md:col-span-2 xl:col-span-1 xl:h-[112px] xl:min-h-0 xl:rounded-[22px] xl:px-0.5 xl:py-0.5">
-                            <div className="text-[18px] font-bold uppercase leading-none tracking-[0.03em] text-black xl:[writing-mode:vertical-rl] xl:rotate-180">
+                        <div className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-[36px_repeat(3,minmax(0,1fr))_minmax(190px,0.9fr)_120px]">
+                          <div className="flex min-h-[52px] items-center justify-center rounded-[18px] bg-white/[0.72] px-3 py-2 md:col-span-2 lg:col-span-1 lg:h-[104px] lg:min-h-0 lg:rounded-[22px] lg:px-0.5 lg:py-0.5">
+                            <div className="text-[17px] font-bold uppercase leading-none tracking-[0.03em] text-black lg:[writing-mode:vertical-rl] lg:rotate-180">
                               {block.title}
                             </div>
                           </div>

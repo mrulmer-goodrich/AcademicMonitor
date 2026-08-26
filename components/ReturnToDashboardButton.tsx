@@ -1,4 +1,4 @@
-import Link from "next/link";
+"use client";
 
 type ReturnToDashboardButtonProps = {
   className?: string;
@@ -6,11 +6,12 @@ type ReturnToDashboardButtonProps = {
 
 export default function ReturnToDashboardButton({ className = "" }: ReturnToDashboardButtonProps) {
   return (
-    <Link
-      href="/dashboard"
-      className={`btn btn-primary w-full justify-center px-8 py-4 text-base md:w-auto md:min-w-[260px] ${className}`.trim()}
+    <button
+      type="button"
+      onClick={() => window.location.assign("/dashboard")}
+      className={`btn btn-primary w-full justify-center px-8 py-4 text-base md:w-auto ${className}`.trim()}
     >
       Return to Dashboard
-    </Link>
+    </button>
   );
 }

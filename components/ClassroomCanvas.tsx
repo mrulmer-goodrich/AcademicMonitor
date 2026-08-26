@@ -14,6 +14,7 @@ type ClassroomCanvasProps = {
   logicalHeight?: number;
   minPhoneScale?: number;
   maxScale?: number;
+  fit?: "contain" | "width";
   onScaleChange?: (scale: number) => void;
   onPointerMove?: PointerEventHandler<HTMLDivElement>;
   onPointerUp?: PointerEventHandler<HTMLDivElement>;
@@ -31,6 +32,7 @@ export default function ClassroomCanvas({
   logicalHeight = 528,
   minPhoneScale = 0.62,
   maxScale = 1,
+  fit = "contain",
   onScaleChange,
   onPointerMove,
   onPointerUp,
@@ -46,7 +48,11 @@ export default function ClassroomCanvas({
     const updateScale = () => {
       const availableWidth = viewport.clientWidth;
       const availableHeight = viewport.clientHeight;
-      const fitScale = Math.min(maxScale, availableWidth / logicalWidth, availableHeight / logicalHeight);
+      const fitScale = Math.min(
+        maxScale,
+        availableWidth / logicalWidth,
+        fit === "contain" ? availableHeight / logicalHeight : Number.POSITIVE_INFINITY
+      );
       const nextScale = window.innerWidth < 640 ? Math.max(minPhoneScale, fitScale) : fitScale;
       setScale(nextScale);
       onScaleChange?.(nextScale);
@@ -56,7 +62,7 @@ export default function ClassroomCanvas({
     const observer = new ResizeObserver(updateScale);
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [logicalHeight, logicalWidth, maxScale, minPhoneScale, onScaleChange]);
+  }, [fit, logicalHeight, logicalWidth, maxScale, minPhoneScale, onScaleChange]);
 
   return (
     <div className={`classroom-canvas hero-card relative overflow-hidden ${className}`}>

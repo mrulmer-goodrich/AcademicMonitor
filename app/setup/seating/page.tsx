@@ -5,7 +5,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
-import { CLASSROOM_HEIGHT, CLASSROOM_WIDTH, normalizeDeskGeometry } from "@/lib/classroomGeometry";
+import {
+  CLASSROOM_HEIGHT,
+  CLASSROOM_WIDTH,
+  findOpenStudentDeskPosition,
+  findOverlappingDeskIds,
+  normalizeDeskGeometry
+} from "@/lib/classroomGeometry";
 
 type Block = { id: string; blockNumber: number; blockName: string };
 
@@ -53,6 +59,8 @@ function SeatingSetupPageInner() {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [teacherName, setTeacherName] = useState<string>("Teacher");
   const [canvasScale, setCanvasScale] = useState(1);
+  const [creatingDesk, setCreatingDesk] = useState<"student" | "all" | "teacher" | null>(null);
+  const creatingDeskRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     id: string;
@@ -117,31 +125,81 @@ function SeatingSetupPageInner() {
     const res = await fetch(`/api/desks?blockId=${blockId}&unassigned=1`);
     const data = await res.json();
     setUnassigned(data.students || []);
-    if (data.students?.length) setSelectedStudentId(data.students[0].id);
+    setSelectedStudentId((current) =>
+      data.students?.some((student: Student) => student.id === current) ? current : data.students?.[0]?.id || ""
+    );
   }
 
   async function addStudentDesk() {
-    if (!selectedStudentId) return;
-    const res = await fetch("/api/desks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ blockId, type: "STUDENT", studentId: selectedStudentId, x: 40, y: 40 })
-    });
-    if (res.ok) {
-      await loadDesks();
-      await loadUnassigned();
+    if (!selectedStudentId || creatingDeskRef.current) return;
+    creatingDeskRef.current = true;
+    setCreatingDesk("student");
+    setError(null);
+    try {
+      const position = findOpenStudentDeskPosition(desks);
+      const res = await fetch("/api/desks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blockId, type: "STUDENT", studentId: selectedStudentId, ...position })
+      });
+      if (!res.ok) throw new Error("Unable to add that student desk.");
+      setLastSaved("Saved");
+      await Promise.all([loadDesks(), loadUnassigned()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to add that student desk.");
+    } finally {
+      creatingDeskRef.current = false;
+      setCreatingDesk(null);
+    }
+  }
+
+  async function addAllStudentDesks() {
+    if (!unassigned.length || creatingDeskRef.current) return;
+    creatingDeskRef.current = true;
+    setCreatingDesk("all");
+    setError(null);
+    let placedDesks = [...desks];
+    try {
+      for (const student of unassigned) {
+        const position = findOpenStudentDeskPosition(placedDesks);
+        const res = await fetch("/api/desks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blockId, type: "STUDENT", studentId: student.id, ...position })
+        });
+        if (!res.ok) throw new Error(`Unable to add a desk for ${student.displayName}.`);
+        const data = await res.json();
+        placedDesks = [...placedDesks, normalizeDeskGeometry(data.desk)];
+        setDesks(placedDesks);
+      }
+      setLastSaved("Saved");
+      await Promise.all([loadDesks(), loadUnassigned()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to add every student desk.");
+      await Promise.all([loadDesks(), loadUnassigned()]);
+    } finally {
+      creatingDeskRef.current = false;
+      setCreatingDesk(null);
     }
   }
 
   async function addTeacherDesk() {
-    const res = await fetch("/api/desks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ blockId, type: "TEACHER", x: 80, y: 80, width: 156, height: 92 })
-    });
-    if (res.ok) {
-      setLastSaved("Saved");
-      await loadDesks();
+    if (creatingDeskRef.current) return;
+    creatingDeskRef.current = true;
+    setCreatingDesk("teacher");
+    try {
+      const res = await fetch("/api/desks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blockId, type: "TEACHER", x: 80, y: 80, width: 156, height: 92 })
+      });
+      if (res.ok) {
+        setLastSaved("Saved");
+        await loadDesks();
+      }
+    } finally {
+      creatingDeskRef.current = false;
+      setCreatingDesk(null);
     }
   }
 
@@ -299,6 +357,7 @@ function SeatingSetupPageInner() {
     () => Boolean(requestedBlockId && blocks.some((block) => block.id === requestedBlockId)),
     [requestedBlockId, blocks]
   );
+  const overlappingDeskIds = useMemo(() => findOverlappingDeskIds(desks), [desks]);
 
   // auto-fit removed
 
@@ -332,7 +391,7 @@ function SeatingSetupPageInner() {
           className="form-control max-w-[180px] shrink-0"
           value={selectedStudentId}
           onChange={(e) => setSelectedStudentId(e.target.value)}
-          disabled={unassigned.length === 0}
+          disabled={unassigned.length === 0 || Boolean(creatingDesk)}
         >
           {unassigned.map((student) => (
             <option key={student.id} value={student.id}>
@@ -344,13 +403,21 @@ function SeatingSetupPageInner() {
           className="btn btn-primary px-3 py-2 text-sm shrink-0"
           type="button"
           onClick={addStudentDesk}
-          disabled={unassigned.length === 0}
+          disabled={unassigned.length === 0 || Boolean(creatingDesk)}
         >
-          Add
+          {creatingDesk === "student" ? "Adding…" : "Add"}
+        </button>
+        <button
+          className="btn btn-ghost px-3 py-2 text-sm shrink-0"
+          type="button"
+          onClick={addAllStudentDesks}
+          disabled={unassigned.length === 0 || Boolean(creatingDesk)}
+        >
+          {creatingDesk === "all" ? `Adding ${unassigned.length}…` : "Add All"}
         </button>
         {unassigned.length === 0 && <div className="text-sm text-black/60 w-full lg:w-auto">All students assigned</div>}
-        <button className="btn btn-ghost px-3 py-2 text-sm shrink-0" type="button" onClick={addTeacherDesk}>
-          Add Teacher Desk
+        <button className="btn btn-ghost px-3 py-2 text-sm shrink-0" type="button" onClick={addTeacherDesk} disabled={Boolean(creatingDesk)}>
+          {creatingDesk === "teacher" ? "Adding…" : "Add Teacher Desk"}
         </button>
         <button className="btn btn-ghost px-3 py-2 text-sm shrink-0" type="button" onClick={() => rotateSelected(15)}>
           +15°
@@ -366,15 +433,22 @@ function SeatingSetupPageInner() {
         >
           Delete
         </button>
-        <div className="w-full text-sm text-black/60 xl:w-auto">
-          {lastSaved ? lastSaved : "Layout changes save immediately"}
+        <div className="h-5 basis-full text-sm text-black/60" aria-live="polite">
+          {lastSaved ? "Saved" : "Layout changes save immediately"}
         </div>
       </div>
 
+      {overlappingDeskIds.size > 0 && (
+        <div className="rounded-2xl border border-amber-400/60 bg-amber-50/90 px-4 py-2 text-sm text-amber-950">
+          {overlappingDeskIds.size} desks overlap. They are highlighted below so you can separate them.
+        </div>
+      )}
+
       <ClassroomCanvas
-        className="h-[min(720px,calc(100vh-190px))] min-h-[390px] p-3 sm:p-4"
+        className="aspect-[1040/528] w-full p-3 sm:p-4"
         canvasClassName="rounded-2xl border border-black/10"
-        maxScale={1.35}
+        fit="width"
+        maxScale={2}
         onScaleChange={setCanvasScale}
         canvasRef={containerRef}
         onPointerMove={onPointerMove}
@@ -392,6 +466,8 @@ function SeatingSetupPageInner() {
             className={`absolute rounded-2xl border border-black/20 bg-white/90 text-center text-xs shadow ${
               desk.id === selectedDeskId ? "ring-2 ring-ocean" : ""
             } ${desk.id === snapTargetId ? "ring-2 ring-coral" : ""} ${
+              overlappingDeskIds.has(desk.id) ? "ring-4 ring-amber-400" : ""
+            } ${
               desk.type === "TEACHER" ? "flex items-center justify-center" : ""
             }`}
             style={{

@@ -41,6 +41,11 @@ type AttendanceRecord = {
   status: AttendanceStatus;
 };
 
+type AttendanceStudent = {
+  id: string;
+  displayName: string;
+};
+
 type Lap = {
   dayIndex: number;
   lapNumber: number;
@@ -98,6 +103,7 @@ function MonitorPageInner() {
   const [blockId, setBlockId] = useState<string>("");
   const [desks, setDesks] = useState<Desk[]>([]);
   const [activeStudents, setActiveStudents] = useState<string[]>([]);
+  const [attendanceStudents, setAttendanceStudents] = useState<AttendanceStudent[]>([]);
   const [unassignedActiveStudents, setUnassignedActiveStudents] = useState<string[]>([]);
   const [laps, setLaps] = useState<Lap[]>([]);
   const [attendancePanel, setAttendancePanel] = useState(false);
@@ -205,9 +211,10 @@ function MonitorPageInner() {
         .filter((desk: Desk) => desk.type === "STUDENT")
         .map((desk: Desk) => normalizeDeskGeometry(desk));
 
-      const activeStudentIds = (studentsData.students || [])
+      const nextAttendanceStudents = (studentsData.students || [])
         .filter((student: { active: boolean }) => student.active)
-        .map((student: { id: string }) => student.id);
+        .map((student: AttendanceStudent) => ({ id: student.id, displayName: student.displayName }));
+      const activeStudentIds = nextAttendanceStudents.map((student: AttendanceStudent) => student.id);
 
       const savedAttendanceMap = Object.fromEntries(
         (attendanceData.attendance || []).map((record: AttendanceRecord) => [record.studentId, record.status])
@@ -222,6 +229,7 @@ function MonitorPageInner() {
 
       setDesks(nextDesks);
       setActiveStudents(activeStudentIds);
+      setAttendanceStudents(nextAttendanceStudents);
       setUnassignedActiveStudents((unassignedData.students || []).map((student: { id: string }) => student.id));
       setLaps(lapsData.laps || []);
       setSavedAttendance(savedAttendanceMap);
@@ -246,14 +254,14 @@ function MonitorPageInner() {
     return activeStudents.every((studentId) => Boolean(draftAttendance[studentId]));
   }, [activeStudents, draftAttendance]);
 
-  const canTakeAttendance = unassignedActiveStudents.length === 0;
+  const canUseSeatMap = unassignedActiveStudents.length === 0;
   const namedLapMap = useMemo(
     () => new Map(todayLaps.map((lap) => [lap.lapNumber, lap])),
     [todayLaps]
   );
   const namedLapCount = todayLaps.length;
   const isTestSession = !isWeekday;
-  const canMonitorFromSeatMap = canTakeAttendance;
+  const canMonitorFromSeatMap = canUseSeatMap;
 
   const performanceMap = useMemo(() => draftPerformance, [draftPerformance]);
   const hasUnsavedChanges = useMemo(
@@ -269,7 +277,7 @@ function MonitorPageInner() {
   });
 
   useEffect(() => {
-    if (loading || activeMode !== "attendance" || !canTakeAttendance) {
+    if (loading || activeMode !== "attendance") {
       attendanceReadyRef.current = attendanceComplete;
       return;
     }
@@ -286,7 +294,7 @@ function MonitorPageInner() {
     if (!wasComplete && attendanceComplete) {
       setAttendanceCompletionPromptOpen(true);
     }
-  }, [attendanceComplete, activeMode, canTakeAttendance, loading]);
+  }, [attendanceComplete, activeMode, loading]);
 
   function cycleAttendance(studentId: string) {
     setDraftAttendance((prev) => {
@@ -359,7 +367,11 @@ function MonitorPageInner() {
     if (!hasUnsavedChanges) {
       setSaveState("No unsaved changes.");
       if (nextUrl) {
-        router.push(nextUrl);
+        if (nextUrl === "/dashboard") {
+          window.location.assign(nextUrl);
+        } else {
+          router.push(nextUrl);
+        }
       }
       return;
     }
@@ -515,7 +527,6 @@ function MonitorPageInner() {
                   className="btn btn-ghost px-4 py-2"
                   type="button"
                   onClick={() => setAttendancePanel(true)}
-                  disabled={!canTakeAttendance}
                 >
                   Attendance List
                 </button>
@@ -525,8 +536,10 @@ function MonitorPageInner() {
             <div className="text-sm text-black/60">
               {loading
                 ? "Loading..."
-                : !canTakeAttendance
-                ? "Seat every active student before using the seat map."
+                : !canUseSeatMap
+                ? activeMode === "attendance"
+                  ? "Attendance List is ready now. Assign every student to unlock seat-map attendance."
+                  : "Assign every active student before monitoring from the seat map."
                 : activeMode === "attendance"
                 ? "Take attendance and save whenever you're ready."
                 : namedLapCount === 0
@@ -537,7 +550,7 @@ function MonitorPageInner() {
             </div>
           </div>
 
-          {activeMode === "performance" && !attendanceComplete && canTakeAttendance && (
+          {activeMode === "performance" && !attendanceComplete && canUseSeatMap && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               Attendance is not complete. Monitoring is still available, but attendance should be taken first.
             </div>
@@ -582,21 +595,21 @@ function MonitorPageInner() {
             </div>
           )}
 
-          <div className={`hero-card relative h-[min(720px,calc(100vh-240px))] min-h-[420px] overflow-visible p-3 sm:p-4 ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
-            {!canTakeAttendance && (
+          <div className={`hero-card relative aspect-[1040/528] w-full overflow-visible p-3 sm:p-4 ${activeMode === "attendance" ? "bg-black/5" : ""}`}>
+            {!canUseSeatMap && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-2xl bg-black/45 px-6 text-center text-white">
                 <div className="text-4xl font-semibold">Assign Seats</div>
                 <div className="max-w-md text-sm text-white/90">
                   {unassignedActiveStudents.length} active student
                   {unassignedActiveStudents.length === 1 ? " is" : "s are"} still unassigned.
                 </div>
-                <Link href="/setup/seating" className="btn btn-ghost">
+                <Link href="/setup/seating" className="btn border-white bg-white text-black hover:bg-white/90">
                   Go to Seating Chart
                 </Link>
               </div>
             )}
 
-            {canTakeAttendance && activeMode === "performance" && namedLapCount === 0 && !isTestSession && (
+            {canUseSeatMap && activeMode === "performance" && namedLapCount === 0 && !isTestSession && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-[rgba(255,250,243,0.78)] px-6 backdrop-blur-sm">
                 <div className="max-w-xl rounded-[24px] border border-black/10 bg-white/92 px-8 py-7 text-center shadow-[0_18px_40px_rgba(11,27,42,0.14)]">
                   <div className="text-2xl font-semibold">Name a lap before monitoring.</div>
@@ -615,7 +628,7 @@ function MonitorPageInner() {
                     <button
                       className="btn btn-ghost"
                       type="button"
-                      onClick={() => requestNavigation(() => router.push("/dashboard"))}
+                      onClick={() => requestNavigation(() => window.location.assign("/dashboard"))}
                     >
                       Return to Dashboard
                     </button>
@@ -624,7 +637,7 @@ function MonitorPageInner() {
               </div>
             )}
 
-            <ClassroomCanvas className="h-full border-0 bg-transparent shadow-none" maxScale={1.35}>
+            <ClassroomCanvas className="h-full border-0 bg-transparent shadow-none" fit="width" maxScale={2}>
             {desks.map((desk) => {
               const status = desk.studentId ? draftAttendance[desk.studentId] : undefined;
               const isAbsent = status === "ABSENT";
@@ -665,7 +678,7 @@ function MonitorPageInner() {
                     transform: `rotate(${desk.rotation}deg)`
                   }}
                   onClick={() => {
-                    if (!desk.studentId || activeMode !== "attendance" || !canTakeAttendance) return;
+                    if (!desk.studentId || activeMode !== "attendance" || !canUseSeatMap) return;
                     cycleAttendance(desk.studentId);
                   }}
                 >
@@ -832,20 +845,19 @@ function MonitorPageInner() {
             </div>
 
             <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
-              {desks
+              {attendanceStudents
                 .slice()
-                .sort((left, right) => (left.student?.displayName || "").localeCompare(right.student?.displayName || ""))
-                .map((desk) => {
-                  if (!desk.studentId) return null;
-                  const status = draftAttendance[desk.studentId];
+                .sort((left, right) => left.displayName.localeCompare(right.displayName))
+                .map((student) => {
+                  const status = draftAttendance[student.id];
                   return (
-                    <div key={`att-${desk.id}`} className="rounded-xl border border-black/10 bg-white p-3 text-sm">
+                    <div key={`att-${student.id}`} className="rounded-xl border border-black/10 bg-white p-3 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="text-base font-semibold">{desk.student?.displayName}</div>
+                        <div className="text-base font-semibold">{student.displayName}</div>
                         <div className="flex flex-wrap gap-2">
                           {attendanceCycle.map((state) => (
                             <button
-                              key={`${desk.id}-${state}`}
+                              key={`${student.id}-${state}`}
                               type="button"
                               className={`btn ${
                                 status === state
@@ -858,7 +870,7 @@ function MonitorPageInner() {
                                     : "bg-orange-400 text-black"
                                   : "btn-ghost"
                               }`}
-                              onClick={() => setAttendanceStatus(desk.studentId as string, state)}
+                              onClick={() => setAttendanceStatus(student.id, state)}
                             >
                               {attendanceLabel(state)}
                             </button>
@@ -879,7 +891,7 @@ function MonitorPageInner() {
             <div className="small-header text-black/55">Attendance Complete</div>
             <h2 className="section-title mt-2">What should happen next?</h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm text-black/65">
-              Every seated student now has an attendance record. You can keep working in attendance without saving yet, or
+              Every active student now has an attendance record. You can keep working in attendance without saving yet, or
               save the record and return to Command Center.
             </p>
             <div className="mt-8 grid gap-3 md:grid-cols-2">
