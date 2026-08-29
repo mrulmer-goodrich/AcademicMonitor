@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { addDays, format, startOfWeek } from "date-fns";
@@ -71,6 +71,8 @@ function LapsSetupPageInner() {
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copyAction, setCopyAction] = useState("");
+  const appliedRequestedBlockId = useRef<string | null>(null);
   const [activeDayIndex, setActiveDayIndex] = useState(() => Math.min(Math.max((new Date().getDay() + 6) % 7, 0), 4));
 
   useEffect(() => {
@@ -94,11 +96,12 @@ function LapsSetupPageInner() {
 
   useEffect(() => {
     if (!requestedBlockId) return;
+    if (appliedRequestedBlockId.current === requestedBlockId) return;
     if (!blocks.some((block) => block.id === requestedBlockId)) return;
-    if (requestedBlockId !== blockId) {
-      setBlockId(requestedBlockId);
-    }
-  }, [requestedBlockId, blocks, blockId]);
+    appliedRequestedBlockId.current = requestedBlockId;
+    setCopyAction("");
+    setBlockId(requestedBlockId);
+  }, [requestedBlockId, blocks]);
 
   useEffect(() => {
     if (!returnTo || !focusDate) return;
@@ -253,9 +256,32 @@ function LapsSetupPageInner() {
     setStatusMessage("Previous week copied. Review, then save.");
   }
 
+  async function copyFromClass(sourceBlockId: string) {
+    if (!sourceBlockId) return;
+    const res = await fetch(`/api/laps?blockId=${sourceBlockId}&weekStart=${weekStart.toISOString()}`);
+    if (!res.ok) {
+      setStatusMessage("Unable to load that class.");
+      return;
+    }
+    const data = await res.json();
+    const sourceLaps: Lap[] = data.laps || [];
+    const sourceBlock = blocks.find((block) => block.id === sourceBlockId);
+    if (sourceLaps.length === 0) {
+      setStatusMessage(`${sourceBlock?.blockName || "That class"} has no lap names for this week.`);
+      return;
+    }
+    setDrafts(buildDraftMap(sourceLaps));
+    setEditing(true);
+    setStatusMessage(`Copied this week from Block ${sourceBlock?.blockNumber}. Review, then save.`);
+  }
+
   const blockOptions = useMemo(
     () => blocks.map((block) => ({ id: block.id, label: `Block ${block.blockNumber} · ${block.blockName}` })),
     [blocks]
+  );
+  const copySourceOptions = useMemo(
+    () => blockOptions.filter((block) => block.id !== blockId),
+    [blockOptions, blockId]
   );
 
   const savedDrafts = useMemo(() => buildDraftMap(laps), [laps]);
@@ -290,44 +316,45 @@ function LapsSetupPageInner() {
       )}
 
       <div className="hero-card space-y-3 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              className="form-control max-w-[280px]"
-              value={blockId}
-              onChange={(e) => {
-                const nextBlockId = e.target.value;
-                requestNavigation(() => setBlockId(nextBlockId));
-              }}
-            >
-              {blockOptions.map((block) => (
-                <option key={block.id} value={block.id}>
-                  {block.label}
-                </option>
-              ))}
-            </select>
+        <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
+          <select
+            aria-label="Class"
+            className="form-control w-full sm:w-[210px] sm:shrink-0 xl:w-[230px]"
+            value={blockId}
+            onChange={(e) => {
+              const nextBlockId = e.target.value;
+              requestNavigation(() => {
+                setCopyAction("");
+                setBlockId(nextBlockId);
+              });
+            }}
+          >
+            {blockOptions.map((block) => (
+              <option key={block.id} value={block.id}>
+                {block.label}
+              </option>
+            ))}
+          </select>
 
-            <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 whitespace-nowrap sm:flex sm:w-auto sm:shrink-0 sm:gap-2">
-              <button
-                className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm"
-                type="button"
-                onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, -7)))}
-              >
-                ← Previous
-              </button>
-              <div className="text-center text-sm font-semibold sm:text-base">Week of {format(weekStart, "MM/dd/yy")}</div>
-              <button
-                className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm"
-                type="button"
-                onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, 7)))}
-              >
-                Next →
-              </button>
-            </div>
+          <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 whitespace-nowrap sm:flex sm:w-auto sm:shrink-0 sm:gap-2">
+            <button
+              className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm"
+              type="button"
+              onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, -7)))}
+            >
+              ← Previous
+            </button>
+            <div className="text-center text-sm font-semibold sm:text-base">Week of {format(weekStart, "MM/dd/yy")}</div>
+            <button
+              className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm"
+              type="button"
+              onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, 7)))}
+            >
+              Next →
+            </button>
           </div>
 
-          <div className="flex min-h-[42px] min-w-[340px] flex-wrap items-center justify-end gap-2">
-            <span className="mr-auto text-xs text-black/55" aria-live="polite">{statusMessage || (editing ? "Editing all 15 weekly slots" : "5 days · 3 laps each")}</span>
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 md:ml-auto md:w-auto md:flex-nowrap">
             {!editing && (
               <button className="btn btn-primary px-4 py-2 text-sm" type="button" onClick={startEditing} disabled={!blockId}>
                 Edit Week
@@ -335,13 +362,35 @@ function LapsSetupPageInner() {
             )}
             {editing && (
               <>
-                <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={copyPreviousWeek} disabled={saving}>
-                  Copy Previous Week
-                </button>
-                <button className="btn btn-primary px-4 py-2 text-sm" type="button" onClick={saveAll} disabled={saving}>
+                <select
+                  aria-label="Copy laps"
+                  className="form-control !w-[180px] py-2 text-sm"
+                  value={copyAction}
+                  onChange={(event) => {
+                    const action = event.target.value;
+                    setCopyAction("");
+                    if (action === "previous-week") {
+                      void copyPreviousWeek();
+                    } else if (action) {
+                      void copyFromClass(action);
+                    }
+                  }}
+                  disabled={saving}
+                >
+                  <option value="">Copy…</option>
+                  <option value="previous-week">Previous week</option>
+                  {copySourceOptions.length > 0 && (
+                    <optgroup label="This week from class">
+                      {copySourceOptions.map((block) => (
+                        <option key={`copy-${block.id}`} value={block.id}>{block.label}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                <button className="btn btn-primary px-3 py-2 text-sm" type="button" onClick={saveAll} disabled={saving}>
                   {saving ? "Saving..." : "Save"}
                 </button>
-                <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={cancelEditing} disabled={saving}>
+                <button className="btn btn-ghost px-2 py-2 text-sm" type="button" onClick={cancelEditing} disabled={saving}>
                   Cancel
                 </button>
               </>
@@ -349,13 +398,7 @@ function LapsSetupPageInner() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-black/10 pt-3">
-          <div>
-            <div className="small-header text-black/45">Weekly lap plan</div>
-            <div className="text-sm font-semibold">15 distinct day/lap combinations</div>
-          </div>
-          <div className="text-xs text-black/55">Each saved name and standard belongs to the day shown in its column.</div>
-        </div>
+        {statusMessage && <div className="text-xs text-black/55" aria-live="polite">{statusMessage}</div>}
 
         <div className="space-y-3 md:hidden">
           <div className="grid grid-cols-5 gap-1 rounded-2xl bg-black/5 p-1">
@@ -373,7 +416,7 @@ function LapsSetupPageInner() {
           </div>
 
           <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950">
-            Editing <span className="font-semibold">{weekdays[activeDayIndex]}, {format(addDays(weekStart, activeDayIndex), "MMMM d")}</span> · 3 of 15 weekly slots
+            {editing ? "Editing " : ""}<span className="font-semibold">{weekdays[activeDayIndex]}, {format(addDays(weekStart, activeDayIndex), "MMMM d")}</span> · 3 laps
           </div>
 
           <div className="grid gap-2">

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { format, startOfWeek } from "date-fns";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
+import StudentIndicators from "@/components/StudentIndicators";
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
 import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
 import { normalizeDeskGeometry } from "@/lib/classroomGeometry";
@@ -696,47 +697,7 @@ function MonitorPageInner() {
                   </div>
 
                   {desk.student && activeMode === "performance" && !isAbsent && (
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute bottom-1 left-1 right-1 z-10 flex items-center justify-center gap-1"
-                    >
-                      {desk.student.ml && (
-                        <span className="h-3.5 w-3.5 rounded-full border border-black/70" style={{ background: "#9ecae1" }} />
-                      )}
-                      {desk.student.mlNew && (
-                        <span
-                          className="h-3.5 w-3.5 rounded-full border border-black/70"
-                          style={{ background: "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)" }}
-                        />
-                      )}
-                      {desk.student.iep504 && (
-                        <span className="h-3.5 w-3.5 rounded-full border border-black/70" style={{ background: "#f5a9b8" }} />
-                      )}
-                      {desk.student.ec && (
-                        <span className="h-3.5 w-3.5 rounded-full border border-black/70" style={{ background: "#ffd633" }} />
-                      )}
-                      {desk.student.ca && (
-                        <span className="h-3.5 w-3.5 rounded-full border border-black/70 bg-white" />
-                      )}
-                      {desk.student.hiit && (
-                        <span className="h-3.5 w-3.5 rounded-full border border-black/70" style={{ background: "#b18ad8" }} />
-                      )}
-                      {desk.student.eog && (
-                        <span
-                          className="h-3.5 w-3.5 rounded-full border border-black/70"
-                          style={{
-                            background:
-                              desk.student.eog === "FIVE"
-                                ? "#3f6db5"
-                                : desk.student.eog === "FOUR"
-                                ? "#4caf50"
-                                : desk.student.eog === "THREE"
-                                ? "#f2994a"
-                                : "#e74c3c"
-                          }}
-                        />
-                      )}
-                    </div>
+                    <StudentIndicators student={desk.student} />
                   )}
 
                   {activeMode === "performance" && !isAbsent && selectedMonitoringLaps.length > 0 && (

@@ -11,10 +11,10 @@ The core teacher workflow is implemented:
 - Student categories, EOG levels, and active/inactive status
 - Compact student management with complete single-student setup and selected-student bulk attribute changes
 - Drag-and-drop seating charts with student and teacher desks
-- Three named laps per instructional day
+- Three named laps per instructional day, with previous-week and same-week cross-class copying
 - Attendance gating before monitoring begins
 - Tap-to-cycle performance capture: proficient, developing, and nothing written
-- Privacy-safe classroom indicators that preserve teacher color/pattern cues without projected category labels or EOG values
+- Privacy-safe classroom indicators that preserve their established desk positions and teacher color/pattern cues without projected category labels or EOG values
 - Day, week, month, individual, monitoring, and attendance reports with CSV/XLSX export
 - Responsive classroom layouts that keep seats, indicators, and lap controls together across Chromebook and tablet sizes
 - Weekend test sessions that can be used for practice without entering standard reports

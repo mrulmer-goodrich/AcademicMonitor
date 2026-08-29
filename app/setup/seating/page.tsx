@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
+import StudentIndicators from "@/components/StudentIndicators";
 import {
   CLASSROOM_HEIGHT,
   CLASSROOM_WIDTH,
@@ -484,65 +485,7 @@ function SeatingSetupPageInner() {
               </div>
             </div>
             {desk.type === "STUDENT" && desk.student && (
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute bottom-1 left-1 right-1 flex items-center justify-center gap-1"
-                >
-                    {desk.student.hiit && (
-                      <span
-                        className="h-3.5 w-3.5 rounded-full border border-black/70"
-                        style={{ background: "#b18ad8" }}
-                      />
-                    )}
-                    {desk.student.eog && (
-                      <span
-                        className="h-3.5 w-3.5 rounded-full border border-black/70"
-                        style={{
-                          background:
-                            desk.student.eog === "FIVE"
-                              ? "#3f6db5"
-                              : desk.student.eog === "FOUR"
-                              ? "#4caf50"
-                              : desk.student.eog === "THREE"
-                              ? "#f2994a"
-                              : "#e74c3c"
-                        }}
-                      />
-                    )}
-                    {desk.student.ml && (
-                      <span
-                        className="h-3.5 w-3.5 rounded-full border border-black/70"
-                        style={{ background: "#9ecae1" }}
-                      />
-                    )}
-                    {desk.student.mlNew && (
-                      <span
-                        className="h-3.5 w-3.5 rounded-full border border-black/70"
-                        style={{
-                          background:
-                            "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)"
-                        }}
-                      />
-                    )}
-                    {desk.student.iep504 && (
-                      <span
-                        className="h-3.5 w-3.5 rounded-full border border-black/70"
-                        style={{ background: "#f5a9b8" }}
-                      />
-                    )}
-                    {desk.student.ec && (
-                      <span
-                        className="h-3.5 w-3.5 rounded-full border border-black/70"
-                        style={{ background: "#ffd633" }}
-                      />
-                    )}
-                    {desk.student.ca && (
-                      <span
-                        className="h-3.5 w-3.5 rounded-full border border-black/70"
-                        style={{ background: "#ffffff" }}
-                      />
-                    )}
-                </div>
+              <StudentIndicators student={desk.student} size="seating" />
             )}
           </div>
         ))}
