@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
-import { addDays, addMonths, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
+import { addDays, addMonths, differenceInCalendarDays, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
 import { normalizeDeskGeometry } from "@/lib/classroomGeometry";
 
@@ -25,7 +25,7 @@ type AttendanceStatus = "PRESENT" | "ABSENT" | "TARDY" | "LEFT_EARLY";
 type PerformanceColor = "GREEN" | "YELLOW" | "RED";
 type ReportType = "attendance" | "monitoring";
 type ReportScope = "class" | "student";
-type ClassAttendanceView = "day" | "week" | "month";
+type ClassAttendanceView = "day" | "week" | "month" | "custom";
 
 type ReportDesk = {
   id: string;
@@ -118,7 +118,6 @@ type MonitoringReport = {
 
 const calendarDayLabels = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 const todayIso = format(new Date(), "yyyy-MM-dd");
-const currentMonthIso = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
 function parseRequestedBlockId(value: string | null, legacyValue: string | null) {
   if (value) return value;
@@ -148,7 +147,15 @@ function shiftMonthIso(value: string, months: number) {
   return format(startOfMonth(addMonths(parseIsoDate(value), months)), "yyyy-MM-dd");
 }
 
-function attendanceRange(view: Exclude<ClassAttendanceView, "day">, anchorIso: string) {
+function attendanceRange(
+  view: Exclude<ClassAttendanceView, "day">,
+  anchorIso: string,
+  customStartIso: string,
+  customEndIso: string
+) {
+  if (view === "custom") {
+    return { start: customStartIso, end: customEndIso };
+  }
   const anchor = parseIsoDate(anchorIso);
   if (view === "week") {
     return {
@@ -257,35 +264,20 @@ function buildCalendarDays(monthIso: string) {
 
 function AttendanceCalendar({
   visibleMonth,
-  records,
-  onPreviousMonth,
-  onNextMonth,
-  onToday
+  records
 }: {
   visibleMonth: string;
   records: AttendanceStudentReport["records"];
-  onPreviousMonth: () => void;
-  onNextMonth: () => void;
-  onToday: () => void;
 }) {
   const statusByDate = useMemo(
     () => new Map(records.map((record) => [record.date, record.status])),
     [records]
   );
   const cells = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
-  const monthDate = startOfMonth(parseIsoDate(visibleMonth));
 
   return (
     <div className="mx-auto w-full max-w-[520px] rounded-[18px] border border-black/10 bg-white p-4 shadow-[0_12px_28px_rgba(11,27,42,0.08)]">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-base font-semibold text-black">{format(monthDate, "MMMM yyyy")}</div>
-        <div className="flex gap-1">
-          <button className="rounded-lg border border-black/10 px-2.5 py-1.5 text-xs font-semibold" type="button" onClick={onPreviousMonth} aria-label="Previous month">←</button>
-          <button className="rounded-lg border border-black/10 px-3 py-1.5 text-xs font-semibold" type="button" onClick={onToday}>Today</button>
-          <button className="rounded-lg border border-black/10 px-2.5 py-1.5 text-xs font-semibold" type="button" onClick={onNextMonth} aria-label="Next month">→</button>
-        </div>
-      </div>
-      <div className="mb-2 mt-4 grid grid-cols-7 text-center text-[12px] text-black/45">
+      <div className="mb-2 grid grid-cols-7 text-center text-[12px] text-black/45">
         {calendarDayLabels.map((label) => (
           <div key={label}>{label}</div>
         ))}
@@ -461,8 +453,14 @@ function ReportPageInner() {
   const [scope, setScope] = useState<ReportScope>(requestedScope);
   const [selectedDate, setSelectedDate] = useState(requestedDate);
   const [selectedStudentId, setSelectedStudentId] = useState(requestedStudentId);
-  const [visibleMonthIso, setVisibleMonthIso] = useState(currentMonthIso);
+  const [visibleMonthIso, setVisibleMonthIso] = useState(format(startOfMonth(parseIsoDate(requestedDate)), "yyyy-MM-dd"));
   const [classAttendanceView, setClassAttendanceView] = useState<ClassAttendanceView>("day");
+  const [customRangeStart, setCustomRangeStart] = useState(
+    format(startOfWeek(parseIsoDate(requestedDate), { weekStartsOn: 1 }), "yyyy-MM-dd"),
+  );
+  const [customRangeEnd, setCustomRangeEnd] = useState(
+    format(endOfWeek(parseIsoDate(requestedDate), { weekStartsOn: 1 }), "yyyy-MM-dd"),
+  );
   const [error, setError] = useState<string | null>(null);
   const [attendanceStudentReport, setAttendanceStudentReport] = useState<AttendanceStudentReport | null>(null);
   const [attendanceClassReport, setAttendanceClassReport] = useState<AttendanceClassReport | null>(null);
@@ -479,6 +477,18 @@ function ReportPageInner() {
     const day = parseIsoDate(selectedDate).getDay();
     return day === 0 || day === 6;
   }, [selectedDate]);
+  const customRangeError = useMemo(() => {
+    if (classAttendanceView !== "custom") return null;
+    const start = parseISO(customRangeStart);
+    const end = parseISO(customRangeEnd);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return "Choose both a start date and an end date.";
+    }
+    const rangeLength = differenceInCalendarDays(end, start);
+    if (rangeLength < 0) return "The end date must be on or after the start date.";
+    if (rangeLength > 45) return "The start and end dates must be no more than 45 days apart.";
+    return null;
+  }, [classAttendanceView, customRangeStart, customRangeEnd]);
   const activeStudents = useMemo(
     () => students.filter((student) => student.active),
     [students]
@@ -488,6 +498,9 @@ function ReportPageInner() {
     setReportType(requestedReportType);
     setScope(requestedScope);
     setSelectedDate(requestedDate);
+    setVisibleMonthIso(format(startOfMonth(parseIsoDate(requestedDate)), "yyyy-MM-dd"));
+    setCustomRangeStart(format(startOfWeek(parseIsoDate(requestedDate), { weekStartsOn: 1 }), "yyyy-MM-dd"));
+    setCustomRangeEnd(format(endOfWeek(parseIsoDate(requestedDate), { weekStartsOn: 1 }), "yyyy-MM-dd"));
     if (requestedStudentId) {
       setSelectedStudentId(requestedStudentId);
     }
@@ -618,7 +631,17 @@ function ReportPageInner() {
     async function loadAttendanceClassRangeReport() {
       setLoading(true);
       setError(null);
-      const range = attendanceRange(classAttendanceView as Exclude<ClassAttendanceView, "day">, selectedDate);
+      if (customRangeError) {
+        setAttendanceClassRangeReport(null);
+        setLoading(false);
+        return;
+      }
+      const range = attendanceRange(
+        classAttendanceView as Exclude<ClassAttendanceView, "day">,
+        selectedDate,
+        customRangeStart,
+        customRangeEnd
+      );
       try {
         const res = await fetch(
           `/api/report/attendance?blockId=${selectedBlockId}&scope=class&start=${range.start}&end=${range.end}`
@@ -633,7 +656,7 @@ function ReportPageInner() {
     }
 
     void loadAttendanceClassRangeReport();
-  }, [reportType, scope, selectedBlockId, selectedDate, classAttendanceView]);
+  }, [reportType, scope, selectedBlockId, selectedDate, classAttendanceView, customRangeStart, customRangeEnd, customRangeError]);
 
   useEffect(() => {
     if (reportType !== "monitoring" || !selectedBlockId) {
@@ -768,6 +791,14 @@ function ReportPageInner() {
     );
   }
 
+  function attendanceClassDateLabel() {
+    if (attendanceClassReport) return attendanceClassReport.date;
+    if (attendanceClassRangeReport) {
+      return `${attendanceClassRangeReport.rangeStart}-${attendanceClassRangeReport.rangeEnd}`;
+    }
+    return selectedDate;
+  }
+
   function monitoringClassRows() {
     if (!monitoringReport || selectedMonitoringLaps.length === 0) return [];
     return monitoringReport.desks
@@ -797,10 +828,9 @@ function ReportPageInner() {
   function downloadAttendanceClassXlsx() {
     const rows = attendanceClassRows();
     if (rows.length === 0) return;
-    const dateLabel = attendanceClassReport?.date || `${attendanceClassRangeReport?.rangeStart}-${attendanceClassRangeReport?.rangeEnd}`;
 
     downloadWorkbook(
-      `attendance-class-${dateLabel}.xlsx`,
+      `attendance-class-${attendanceClassDateLabel()}.xlsx`,
       "Attendance",
       rows
     );
@@ -820,12 +850,12 @@ function ReportPageInner() {
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-4 sm:px-6">
       <div className="hero-card overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-4 md:p-6">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h1 className="text-[clamp(1.9rem,4vw,2.8rem)] font-bold tracking-[-0.04em] text-black">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end">
+          <h1 className="text-center text-[clamp(1.9rem,4vw,2.8rem)] font-bold tracking-[-0.04em] text-black sm:col-start-2 sm:row-start-1">
             Reports
           </h1>
           {blocks.length > 1 && (
-            <label className="block w-full max-w-sm text-left sm:w-auto sm:min-w-[280px]">
+            <label className="block w-full max-w-sm text-left sm:col-start-1 sm:row-start-1 sm:min-w-[280px]">
               <span className="small-header text-black/45">Class</span>
               <select className="form-control mt-1 bg-white py-2" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
                 {blocks.map((block) => <option key={block.id} value={block.id}>Block {block.blockNumber} · {block.blockName}</option>)}
@@ -876,44 +906,163 @@ function ReportPageInner() {
 
             {reportType && (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-3">
+                {reportType === "monitoring" && (
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className={reportType === "attendance" ? "btn btn-primary" : "btn btn-ghost"}
-                      onClick={() => setReportType("attendance")}
+                      className={scope === "class" ? "btn btn-primary" : "btn btn-ghost"}
+                      onClick={() => setScope("class")}
                     >
-                      Attendance Reports
+                      Entire Class
                     </button>
                     <button
                       type="button"
-                      className={reportType === "monitoring" ? "btn btn-primary" : "btn btn-ghost"}
-                      onClick={() => setReportType("monitoring")}
+                      className={scope === "student" ? "btn btn-primary" : "btn btn-ghost"}
+                      onClick={() => setScope("student")}
                     >
-                      Monitoring Reports
+                      Individual Student
                     </button>
                   </div>
-                  <button type="button" className="btn btn-ghost" onClick={() => setReportType(null)}>
-                    Back to Report Choices
-                  </button>
-                </div>
+                )}
 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={scope === "class" ? "btn btn-primary" : "btn btn-ghost"}
-                    onClick={() => setScope("class")}
-                  >
-                    Entire Class
-                  </button>
-                  <button
-                    type="button"
-                    className={scope === "student" ? "btn btn-primary" : "btn btn-ghost"}
-                    onClick={() => setScope("student")}
-                  >
-                    Individual Student
-                  </button>
-                </div>
+                {reportType === "attendance" && (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white/70 p-3 xl:flex-nowrap">
+                      <div className="flex shrink-0 rounded-xl bg-black/5 p-1" aria-label="Attendance report scope">
+                        <button
+                          type="button"
+                          className={`rounded-lg px-3 py-2 text-sm font-semibold ${scope === "class" ? "bg-white text-black shadow-sm" : "text-black/55"}`}
+                          onClick={() => setScope("class")}
+                        >
+                          Entire Class
+                        </button>
+                        <button
+                          type="button"
+                          className={`rounded-lg px-3 py-2 text-sm font-semibold ${scope === "student" ? "bg-white text-black shadow-sm" : "text-black/55"}`}
+                          onClick={() => setScope("student")}
+                        >
+                          Individual Student
+                        </button>
+                      </div>
+
+                      {scope === "class" && (
+                        <>
+                          <div className="flex shrink-0 rounded-xl bg-black/5 p-1" aria-label="Attendance date range">
+                            {(["day", "week", "month", "custom"] as ClassAttendanceView[]).map((view) => (
+                              <button
+                                key={view}
+                                type="button"
+                                className={`rounded-lg px-3 py-2 text-sm font-semibold capitalize ${classAttendanceView === view ? "bg-white text-black shadow-sm" : "text-black/55"}`}
+                                onClick={() => setClassAttendanceView(view)}
+                              >
+                                {view}
+                              </button>
+                            ))}
+                          </div>
+
+                          {classAttendanceView === "custom" ? (
+                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap">
+                              <label className="flex min-w-[145px] flex-1 items-center gap-2 text-xs font-semibold text-black/55">
+                                <span>Start</span>
+                                <input
+                                  className="form-control min-w-0 bg-white py-2"
+                                  type="date"
+                                  value={customRangeStart}
+                                  onChange={(event) => setCustomRangeStart(event.target.value)}
+                                />
+                              </label>
+                              <label className="flex min-w-[145px] flex-1 items-center gap-2 text-xs font-semibold text-black/55">
+                                <span>End</span>
+                                <input
+                                  className="form-control min-w-0 bg-white py-2"
+                                  type="date"
+                                  value={customRangeEnd}
+                                  onChange={(event) => setCustomRangeEnd(event.target.value)}
+                                />
+                              </label>
+                            </div>
+                          ) : (
+                            <div className="grid min-w-[290px] flex-1 grid-cols-[auto_minmax(145px,1fr)_auto] gap-2">
+                              <button
+                                type="button"
+                                className="btn btn-ghost px-3 py-2"
+                                onClick={() => setSelectedDate((current) => classAttendanceView === "month" ? shiftMonthIso(current, -1) : shiftIsoDate(current, classAttendanceView === "week" ? -7 : -1))}
+                                aria-label="Previous attendance date"
+                              >
+                                ←
+                              </button>
+                              <input
+                                className="form-control min-w-0 bg-white py-2"
+                                type="date"
+                                value={selectedDate}
+                                onChange={(event) => setSelectedDate(event.target.value)}
+                                aria-label="Attendance date"
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-ghost px-3 py-2"
+                                onClick={() => setSelectedDate((current) => classAttendanceView === "month" ? shiftMonthIso(current, 1) : shiftIsoDate(current, classAttendanceView === "week" ? 7 : 1))}
+                                aria-label="Next attendance date"
+                              >
+                                →
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="ml-auto flex shrink-0 gap-2">
+                            <button type="button" className="btn btn-primary px-3 py-2 text-sm" onClick={downloadAttendanceClassXlsx} disabled={!hasClassAttendanceData}>Export XLSX</button>
+                            <button type="button" className="btn btn-ghost px-3 py-2 text-sm" onClick={() => downloadCsv(`attendance-class-${attendanceClassDateLabel()}.csv`, attendanceClassRows())} disabled={!hasClassAttendanceData}>Export CSV</button>
+                          </div>
+                        </>
+                      )}
+
+                      {scope === "student" && (
+                        <>
+                          <div className="grid min-w-[250px] flex-1 grid-cols-[auto_minmax(150px,1fr)_auto] items-center gap-2 sm:max-w-md">
+                            <button
+                              className="btn btn-ghost px-3 py-2"
+                              type="button"
+                              onClick={() => setVisibleMonthIso((current) => shiftMonthIso(current, -1))}
+                              aria-label="Previous month"
+                            >
+                              ←
+                            </button>
+                            <div className="text-center text-base font-semibold text-black">
+                              {format(startOfMonth(parseIsoDate(visibleMonthIso)), "MMMM yyyy")}
+                            </div>
+                            <button
+                              className="btn btn-ghost px-3 py-2"
+                              type="button"
+                              onClick={() => setVisibleMonthIso((current) => shiftMonthIso(current, 1))}
+                              aria-label="Next month"
+                            >
+                              →
+                            </button>
+                          </div>
+                          <div className="ml-auto flex shrink-0 gap-2">
+                            <button
+                              type="button"
+                              className="btn btn-primary px-3 py-2 text-sm"
+                              onClick={downloadAttendanceStudentXlsx}
+                              disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}
+                            >
+                              Export XLSX
+                            </button>
+                            <button type="button" className="btn btn-ghost px-3 py-2 text-sm" onClick={() => downloadCsv(`attendance-${attendanceStudentReport?.student.displayName || "student"}-${todayIso}.csv`, attendanceStudentRows())} disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}>
+                              Export CSV
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {customRangeError && scope === "class" && (
+                      <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {customRangeError}
+                      </div>
+                    )}
+                  </>
+                )}
 
                 {selectedDateIsTest && scope === "class" && (reportType === "monitoring" || classAttendanceView === "day") && (
                   <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950">
@@ -939,17 +1088,6 @@ function ReportPageInner() {
                           </option>
                         ))}
                       </select>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={downloadAttendanceStudentXlsx}
-                        disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}
-                      >
-                        Export XLSX
-                      </button>
-                      <button type="button" className="btn btn-ghost" onClick={() => downloadCsv(`attendance-${attendanceStudentReport?.student.displayName || "student"}-${todayIso}.csv`, attendanceStudentRows())} disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}>
-                        Export CSV
-                      </button>
                     </div>
 
                     <div className="space-y-4">
@@ -961,9 +1099,6 @@ function ReportPageInner() {
                           <AttendanceCalendar
                             visibleMonth={visibleMonthIso}
                             records={attendanceStudentMonthRecords}
-                            onPreviousMonth={() => setVisibleMonthIso((current) => shiftMonthIso(current, -1))}
-                            onNextMonth={() => setVisibleMonthIso((current) => shiftMonthIso(current, 1))}
-                            onToday={() => setVisibleMonthIso(currentMonthIso)}
                           />
                           <div className="text-center text-sm text-black/60">
                             Attendance history for {attendanceStudentReport.student.displayName}.
@@ -976,47 +1111,6 @@ function ReportPageInner() {
 
                 {reportType === "attendance" && scope === "class" && (
                   <div className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white/70 p-3">
-                      <div className="flex rounded-xl bg-black/5 p-1">
-                        {(["day", "week", "month"] as ClassAttendanceView[]).map((view) => (
-                          <button
-                            key={view}
-                            type="button"
-                            className={`rounded-lg px-4 py-2 text-sm font-semibold capitalize ${classAttendanceView === view ? "bg-white text-black shadow-sm" : "text-black/55"}`}
-                            onClick={() => setClassAttendanceView(view)}
-                          >
-                            {view}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="grid w-full max-w-lg grid-cols-[auto_minmax(150px,1fr)_auto] gap-2 sm:w-auto">
-                        <button
-                          type="button"
-                          className="btn btn-ghost px-3 py-2"
-                          onClick={() => setSelectedDate((current) => classAttendanceView === "month" ? shiftMonthIso(current, -1) : shiftIsoDate(current, classAttendanceView === "week" ? -7 : -1))}
-                        >
-                          ← <span className="hidden sm:inline">Previous</span>
-                        </button>
-                        <input
-                          className="form-control min-w-0 bg-white py-2"
-                          type="date"
-                          value={selectedDate}
-                          onChange={(event) => setSelectedDate(event.target.value)}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-ghost px-3 py-2"
-                          onClick={() => setSelectedDate((current) => classAttendanceView === "month" ? shiftMonthIso(current, 1) : shiftIsoDate(current, classAttendanceView === "week" ? 7 : 1))}
-                        >
-                          <span className="hidden sm:inline">Next</span> →
-                        </button>
-                      </div>
-                      <div className="flex gap-2">
-                        <button type="button" className="btn btn-primary px-3 py-2 text-sm" onClick={downloadAttendanceClassXlsx} disabled={!hasClassAttendanceData}>Export XLSX</button>
-                        <button type="button" className="btn btn-ghost px-3 py-2 text-sm" onClick={() => downloadCsv(`attendance-class-${selectedDate}.csv`, attendanceClassRows())} disabled={!hasClassAttendanceData}>Export CSV</button>
-                      </div>
-                    </div>
-
                     {activeClassAttendanceSummary && (
                       <div className="flex flex-wrap gap-2 text-xs">
                         <div className="rounded-full bg-emerald-100 px-3 py-1.5 font-semibold text-emerald-800">Present: {activeClassAttendanceSummary.PRESENT}</div>

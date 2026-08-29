@@ -10,8 +10,8 @@ Review checklist:
 - Confirm seating and monitoring preserve useful indicator colors/patterns in their established top-right, bottom-left, and bottom-right positions without readable category letters or EOG values when projected
 - Confirm student rows remain fixed when Edit and unsaved states appear, the Add Student dialog captures all setup together, and selected-student class changes work as expected
 - Confirm the complete 5-day by 3-lap week remains visible and stable in both view and edit modes on the classroom laptop, including block switching and previous-week/cross-class copying
-- Confirm individual attendance visibly distinguishes Present from no record and navigates previous/future months
-- Confirm Entire Class attendance switches cleanly among day, week, and month views
+- Confirm individual attendance visibly distinguishes Present from no record and navigates previous/future months with the centered month controls
+- Confirm Entire Class attendance switches cleanly among day, week, month, and custom-range views
 - Confirm Attendance List remains available with unseated students while seat-map attendance and monitoring remain guarded
 - Confirm the Command Center refreshes immediately after Save & Return and reports the attendance status mix clearly
 - Confirm the Command Center continues showing the current school day after midnight UTC but before midnight Eastern
