@@ -483,30 +483,20 @@ function SeatingSetupPageInner() {
                 {desk.type === "TEACHER" ? teacherName : desk.student?.displayName || "Student"}
               </div>
             </div>
-            {desk.type === "STUDENT" && desk.student && (() => {
-              const bottomCount =
-                Number(Boolean(desk.student.ml)) +
-                Number(Boolean(desk.student.mlNew)) +
-                Number(Boolean(desk.student.iep504)) +
-                Number(Boolean(desk.student.ec)) +
-                Number(Boolean(desk.student.ca));
-              const sizeClass =
-                bottomCount >= 5 ? "h-4 w-4 text-[7px]" : bottomCount >= 4 ? "h-5 w-5 text-[8px]" : "h-6 w-6 text-[9px]";
-
-              return (
-                <>
-                  <div className="absolute right-0.5 top-0.5 flex items-center gap-0.5">
+            {desk.type === "STUDENT" && desk.student && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute bottom-1 left-1 right-1 flex items-center justify-center gap-1"
+                >
                     {desk.student.hiit && (
                       <span
-                        className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px]"
+                        className="h-3.5 w-3.5 rounded-full border border-black/70"
                         style={{ background: "#b18ad8" }}
-                      >
-                        H
-                      </span>
+                      />
                     )}
                     {desk.student.eog && (
                       <span
-                        className="flex h-6 w-6 items-center justify-center rounded-full border border-black text-[9px] text-white"
+                        className="h-3.5 w-3.5 rounded-full border border-black/70"
                         style={{
                           background:
                             desk.student.eog === "FIVE"
@@ -517,67 +507,43 @@ function SeatingSetupPageInner() {
                               ? "#f2994a"
                               : "#e74c3c"
                         }}
-                      >
-                        {desk.student.eog === "FIVE"
-                          ? "5"
-                          : desk.student.eog === "FOUR"
-                          ? "4"
-                          : desk.student.eog === "THREE"
-                          ? "3"
-                          : "NP"}
-                      </span>
+                      />
                     )}
-                  </div>
-                  <div className="absolute left-0.5 bottom-0.5 flex items-center gap-0.5">
                     {desk.student.ml && (
                       <span
-                        className={`flex items-center justify-center rounded-full border border-black ${sizeClass}`}
+                        className="h-3.5 w-3.5 rounded-full border border-black/70"
                         style={{ background: "#9ecae1" }}
-                      >
-                        ML
-                      </span>
+                      />
                     )}
                     {desk.student.mlNew && (
                       <span
-                        className={`flex items-center justify-center rounded-full border border-black ${sizeClass}`}
+                        className="h-3.5 w-3.5 rounded-full border border-black/70"
                         style={{
                           background:
                             "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)"
                         }}
-                      >
-                        ML
-                      </span>
+                      />
                     )}
-                  </div>
-                  <div className="absolute right-0.5 bottom-0.5 flex items-center gap-0.5">
                     {desk.student.iep504 && (
                       <span
-                        className={`flex items-center justify-center rounded-full border border-black ${sizeClass}`}
+                        className="h-3.5 w-3.5 rounded-full border border-black/70"
                         style={{ background: "#f5a9b8" }}
-                      >
-                        I
-                      </span>
+                      />
                     )}
                     {desk.student.ec && (
                       <span
-                        className={`flex items-center justify-center rounded-full border border-black ${sizeClass}`}
+                        className="h-3.5 w-3.5 rounded-full border border-black/70"
                         style={{ background: "#ffd633" }}
-                      >
-                        EC
-                      </span>
+                      />
                     )}
                     {desk.student.ca && (
                       <span
-                        className={`flex items-center justify-center rounded-full border border-black ${sizeClass}`}
+                        className="h-3.5 w-3.5 rounded-full border border-black/70"
                         style={{ background: "#ffffff" }}
-                      >
-                        CA
-                      </span>
+                      />
                     )}
-                  </div>
-                </>
-              );
-            })()}
+                </div>
+            )}
           </div>
         ))}
         {desks.length === 0 && (

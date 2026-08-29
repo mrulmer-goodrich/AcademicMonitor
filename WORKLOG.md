@@ -1,5 +1,30 @@
 # Worklog
 
+## 2026-08-29 — Recording QA workflow, privacy, and reporting correction
+
+Completed:
+
+- Removed readable student-category letters and EOG values from projected seating and monitoring indicators while preserving their color/pattern identity
+- Consolidated all student indicators into one compact non-colliding strip on classroom desks
+- Made Command Center block labels visually continuous with their parent block cards
+- Rebuilt Update Students into a denser stable table that keeps row geometry fixed through Edit and unsaved states
+- Combined a new student's name, attributes, EOG level, and notes into one Add Student dialog
+- Added selected-student class tools for setting or removing common attributes, EOG levels, and active status
+- Restored the complete five-day by three-lap weekly grid at laptop and tablet widths, clarified the active day on phones, and kept all three rows visible in view and edit modes at 1280×720 and 1024×768
+- Simplified repeated class context and student-selection controls in Reports
+- Added previous/next/Today month navigation and distinct visual treatment for Present, Absent, Tardy, Left Early, and no record in individual attendance
+- Added day, week, and month Entire Class attendance views with a compact longitudinal student/date matrix
+- Scoped student updates and deletes to the authenticated teacher's active school year
+
+Verification:
+
+- Passed TypeScript and lint checks
+- Passed the complete optimized production build; it retained the existing hook-dependency warnings
+- Browser-accepted Command Center, Update Students view/edit/add/class-selection states, weekly lap view/edit states, individual and class attendance, seating, and monitoring
+- Checked 1280×720, 1024×768, and 390×844 with no page-level horizontal overflow or browser-console warnings/errors
+- Confirmed student desktop rows remain exactly 45px tall and fixed at the same viewport position when Edit opens
+- Confirmed all 15 weekly lap inputs and standards remain visible without page scrolling in desktop edit mode
+
 ## 2026-08-25 — First-day attendance and classroom workflow correction
 
 Completed:

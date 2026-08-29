@@ -280,8 +280,8 @@ function LapsSetupPageInner() {
   }, [focusDate, weekStart]);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-6 space-y-4">
-      <ReturnToDashboardButton />
+    <div className="mx-auto max-w-[1440px] space-y-1 px-4 sm:px-6">
+      <ReturnToDashboardButton className="!px-3 !py-1 text-xs" />
 
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">
@@ -289,8 +289,8 @@ function LapsSetupPageInner() {
         </div>
       )}
 
-      <div className="hero-card p-5 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="hero-card space-y-3 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <select
               className="form-control max-w-[280px]"
@@ -307,40 +307,41 @@ function LapsSetupPageInner() {
               ))}
             </select>
 
-            <div className="flex shrink-0 items-center gap-3 whitespace-nowrap">
+            <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 whitespace-nowrap sm:flex sm:w-auto sm:shrink-0 sm:gap-2">
               <button
-                className="btn btn-ghost shrink-0 whitespace-nowrap"
+                className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm"
                 type="button"
                 onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, -7)))}
               >
-                Previous Week
+                ← Previous
               </button>
-              <div className="text-lg font-semibold">Week of {format(weekStart, "MM/dd/yy")}</div>
+              <div className="text-center text-sm font-semibold sm:text-base">Week of {format(weekStart, "MM/dd/yy")}</div>
               <button
-                className="btn btn-ghost shrink-0 whitespace-nowrap"
+                className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm"
                 type="button"
                 onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, 7)))}
               >
-                Next Week
+                Next →
               </button>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-h-[42px] min-w-[340px] flex-wrap items-center justify-end gap-2">
+            <span className="mr-auto text-xs text-black/55" aria-live="polite">{statusMessage || (editing ? "Editing all 15 weekly slots" : "5 days · 3 laps each")}</span>
             {!editing && (
-              <button className="btn btn-primary" type="button" onClick={startEditing} disabled={!blockId}>
-                Edit
+              <button className="btn btn-primary px-4 py-2 text-sm" type="button" onClick={startEditing} disabled={!blockId}>
+                Edit Week
               </button>
             )}
             {editing && (
               <>
-                <button className="btn btn-ghost" type="button" onClick={copyPreviousWeek} disabled={saving}>
+                <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={copyPreviousWeek} disabled={saving}>
                   Copy Previous Week
                 </button>
-                <button className="btn btn-primary" type="button" onClick={saveAll} disabled={saving}>
+                <button className="btn btn-primary px-4 py-2 text-sm" type="button" onClick={saveAll} disabled={saving}>
                   {saving ? "Saving..." : "Save"}
                 </button>
-                <button className="btn btn-ghost" type="button" onClick={cancelEditing} disabled={saving}>
+                <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={cancelEditing} disabled={saving}>
                   Cancel
                 </button>
               </>
@@ -348,11 +349,15 @@ function LapsSetupPageInner() {
           </div>
         </div>
 
-        <div className="flex min-h-[20px] items-center justify-end text-sm text-black/60">
-          <div>{statusMessage || ""}</div>
+        <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-black/10 pt-3">
+          <div>
+            <div className="small-header text-black/45">Weekly lap plan</div>
+            <div className="text-sm font-semibold">15 distinct day/lap combinations</div>
+          </div>
+          <div className="text-xs text-black/55">Each saved name and standard belongs to the day shown in its column.</div>
         </div>
 
-        <div className="space-y-4 xl:hidden">
+        <div className="space-y-3 md:hidden">
           <div className="grid grid-cols-5 gap-1 rounded-2xl bg-black/5 p-1">
             {weekdays.map((day, dayIndex) => (
               <button
@@ -367,16 +372,20 @@ function LapsSetupPageInner() {
             ))}
           </div>
 
-          <div className="grid gap-3">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950">
+            Editing <span className="font-semibold">{weekdays[activeDayIndex]}, {format(addDays(weekStart, activeDayIndex), "MMMM d")}</span> · 3 of 15 weekly slots
+          </div>
+
+          <div className="grid gap-2">
             {lapNumbers.map((lapNumber) => {
               const key = draftKey(activeDayIndex, lapNumber);
               const draft = drafts[key] || { name: "", standardCode: "" };
               const lap = laps.find((entry) => entry.dayIndex === activeDayIndex && entry.lapNumber === lapNumber);
               return (
-                <div key={`mobile-${key}`} className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+                <div key={`mobile-${key}`} className="rounded-2xl border border-black/10 bg-white p-3 shadow-sm">
                   <div className="small-header text-black/45">Lap {lapNumber}</div>
                   {editing ? (
-                    <div className="mt-3 grid gap-3">
+                    <div className="mt-2 grid gap-2">
                       <input className="form-control" value={draft.name} placeholder="Type lap name" onChange={(event) => updateDraft(activeDayIndex, lapNumber, { name: event.target.value })} />
                       <select className="form-control" value={draft.standardCode} onChange={(event) => updateDraft(activeDayIndex, lapNumber, { standardCode: event.target.value })}>
                         <option value="">No standard</option>
@@ -395,8 +404,8 @@ function LapsSetupPageInner() {
           </div>
         </div>
 
-        <div className="hidden overflow-x-auto overflow-y-visible xl:block">
-          <table className="table w-full min-w-[980px] table-fixed">
+        <div className="hidden overflow-x-auto overflow-y-visible md:block">
+          <table className="table table-compact w-full min-w-[900px] table-fixed">
             <thead>
               <tr>
                 <th className="w-[120px]"></th>
@@ -429,8 +438,8 @@ function LapsSetupPageInner() {
 
                     return (
                       <td key={key} className="align-top">
-                        <div
-                          className={`rounded-2xl border p-3 transition ${
+                    <div
+                          className={`min-h-[88px] rounded-xl border p-2 transition ${
                             editing
                               ? "border-black/15 bg-[#fffdf8] shadow-sm"
                               : focusDayIndex !== null && isFocusDay
@@ -439,7 +448,7 @@ function LapsSetupPageInner() {
                           }`}
                         >
                           {!editing && (
-                            <div className="min-h-[72px] space-y-2">
+                            <div className="min-h-[76px] space-y-1.5">
                               <div className="text-sm font-semibold text-black">
                                 {lap?.name || <span className="text-black/35">No lap name</span>}
                               </div>
@@ -448,10 +457,10 @@ function LapsSetupPageInner() {
                           )}
 
                           {editing && (
-                            <div className="space-y-3">
+                            <div className="space-y-2">
                               <div>
                                 <input
-                                  className="form-control bg-white text-sm text-black"
+                                  className="form-control bg-white py-2 text-xs text-black"
                                   value={draft.name}
                                   placeholder="Type lap name"
                                   onChange={(e) => updateDraft(dayIndex, lapNumber, { name: e.target.value })}
@@ -465,7 +474,7 @@ function LapsSetupPageInner() {
                               </div>
                               <div>
                                 <select
-                                  className="form-control bg-white text-sm text-black"
+                                  className="form-control bg-white py-2 text-xs text-black"
                                   value={draft.standardCode}
                                   onChange={(e) => updateDraft(dayIndex, lapNumber, { standardCode: e.target.value })}
                                 >

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
-import { addDays, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
+import { addDays, addMonths, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
 import { normalizeDeskGeometry } from "@/lib/classroomGeometry";
 
@@ -25,6 +25,7 @@ type AttendanceStatus = "PRESENT" | "ABSENT" | "TARDY" | "LEFT_EARLY";
 type PerformanceColor = "GREEN" | "YELLOW" | "RED";
 type ReportType = "attendance" | "monitoring";
 type ReportScope = "class" | "student";
+type ClassAttendanceView = "day" | "week" | "month";
 
 type ReportDesk = {
   id: string;
@@ -72,6 +73,20 @@ type AttendanceClassReport = {
     seatNumber: number;
   }[];
   attendance: AttendanceRecord[];
+  summary: Record<AttendanceStatus, number>;
+};
+
+type AttendanceClassRangeReport = {
+  block: Block;
+  rangeStart: string;
+  rangeEnd: string;
+  dates: string[];
+  students: {
+    id: string;
+    displayName: string;
+    seatNumber: number;
+  }[];
+  attendance: (AttendanceRecord & { date: string })[];
   summary: Record<AttendanceStatus, number>;
 };
 
@@ -129,9 +144,43 @@ function shiftIsoDate(value: string, days: number) {
   return format(addDays(parseIsoDate(value), days), "yyyy-MM-dd");
 }
 
+function shiftMonthIso(value: string, months: number) {
+  return format(startOfMonth(addMonths(parseIsoDate(value), months)), "yyyy-MM-dd");
+}
+
+function attendanceRange(view: Exclude<ClassAttendanceView, "day">, anchorIso: string) {
+  const anchor = parseIsoDate(anchorIso);
+  if (view === "week") {
+    return {
+      start: format(startOfWeek(anchor, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+      end: format(endOfWeek(anchor, { weekStartsOn: 1 }), "yyyy-MM-dd")
+    };
+  }
+  return {
+    start: format(startOfMonth(anchor), "yyyy-MM-dd"),
+    end: format(endOfMonth(anchor), "yyyy-MM-dd")
+  };
+}
+
 function attendanceLabel(status: AttendanceStatus | "" | null | undefined) {
   if (!status) return "";
   return status.replace("_", " ");
+}
+
+function attendanceStatusClasses(status?: AttendanceStatus) {
+  if (status === "PRESENT") return "bg-emerald-100 text-emerald-900";
+  if (status === "ABSENT") return "bg-red-100 text-red-800";
+  if (status === "TARDY") return "bg-yellow-100 text-yellow-900";
+  if (status === "LEFT_EARLY") return "bg-orange-100 text-orange-900";
+  return "bg-slate-50 text-black/30";
+}
+
+function attendanceStatusShort(status?: AttendanceStatus) {
+  if (status === "PRESENT") return "P";
+  if (status === "ABSENT") return "A";
+  if (status === "TARDY") return "T";
+  if (status === "LEFT_EARLY") return "LE";
+  return "—";
 }
 
 function downloadWorkbook(filename: string, sheetName: string, rows: Record<string, string | number>[]) {
@@ -208,10 +257,16 @@ function buildCalendarDays(monthIso: string) {
 
 function AttendanceCalendar({
   visibleMonth,
-  records
+  records,
+  onPreviousMonth,
+  onNextMonth,
+  onToday
 }: {
   visibleMonth: string;
   records: AttendanceStudentReport["records"];
+  onPreviousMonth: () => void;
+  onNextMonth: () => void;
+  onToday: () => void;
 }) {
   const statusByDate = useMemo(
     () => new Map(records.map((record) => [record.date, record.status])),
@@ -221,15 +276,16 @@ function AttendanceCalendar({
   const monthDate = startOfMonth(parseIsoDate(visibleMonth));
 
   return (
-    <div className="mx-auto w-full max-w-[392px] rounded-[18px] border border-black/10 bg-white p-4 shadow-[0_12px_28px_rgba(11,27,42,0.08)]">
-      <div className="flex items-center justify-between text-[14px] text-black/60">
-        <div>{format(monthDate, "MMMM yyyy")}</div>
-        <div className="rounded-full border border-black/10 px-3 py-1 text-[12px] font-semibold uppercase tracking-[0.06em]">
-          Today
+    <div className="mx-auto w-full max-w-[520px] rounded-[18px] border border-black/10 bg-white p-4 shadow-[0_12px_28px_rgba(11,27,42,0.08)]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-base font-semibold text-black">{format(monthDate, "MMMM yyyy")}</div>
+        <div className="flex gap-1">
+          <button className="rounded-lg border border-black/10 px-2.5 py-1.5 text-xs font-semibold" type="button" onClick={onPreviousMonth} aria-label="Previous month">←</button>
+          <button className="rounded-lg border border-black/10 px-3 py-1.5 text-xs font-semibold" type="button" onClick={onToday}>Today</button>
+          <button className="rounded-lg border border-black/10 px-2.5 py-1.5 text-xs font-semibold" type="button" onClick={onNextMonth} aria-label="Next month">→</button>
         </div>
       </div>
-      <div className="mb-3 mt-3 text-[14px] font-semibold text-black">{format(monthDate, "MMMM yyyy")}</div>
-      <div className="mb-2 grid grid-cols-7 text-center text-[12px] text-black/45">
+      <div className="mb-2 mt-4 grid grid-cols-7 text-center text-[12px] text-black/45">
         {calendarDayLabels.map((label) => (
           <div key={label}>{label}</div>
         ))}
@@ -249,11 +305,13 @@ function AttendanceCalendar({
               ? "bg-yellow-300 text-black"
               : status === "LEFT_EARLY"
               ? "bg-orange-300 text-black"
-              : "text-black/75";
+              : status === "PRESENT"
+              ? "bg-emerald-200 text-emerald-950"
+              : "text-black/45";
 
           return (
             <div key={dateKey} className="flex h-8 w-8 items-center justify-center justify-self-center">
-              {status === "ABSENT" || status === "TARDY" || status === "LEFT_EARLY" ? (
+              {status ? (
                 <div className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-medium ${circleClass}`}>
                   {cell.getDate()}
                 </div>
@@ -263,6 +321,13 @@ function AttendanceCalendar({
             </div>
           );
         })}
+      </div>
+      <div className="mt-4 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] text-black/60">
+        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-emerald-200" />Present</span>
+        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500" />Absent</span>
+        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-yellow-300" />Tardy</span>
+        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-orange-300" />Left early</span>
+        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border border-black/15" />No record</span>
       </div>
     </div>
   );
@@ -396,10 +461,12 @@ function ReportPageInner() {
   const [scope, setScope] = useState<ReportScope>(requestedScope);
   const [selectedDate, setSelectedDate] = useState(requestedDate);
   const [selectedStudentId, setSelectedStudentId] = useState(requestedStudentId);
-  const [studentSearch, setStudentSearch] = useState("");
+  const [visibleMonthIso, setVisibleMonthIso] = useState(currentMonthIso);
+  const [classAttendanceView, setClassAttendanceView] = useState<ClassAttendanceView>("day");
   const [error, setError] = useState<string | null>(null);
   const [attendanceStudentReport, setAttendanceStudentReport] = useState<AttendanceStudentReport | null>(null);
   const [attendanceClassReport, setAttendanceClassReport] = useState<AttendanceClassReport | null>(null);
+  const [attendanceClassRangeReport, setAttendanceClassRangeReport] = useState<AttendanceClassRangeReport | null>(null);
   const [monitoringReport, setMonitoringReport] = useState<MonitoringReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedMonitoringLapNumbers, setSelectedMonitoringLapNumbers] = useState<number[]>([]);
@@ -496,7 +563,7 @@ function ReportPageInner() {
 
       try {
         const res = await fetch(
-          `/api/report/attendance?blockId=${selectedBlockId}&scope=student&studentId=${selectedStudentId}&month=${currentMonthIso}`
+          `/api/report/attendance?blockId=${selectedBlockId}&scope=student&studentId=${selectedStudentId}&month=${visibleMonthIso}`
         );
         if (!res.ok) {
           throw new Error("attendance_student");
@@ -511,10 +578,10 @@ function ReportPageInner() {
     }
 
     void loadAttendanceStudentReport();
-  }, [reportType, scope, selectedBlockId, selectedStudentId]);
+  }, [reportType, scope, selectedBlockId, selectedStudentId, visibleMonthIso]);
 
   useEffect(() => {
-    if (reportType !== "attendance" || scope !== "class" || !selectedBlockId) {
+    if (reportType !== "attendance" || scope !== "class" || !selectedBlockId || classAttendanceView !== "day") {
       setAttendanceClassReport(null);
       return;
     }
@@ -540,7 +607,33 @@ function ReportPageInner() {
     }
 
     void loadAttendanceClassReport();
-  }, [reportType, scope, selectedBlockId, selectedDate]);
+  }, [reportType, scope, selectedBlockId, selectedDate, classAttendanceView]);
+
+  useEffect(() => {
+    if (reportType !== "attendance" || scope !== "class" || !selectedBlockId || classAttendanceView === "day") {
+      setAttendanceClassRangeReport(null);
+      return;
+    }
+
+    async function loadAttendanceClassRangeReport() {
+      setLoading(true);
+      setError(null);
+      const range = attendanceRange(classAttendanceView as Exclude<ClassAttendanceView, "day">, selectedDate);
+      try {
+        const res = await fetch(
+          `/api/report/attendance?blockId=${selectedBlockId}&scope=class&start=${range.start}&end=${range.end}`
+        );
+        if (!res.ok) throw new Error("attendance_class_range");
+        setAttendanceClassRangeReport(await res.json());
+      } catch {
+        setError("Unable to load the class attendance range.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadAttendanceClassRangeReport();
+  }, [reportType, scope, selectedBlockId, selectedDate, classAttendanceView]);
 
   useEffect(() => {
     if (reportType !== "monitoring" || !selectedBlockId) {
@@ -577,32 +670,16 @@ function ReportPageInner() {
     });
   }, [monitoringReport]);
 
-  const visibleStudents = useMemo(() => {
-    const normalizedSearch = studentSearch.trim().toLowerCase();
-    if (!normalizedSearch) return activeStudents;
-
-    const filtered = activeStudents.filter((student) =>
-      student.displayName.toLowerCase().includes(normalizedSearch)
-    );
-
-    if (filtered.some((student) => student.id === selectedStudentId)) {
-      return filtered;
-    }
-
-    const selectedStudent = activeStudents.find((student) => student.id === selectedStudentId);
-    return selectedStudent ? [selectedStudent, ...filtered] : filtered;
-  }, [activeStudents, selectedStudentId, studentSearch]);
-
   const attendanceStudentMonthRecords = useMemo(() => {
     if (!attendanceStudentReport) return [];
-    const monthStart = startOfMonth(parseIsoDate(currentMonthIso));
+    const monthStart = startOfMonth(parseIsoDate(visibleMonthIso));
     const monthEnd = endOfMonth(monthStart);
 
     return attendanceStudentReport.records.filter((record) => {
       const recordDate = parseIsoDate(record.date);
       return recordDate >= monthStart && recordDate <= monthEnd;
     });
-  }, [attendanceStudentReport]);
+  }, [attendanceStudentReport, visibleMonthIso]);
 
   const attendanceByStudentId = useMemo(
     () =>
@@ -611,6 +688,17 @@ function ReportPageInner() {
       ),
     [attendanceClassReport]
   );
+
+  const rangeAttendanceByCell = useMemo(
+    () => new Map((attendanceClassRangeReport?.attendance || []).map((record) => [`${record.studentId}-${record.date}`, record.status])),
+    [attendanceClassRangeReport]
+  );
+  const activeClassAttendanceSummary = classAttendanceView === "day"
+    ? attendanceClassReport?.summary
+    : attendanceClassRangeReport?.summary;
+  const hasClassAttendanceData = classAttendanceView === "day"
+    ? Boolean(attendanceClassReport)
+    : Boolean(attendanceClassRangeReport);
 
   const monitoringAttendanceByStudentId = useMemo(
     () =>
@@ -663,16 +751,21 @@ function ReportPageInner() {
   }
 
   function attendanceClassRows() {
-    if (!attendanceClassReport) return [];
-    return attendanceClassReport.students.map((student) => ({
-      Name: student.displayName,
-      Date: attendanceClassReport.date,
-      "Attendance Status": attendanceLabel(attendanceByStudentId.get(student.id) || ""),
-      "Present Count": attendanceClassReport.summary.PRESENT,
-      "Absent Count": attendanceClassReport.summary.ABSENT,
-      "Tardy Count": attendanceClassReport.summary.TARDY,
-      "Left Early Count": attendanceClassReport.summary.LEFT_EARLY
-    }));
+    if (classAttendanceView === "day" && attendanceClassReport) {
+      return attendanceClassReport.students.map((student) => ({
+        Name: student.displayName,
+        Date: attendanceClassReport.date,
+        "Attendance Status": attendanceLabel(attendanceByStudentId.get(student.id) || "")
+      }));
+    }
+    if (!attendanceClassRangeReport) return [];
+    return attendanceClassRangeReport.students.flatMap((student) =>
+      attendanceClassRangeReport.dates.map((date) => ({
+        Name: student.displayName,
+        Date: date,
+        "Attendance Status": attendanceLabel(rangeAttendanceByCell.get(`${student.id}-${date}`) || "")
+      }))
+    );
   }
 
   function monitoringClassRows() {
@@ -702,11 +795,12 @@ function ReportPageInner() {
   }
 
   function downloadAttendanceClassXlsx() {
-    if (!attendanceClassReport) return;
     const rows = attendanceClassRows();
+    if (rows.length === 0) return;
+    const dateLabel = attendanceClassReport?.date || `${attendanceClassRangeReport?.rangeStart}-${attendanceClassRangeReport?.rangeEnd}`;
 
     downloadWorkbook(
-      `attendance-class-${attendanceClassReport.date}.xlsx`,
+      `attendance-class-${dateLabel}.xlsx`,
       "Attendance",
       rows
     );
@@ -724,16 +818,16 @@ function ReportPageInner() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
-      <div className="hero-card overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-6 md:p-8">
-        <div className="text-center">
+    <div className="mx-auto max-w-[1440px] px-4 py-4 sm:px-6">
+      <div className="hero-card overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-4 md:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <h1 className="text-[clamp(1.9rem,4vw,2.8rem)] font-bold tracking-[-0.04em] text-black">
-            {selectedBlock ? `REPORTS FOR BLOCK ${selectedBlock.blockNumber} / ${selectedBlock.blockName}` : "REPORTS"}
+            Reports
           </h1>
           {blocks.length > 1 && (
-            <label className="mx-auto mt-4 block max-w-sm text-left">
-              <span className="small-header text-black/45">Class block</span>
-              <select className="form-control mt-1 bg-white" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
+            <label className="block w-full max-w-sm text-left sm:w-auto sm:min-w-[280px]">
+              <span className="small-header text-black/45">Class</span>
+              <select className="form-control mt-1 bg-white py-2" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
                 {blocks.map((block) => <option key={block.id} value={block.id}>Block {block.blockNumber} · {block.blockName}</option>)}
               </select>
             </label>
@@ -754,7 +848,7 @@ function ReportPageInner() {
         )}
 
         {selectedBlock && (
-          <div className="mt-8 space-y-6">
+          <div className="mt-5 space-y-4">
             {!reportType && (
               <div className="grid gap-4 md:grid-cols-2">
                 <button
@@ -821,25 +915,15 @@ function ReportPageInner() {
                   </button>
                 </div>
 
-                {selectedDateIsTest && scope === "class" && (
+                {selectedDateIsTest && scope === "class" && (reportType === "monitoring" || classAttendanceView === "day") && (
                   <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950">
                     Weekend records are test data and are intentionally excluded from standard reports. Choose a weekday to view class results.
                   </div>
                 )}
 
                 {reportType === "attendance" && scope === "student" && (
-                  <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-                    <div className="feature-card">
-                      <label className="small-header text-black/50" htmlFor="attendance-student-search">
-                        Search For First Name
-                      </label>
-                      <input
-                        id="attendance-student-search"
-                        className="form-control"
-                        value={studentSearch}
-                        onChange={(event) => setStudentSearch(event.target.value)}
-                        placeholder="Start typing a student name"
-                      />
+                  <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+                    <div className="feature-card h-fit p-4">
                       <label className="small-header text-black/50" htmlFor="attendance-student-select">
                         Student
                       </label>
@@ -849,7 +933,7 @@ function ReportPageInner() {
                         value={selectedStudentId}
                         onChange={(event) => setSelectedStudentId(event.target.value)}
                       >
-                        {visibleStudents.map((student) => (
+                        {activeStudents.map((student) => (
                           <option key={student.id} value={student.id}>
                             {student.displayName}
                           </option>
@@ -874,9 +958,15 @@ function ReportPageInner() {
                       )}
                       {!loading && attendanceStudentReport && (
                         <>
-                          <AttendanceCalendar visibleMonth={currentMonthIso} records={attendanceStudentMonthRecords} />
+                          <AttendanceCalendar
+                            visibleMonth={visibleMonthIso}
+                            records={attendanceStudentMonthRecords}
+                            onPreviousMonth={() => setVisibleMonthIso((current) => shiftMonthIso(current, -1))}
+                            onNextMonth={() => setVisibleMonthIso((current) => shiftMonthIso(current, 1))}
+                            onToday={() => setVisibleMonthIso(currentMonthIso)}
+                          />
                           <div className="text-center text-sm text-black/60">
-                            Showing the current month for {attendanceStudentReport.student.displayName}.
+                            Attendance history for {attendanceStudentReport.student.displayName}.
                           </div>
                         </>
                       )}
@@ -885,62 +975,99 @@ function ReportPageInner() {
                 )}
 
                 {reportType === "attendance" && scope === "class" && (
-                  <div className="space-y-4">
-                    <div className="flex flex-wrap items-end justify-between gap-3">
-                      <div className="grid w-full max-w-xl grid-cols-[auto_minmax(150px,1fr)_auto] gap-2 sm:w-auto">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white/70 p-3">
+                      <div className="flex rounded-xl bg-black/5 p-1">
+                        {(["day", "week", "month"] as ClassAttendanceView[]).map((view) => (
+                          <button
+                            key={view}
+                            type="button"
+                            className={`rounded-lg px-4 py-2 text-sm font-semibold capitalize ${classAttendanceView === view ? "bg-white text-black shadow-sm" : "text-black/55"}`}
+                            onClick={() => setClassAttendanceView(view)}
+                          >
+                            {view}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="grid w-full max-w-lg grid-cols-[auto_minmax(150px,1fr)_auto] gap-2 sm:w-auto">
                         <button
                           type="button"
-                          className="btn btn-ghost"
-                          onClick={() => setSelectedDate((current) => shiftIsoDate(current, -1))}
+                          className="btn btn-ghost px-3 py-2"
+                          onClick={() => setSelectedDate((current) => classAttendanceView === "month" ? shiftMonthIso(current, -1) : shiftIsoDate(current, classAttendanceView === "week" ? -7 : -1))}
                         >
                           ← <span className="hidden sm:inline">Previous</span>
                         </button>
                         <input
-                          className="form-control min-w-0 bg-white"
+                          className="form-control min-w-0 bg-white py-2"
                           type="date"
                           value={selectedDate}
                           onChange={(event) => setSelectedDate(event.target.value)}
                         />
                         <button
                           type="button"
-                          className="btn btn-ghost"
-                          onClick={() => setSelectedDate((current) => shiftIsoDate(current, 1))}
+                          className="btn btn-ghost px-3 py-2"
+                          onClick={() => setSelectedDate((current) => classAttendanceView === "month" ? shiftMonthIso(current, 1) : shiftIsoDate(current, classAttendanceView === "week" ? 7 : 1))}
                         >
                           <span className="hidden sm:inline">Next</span> →
                         </button>
                       </div>
                       <div className="flex gap-2">
-                        <button type="button" className="btn btn-primary" onClick={downloadAttendanceClassXlsx} disabled={!attendanceClassReport}>Export XLSX</button>
-                        <button type="button" className="btn btn-ghost" onClick={() => downloadCsv(`attendance-class-${attendanceClassReport?.date || selectedDate}.csv`, attendanceClassRows())} disabled={!attendanceClassReport}>Export CSV</button>
+                        <button type="button" className="btn btn-primary px-3 py-2 text-sm" onClick={downloadAttendanceClassXlsx} disabled={!hasClassAttendanceData}>Export XLSX</button>
+                        <button type="button" className="btn btn-ghost px-3 py-2 text-sm" onClick={() => downloadCsv(`attendance-class-${selectedDate}.csv`, attendanceClassRows())} disabled={!hasClassAttendanceData}>Export CSV</button>
                       </div>
                     </div>
 
-                    {attendanceClassReport && (
+                    {activeClassAttendanceSummary && (
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <div className="rounded-full bg-emerald-100 px-3 py-1.5 font-semibold text-emerald-800">Present: {activeClassAttendanceSummary.PRESENT}</div>
+                        <div className="rounded-full bg-red-100 px-3 py-1.5 font-semibold text-red-800">Absent: {activeClassAttendanceSummary.ABSENT}</div>
+                        <div className="rounded-full bg-yellow-100 px-3 py-1.5 font-semibold text-yellow-900">Tardy: {activeClassAttendanceSummary.TARDY}</div>
+                        <div className="rounded-full bg-orange-100 px-3 py-1.5 font-semibold text-orange-900">Left Early: {activeClassAttendanceSummary.LEFT_EARLY}</div>
+                      </div>
+                    )}
+
+                    {classAttendanceView === "day" && attendanceClassReport && (
                       <>
-                        <div className="flex flex-wrap gap-2 text-sm">
-                          <div className="rounded-full bg-emerald-100 px-4 py-2 font-semibold text-emerald-800">
-                            Present: {attendanceClassReport.summary.PRESENT}
-                          </div>
-                          <div className="rounded-full bg-red-100 px-4 py-2 font-semibold text-red-800">
-                            Absent: {attendanceClassReport.summary.ABSENT}
-                          </div>
-                          <div className="rounded-full bg-yellow-100 px-4 py-2 font-semibold text-yellow-900">
-                            Tardy: {attendanceClassReport.summary.TARDY}
-                          </div>
-                          <div className="rounded-full bg-orange-100 px-4 py-2 font-semibold text-orange-900">
-                            Left Early: {attendanceClassReport.summary.LEFT_EARLY}
-                          </div>
-                        </div>
-                        {attendanceClassReport.usesCurrentSeatingLayout && (
-                          <div className="text-sm text-black/60">
-                            This report uses the current seating chart layout for the selected date.
-                          </div>
-                        )}
                         <AttendanceSeatChart
                           desks={attendanceClassReport.desks}
                           attendanceByStudentId={attendanceByStudentId}
                         />
                       </>
+                    )}
+
+                    {classAttendanceView !== "day" && attendanceClassRangeReport && (
+                      <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white">
+                        <table className="table table-compact min-w-max">
+                          <thead>
+                            <tr>
+                              <th className="sticky left-0 z-10 min-w-[170px] bg-white">Student</th>
+                              {attendanceClassRangeReport.dates.map((date) => (
+                                <th key={date} className="min-w-[54px] text-center">
+                                  <div>{format(parseIsoDate(date), "EEE")}</div>
+                                  <div className="font-normal text-black/45">{format(parseIsoDate(date), "M/d")}</div>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {attendanceClassRangeReport.students.map((student) => (
+                              <tr key={`range-${student.id}`}>
+                                <td className="sticky left-0 z-[1] bg-white font-semibold">{student.displayName}</td>
+                                {attendanceClassRangeReport.dates.map((date) => {
+                                  const status = rangeAttendanceByCell.get(`${student.id}-${date}`);
+                                  return (
+                                    <td key={`${student.id}-${date}`} className="text-center">
+                                      <span title={attendanceLabel(status)} className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-[10px] font-bold ${attendanceStatusClasses(status)}`}>
+                                        {attendanceStatusShort(status)}
+                                      </span>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
                   </div>
                 )}

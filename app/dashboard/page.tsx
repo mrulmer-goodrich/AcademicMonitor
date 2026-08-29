@@ -581,7 +581,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
                         className="min-w-0 rounded-[22px] border border-[#dbcdb7] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,241,232,0.94)_100%)] p-2.5 shadow-[0_12px_26px_rgba(11,27,42,0.08)]"
                       >
                         <div className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-[36px_repeat(3,minmax(0,1fr))_minmax(190px,0.9fr)_120px]">
-                          <div className="flex min-h-[52px] items-center justify-center rounded-[18px] bg-white/[0.72] px-3 py-2 md:col-span-2 lg:col-span-1 lg:h-[104px] lg:min-h-0 lg:rounded-[22px] lg:px-0.5 lg:py-0.5">
+                          <div className="flex min-h-[52px] items-center justify-center px-3 py-2 md:col-span-2 lg:col-span-1 lg:h-[104px] lg:min-h-0 lg:border-r lg:border-[#dbcdb7] lg:px-0.5 lg:py-0.5">
                             <div className="text-[17px] font-bold uppercase leading-none tracking-[0.03em] text-black lg:[writing-mode:vertical-rl] lg:rotate-180">
                               {block.title}
                             </div>

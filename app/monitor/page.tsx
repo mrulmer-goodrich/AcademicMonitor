@@ -696,87 +696,46 @@ function MonitorPageInner() {
                   </div>
 
                   {desk.student && activeMode === "performance" && !isAbsent && (
-                    <div className="pointer-events-none absolute inset-0 z-10">
-                      <div className="absolute right-1 top-1 flex items-center gap-0.5">
-                        {desk.student.hiit && (
-                          <span
-                            className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
-                            style={{ background: "#b18ad8" }}
-                          >
-                            H
-                          </span>
-                        )}
-                        {desk.student.eog && (
-                          <span
-                            className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px] text-white"
-                            style={{
-                              background:
-                                desk.student.eog === "FIVE"
-                                  ? "#3f6db5"
-                                  : desk.student.eog === "FOUR"
-                                  ? "#4caf50"
-                                  : desk.student.eog === "THREE"
-                                  ? "#f2994a"
-                                  : "#e74c3c"
-                            }}
-                          >
-                            {desk.student.eog === "FIVE"
-                              ? "5"
-                              : desk.student.eog === "FOUR"
-                              ? "4"
-                              : desk.student.eog === "THREE"
-                              ? "3"
-                              : "NP"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="absolute left-1 bottom-1 flex items-center gap-0.5">
-                        {desk.student.ml && (
-                          <span
-                            className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
-                            style={{ background: "#9ecae1" }}
-                          >
-                            ML
-                          </span>
-                        )}
-                        {desk.student.mlNew && (
-                          <span
-                            className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
-                            style={{
-                              background:
-                                "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)"
-                            }}
-                          >
-                            ML
-                          </span>
-                        )}
-                      </div>
-                      <div className="absolute right-1 bottom-1 flex items-center gap-0.5">
-                        {desk.student.iep504 && (
-                          <span
-                            className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
-                            style={{ background: "#f5a9b8" }}
-                          >
-                            I
-                          </span>
-                        )}
-                        {desk.student.ec && (
-                          <span
-                            className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
-                            style={{ background: "#ffd633" }}
-                          >
-                            EC
-                          </span>
-                        )}
-                        {desk.student.ca && (
-                          <span
-                            className="flex h-5 w-5 items-center justify-center rounded-full border border-black text-[8px]"
-                            style={{ background: "#ffffff" }}
-                          >
-                            CA
-                          </span>
-                        )}
-                      </div>
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute bottom-1 left-1 right-1 z-10 flex items-center justify-center gap-1"
+                    >
+                      {desk.student.ml && (
+                        <span className="h-3.5 w-3.5 rounded-full border border-black/70" style={{ background: "#9ecae1" }} />
+                      )}
+                      {desk.student.mlNew && (
+                        <span
+                          className="h-3.5 w-3.5 rounded-full border border-black/70"
+                          style={{ background: "repeating-linear-gradient(45deg,#9ecae1,#9ecae1 3px,#ffffff 3px,#ffffff 6px)" }}
+                        />
+                      )}
+                      {desk.student.iep504 && (
+                        <span className="h-3.5 w-3.5 rounded-full border border-black/70" style={{ background: "#f5a9b8" }} />
+                      )}
+                      {desk.student.ec && (
+                        <span className="h-3.5 w-3.5 rounded-full border border-black/70" style={{ background: "#ffd633" }} />
+                      )}
+                      {desk.student.ca && (
+                        <span className="h-3.5 w-3.5 rounded-full border border-black/70 bg-white" />
+                      )}
+                      {desk.student.hiit && (
+                        <span className="h-3.5 w-3.5 rounded-full border border-black/70" style={{ background: "#b18ad8" }} />
+                      )}
+                      {desk.student.eog && (
+                        <span
+                          className="h-3.5 w-3.5 rounded-full border border-black/70"
+                          style={{
+                            background:
+                              desk.student.eog === "FIVE"
+                                ? "#3f6db5"
+                                : desk.student.eog === "FOUR"
+                                ? "#4caf50"
+                                : desk.student.eog === "THREE"
+                                ? "#f2994a"
+                                : "#e74c3c"
+                          }}
+                        />
+                      )}
                     </div>
                   )}
 

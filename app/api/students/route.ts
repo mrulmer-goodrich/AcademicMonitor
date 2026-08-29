@@ -30,6 +30,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
   const schoolYear = await getActiveSchoolYear(user.id);
+  const block = await prisma.block.findFirst({
+    where: { id: blockId, schoolYearId: schoolYear.id },
+    select: { id: true }
+  });
+  if (!block) return NextResponse.json({ error: "block_not_found" }, { status: 404 });
   const maxSeat = await prisma.student.aggregate({
     where: { schoolYearId: schoolYear.id },
     _max: { seatNumber: true }

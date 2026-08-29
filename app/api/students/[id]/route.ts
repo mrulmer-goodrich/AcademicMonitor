@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { EogLevel } from "@prisma/client";
-import { requireUser } from "@/lib/server";
+import { getActiveSchoolYear, requireUser } from "@/lib/server";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const schoolYear = await getActiveSchoolYear(user.id);
+  const existingStudent = await prisma.student.findFirst({
+    where: { id: params.id, schoolYearId: schoolYear.id },
+    select: { id: true }
+  });
+  if (!existingStudent) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const body = await req.json();
   const data: Record<string, unknown> = {};
   const fields = [
@@ -41,6 +47,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const schoolYear = await getActiveSchoolYear(user.id);
+  const existingStudent = await prisma.student.findFirst({
+    where: { id: params.id, schoolYearId: schoolYear.id },
+    select: { id: true }
+  });
+  if (!existingStudent) return NextResponse.json({ error: "not_found" }, { status: 404 });
   await prisma.$transaction([
     prisma.attendanceRecord.deleteMany({ where: { studentId: params.id } }),
     prisma.lapPerformance.deleteMany({ where: { studentId: params.id } }),

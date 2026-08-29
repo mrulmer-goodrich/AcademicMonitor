@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { endOfMonth, parseISO, startOfMonth } from "date-fns";
+import { differenceInCalendarDays, eachDayOfInterval, endOfMonth, parseISO, startOfMonth } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { getActiveSchoolYear, normalizeDate, requireUser } from "@/lib/server";
 import { isStandardReportingDay } from "@/lib/reporting";
@@ -88,6 +88,64 @@ export async function GET(req: Request) {
         date: record.date.toISOString().slice(0, 10),
         status: record.status
       }))
+    });
+  }
+
+  const startParam = searchParams.get("start");
+  const endParam = searchParams.get("end");
+  if (startParam && endParam) {
+    const rangeStart = parseDateParam(startParam);
+    const rangeEnd = parseDateParam(endParam);
+    const rangeLength = differenceInCalendarDays(rangeEnd, rangeStart);
+    if (rangeLength < 0 || rangeLength > 45) {
+      return NextResponse.json({ error: "invalid_range" }, { status: 400 });
+    }
+
+    const [students, attendance] = await Promise.all([
+      prisma.student.findMany({
+        where: { schoolYearId: schoolYear.id, blockId, active: true },
+        orderBy: { seatNumber: "asc" },
+        select: { id: true, displayName: true, seatNumber: true }
+      }),
+      prisma.attendanceRecord.findMany({
+        where: {
+          schoolYearId: schoolYear.id,
+          blockId,
+          date: { gte: rangeStart, lte: rangeEnd }
+        },
+        orderBy: [{ date: "asc" }, { student: { seatNumber: "asc" } }],
+        select: {
+          date: true,
+          studentId: true,
+          status: true,
+          student: { select: { displayName: true } }
+        }
+      })
+    ]);
+    const standardAttendance = attendance.filter((record) => isStandardReportingDay(record.date));
+    const dates = eachDayOfInterval({ start: rangeStart, end: rangeEnd })
+      .filter(isStandardReportingDay)
+      .map((date) => date.toISOString().slice(0, 10));
+
+    return NextResponse.json({
+      block,
+      rangeStart: rangeStart.toISOString().slice(0, 10),
+      rangeEnd: rangeEnd.toISOString().slice(0, 10),
+      excludesTestRecords: true,
+      dates,
+      students,
+      attendance: standardAttendance.map((record) => ({
+        date: record.date.toISOString().slice(0, 10),
+        studentId: record.studentId,
+        displayName: record.student.displayName,
+        status: record.status
+      })),
+      summary: {
+        PRESENT: standardAttendance.filter((record) => record.status === "PRESENT").length,
+        ABSENT: standardAttendance.filter((record) => record.status === "ABSENT").length,
+        TARDY: standardAttendance.filter((record) => record.status === "TARDY").length,
+        LEFT_EARLY: standardAttendance.filter((record) => record.status === "LEFT_EARLY").length
+      }
     });
   }
 
