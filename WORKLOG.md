@@ -9,15 +9,15 @@ Completed:
 - Made Command Center block labels visually continuous with their parent block cards
 - Rebuilt Update Students into a denser stable table that keeps row geometry fixed through Edit and unsaved states
 - Compacted Add Student so its actions remain visible and all six attributes fit one desktop row
-- Replaced selected-student class tools with Edit All, Save All, and Cancel controls that expose every visible roster record at once
+- Replaced selected-student class tools with Edit All, Save All, and Cancel controls that expose every visible roster record at once, with the desktop controls aligned over the row Edit actions
 - Kept individual Edit rows stable, corrected the EOG selector spacing, and placed Cancel at the former Edit target instead of Delete
 - Excluded inactive students and their retained desks from current attendance, seating, monitoring, reporting, performance, and setup-completion data without deleting history
 - Restored the complete five-day by three-lap weekly grid at laptop and tablet widths, clarified the active day on phones, and kept all three rows visible in view and edit modes at 1280×720 and 1024×768
 - Removed explanatory clutter from weekly lap planning, aligned class/week/edit controls on one desktop and tablet row, and fixed block selection so it no longer resets to the URL's initial class
 - Added one compact Copy menu for bringing in the previous week or the displayed week from another active class before review and save
 - Centered the Reports title, left-aligned the class selector, and removed report-type switching after a report workspace opens
-- Consolidated attendance scope, date navigation, range selection, and export controls into one responsive toolbar
-- Added centered previous/next month navigation and distinct visual treatment for Present, Absent, Tardy, Left Early, and no record in individual attendance
+- Consolidated attendance scope, compact date navigation, contained custom-range inputs, and secondary export controls into one responsive toolbar with a consistent type hierarchy
+- Grouped previous/next month controls directly around the centered month label and retained distinct visual treatment for Present, Absent, Tardy, Left Early, and no record in individual attendance
 - Added day, week, month, and validated custom-range Entire Class attendance views with a compact longitudinal student/date matrix
 - Scoped student updates and deletes to the authenticated teacher's active school year
 
@@ -31,8 +31,8 @@ Verification:
 - Confirmed all 15 weekly lap inputs and standards remain visible without page scrolling in desktop edit mode
 - Confirmed seating and monitoring indicators occupy the original three anchor zones with empty circle text, and confirmed the weekly lap toolbar remains aligned without horizontal overflow at 1280×720 and 1024×768
 - Confirmed the class selector remains on the chosen block and both copy-source paths return clear empty-source feedback without saving changes
-- Confirmed the attendance toolbar, custom range, and centered student month navigation at 1280×720, 768×900, and 390×844 without page-level horizontal overflow
-- Confirmed compact Add Student, individual Edit, and Edit All at 1280×720 and 390×844; a reversible local inactivation check removed the student from attendance, seating, and monitoring, then restored the original desk after reactivation
+- Confirmed the compact attendance exports, bounded custom range, and adjacent student month navigation at 1280×720 and 390×844 without page-level horizontal overflow
+- Confirmed compact Add Student, individual Edit, and Edit All at 1280×720 and 390×844, including desktop Edit All alignment over the row actions; a reversible local inactivation check removed the student from attendance, seating, and monitoring, then restored the original desk after reactivation
 
 ## 2026-08-25 — First-day attendance and classroom workflow correction
 

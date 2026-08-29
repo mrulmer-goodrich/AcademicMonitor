@@ -369,20 +369,22 @@ export default function StudentsSetupPage() {
           <button className="btn btn-ghost px-4 py-2 text-sm" type="button" onClick={() => setShowImport(true)} disabled={editingLocked}>
             Import List
           </button>
-          {editingAll ? (
-            <>
-              <button className="btn btn-primary px-4 py-2 text-sm" type="button" onClick={saveAllStudents} disabled={changedStudentCount === 0 || savingAll}>
-                {savingAll ? "Saving…" : `Save All${changedStudentCount ? ` (${changedStudentCount})` : ""}`}
+          <div className="flex gap-2 lg:hidden">
+            {editingAll ? (
+              <>
+                <button className="btn btn-primary px-4 py-2 text-sm" type="button" onClick={saveAllStudents} disabled={changedStudentCount === 0 || savingAll}>
+                  {savingAll ? "Saving…" : `Save All${changedStudentCount ? ` (${changedStudentCount})` : ""}`}
+                </button>
+                <button className="btn btn-ghost px-4 py-2 text-sm" type="button" onClick={cancelEditAll} disabled={savingAll}>
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button className="btn btn-ghost px-4 py-2 text-sm" type="button" onClick={startEditAll} disabled={editingLocked || sortedStudents.length === 0}>
+                Edit All
               </button>
-              <button className="btn btn-ghost px-4 py-2 text-sm" type="button" onClick={cancelEditAll} disabled={savingAll}>
-                Cancel
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-ghost px-4 py-2 text-sm" type="button" onClick={startEditAll} disabled={editingLocked || sortedStudents.length === 0}>
-              Edit All
-            </button>
-          )}
+            )}
+          </div>
           <label className="ml-auto inline-flex min-h-[36px] items-center gap-2 whitespace-nowrap rounded-full border border-black/15 bg-white px-3 text-xs font-semibold">
             <input type="checkbox" checked={showInactive} onChange={(event) => setShowInactive(event.target.checked)} disabled={editingLocked} />
             Show inactive
@@ -410,7 +412,24 @@ export default function StudentsSetupPage() {
                 </th>
                 <th className="w-[76px] text-center"><button className="font-semibold" type="button" onClick={() => toggleSort("eog")}>EOG{sortLabel("eog")}</button></th>
                 <th className="w-[64px] text-center">Notes</th>
-                <th className="w-[200px] text-center">Actions</th>
+                <th className="w-[200px]">
+                  <div className="flex min-h-8 items-center justify-end gap-1">
+                    {editingAll ? (
+                      <>
+                        <button className="h-8 rounded-lg bg-[#0b1b2a] px-3 text-xs font-bold text-white disabled:opacity-35" type="button" onClick={saveAllStudents} disabled={changedStudentCount === 0 || savingAll}>
+                          {savingAll ? "Saving…" : `Save All${changedStudentCount ? ` (${changedStudentCount})` : ""}`}
+                        </button>
+                        <button className="h-8 rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold" type="button" onClick={cancelEditAll} disabled={savingAll}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button className="h-8 rounded-lg border border-black/15 bg-white px-3 text-xs font-semibold shadow-sm" type="button" onClick={startEditAll} disabled={editingLocked || sortedStudents.length === 0}>
+                        Edit All
+                      </button>
+                    )}
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>

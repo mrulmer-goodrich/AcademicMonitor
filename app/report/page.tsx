@@ -851,13 +851,13 @@ function ReportPageInner() {
     <div className="mx-auto max-w-[1440px] px-4 py-4 sm:px-6">
       <div className="hero-card overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-4 md:p-6">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end">
-          <h1 className="text-center text-[clamp(1.9rem,4vw,2.8rem)] font-bold tracking-[-0.04em] text-black sm:col-start-2 sm:row-start-1">
+          <h1 className="text-center text-3xl font-semibold tracking-[-0.03em] text-black sm:col-start-2 sm:row-start-1">
             Reports
           </h1>
           {blocks.length > 1 && (
             <label className="block w-full max-w-sm text-left sm:col-start-1 sm:row-start-1 sm:min-w-[280px]">
               <span className="small-header text-black/45">Class</span>
-              <select className="form-control mt-1 bg-white py-2" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
+              <select className="form-control mt-1 bg-white py-2 text-base font-medium" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
                 {blocks.map((block) => <option key={block.id} value={block.id}>Block {block.blockNumber} · {block.blockName}</option>)}
               </select>
             </label>
@@ -961,20 +961,20 @@ function ReportPageInner() {
                           </div>
 
                           {classAttendanceView === "custom" ? (
-                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap">
-                              <label className="flex min-w-[145px] flex-1 items-center gap-2 text-xs font-semibold text-black/55">
+                            <div className="grid w-full shrink-0 gap-2 sm:w-[360px] sm:grid-cols-2">
+                              <label className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-black/55">
                                 <span>Start</span>
                                 <input
-                                  className="form-control min-w-0 bg-white py-2"
+                                  className="h-10 min-w-0 flex-1 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium text-black"
                                   type="date"
                                   value={customRangeStart}
                                   onChange={(event) => setCustomRangeStart(event.target.value)}
                                 />
                               </label>
-                              <label className="flex min-w-[145px] flex-1 items-center gap-2 text-xs font-semibold text-black/55">
+                              <label className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-black/55">
                                 <span>End</span>
                                 <input
-                                  className="form-control min-w-0 bg-white py-2"
+                                  className="h-10 min-w-0 flex-1 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium text-black"
                                   type="date"
                                   value={customRangeEnd}
                                   onChange={(event) => setCustomRangeEnd(event.target.value)}
@@ -982,17 +982,17 @@ function ReportPageInner() {
                               </label>
                             </div>
                           ) : (
-                            <div className="grid min-w-[290px] flex-1 grid-cols-[auto_minmax(145px,1fr)_auto] gap-2">
+                            <div className="grid w-[240px] shrink-0 grid-cols-[40px_148px_40px] gap-1.5">
                               <button
                                 type="button"
-                                className="btn btn-ghost px-3 py-2"
+                                className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold"
                                 onClick={() => setSelectedDate((current) => classAttendanceView === "month" ? shiftMonthIso(current, -1) : shiftIsoDate(current, classAttendanceView === "week" ? -7 : -1))}
                                 aria-label="Previous attendance date"
                               >
                                 ←
                               </button>
                               <input
-                                className="form-control min-w-0 bg-white py-2"
+                                className="h-10 min-w-0 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium"
                                 type="date"
                                 value={selectedDate}
                                 onChange={(event) => setSelectedDate(event.target.value)}
@@ -1000,7 +1000,7 @@ function ReportPageInner() {
                               />
                               <button
                                 type="button"
-                                className="btn btn-ghost px-3 py-2"
+                                className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold"
                                 onClick={() => setSelectedDate((current) => classAttendanceView === "month" ? shiftMonthIso(current, 1) : shiftIsoDate(current, classAttendanceView === "week" ? 7 : 1))}
                                 aria-label="Next attendance date"
                               >
@@ -1009,29 +1009,29 @@ function ReportPageInner() {
                             </div>
                           )}
 
-                          <div className="ml-auto flex shrink-0 gap-2">
-                            <button type="button" className="btn btn-primary px-3 py-2 text-sm" onClick={downloadAttendanceClassXlsx} disabled={!hasClassAttendanceData}>Export XLSX</button>
-                            <button type="button" className="btn btn-ghost px-3 py-2 text-sm" onClick={() => downloadCsv(`attendance-class-${attendanceClassDateLabel()}.csv`, attendanceClassRows())} disabled={!hasClassAttendanceData}>Export CSV</button>
+                          <div className="flex shrink-0 gap-1.5">
+                            <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadAttendanceClassXlsx} disabled={!hasClassAttendanceData}>Export XLSX</button>
+                            <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`attendance-class-${attendanceClassDateLabel()}.csv`, attendanceClassRows())} disabled={!hasClassAttendanceData}>Export CSV</button>
                           </div>
                         </>
                       )}
 
                       {scope === "student" && (
                         <>
-                          <div className="grid min-w-[250px] flex-1 grid-cols-[auto_minmax(150px,1fr)_auto] items-center gap-2 sm:max-w-md">
+                          <div className="grid w-[260px] shrink-0 grid-cols-[40px_168px_40px] items-center gap-1.5">
                             <button
-                              className="btn btn-ghost px-3 py-2"
+                              className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold"
                               type="button"
                               onClick={() => setVisibleMonthIso((current) => shiftMonthIso(current, -1))}
                               aria-label="Previous month"
                             >
                               ←
                             </button>
-                            <div className="text-center text-base font-semibold text-black">
+                            <div className="text-center text-sm font-semibold text-black">
                               {format(startOfMonth(parseIsoDate(visibleMonthIso)), "MMMM yyyy")}
                             </div>
                             <button
-                              className="btn btn-ghost px-3 py-2"
+                              className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold"
                               type="button"
                               onClick={() => setVisibleMonthIso((current) => shiftMonthIso(current, 1))}
                               aria-label="Next month"
@@ -1039,16 +1039,16 @@ function ReportPageInner() {
                               →
                             </button>
                           </div>
-                          <div className="ml-auto flex shrink-0 gap-2">
+                          <div className="flex shrink-0 gap-1.5">
                             <button
                               type="button"
-                              className="btn btn-primary px-3 py-2 text-sm"
+                              className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35"
                               onClick={downloadAttendanceStudentXlsx}
                               disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}
                             >
                               Export XLSX
                             </button>
-                            <button type="button" className="btn btn-ghost px-3 py-2 text-sm" onClick={() => downloadCsv(`attendance-${attendanceStudentReport?.student.displayName || "student"}-${todayIso}.csv`, attendanceStudentRows())} disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}>
+                            <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`attendance-${attendanceStudentReport?.student.displayName || "student"}-${todayIso}.csv`, attendanceStudentRows())} disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}>
                               Export CSV
                             </button>
                           </div>
@@ -1175,9 +1175,9 @@ function ReportPageInner() {
                       </select>
                       <label className="small-header text-black/50" htmlFor="monitoring-student-date">Date</label>
                       <input id="monitoring-student-date" className="form-control" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
-                      <div className="flex flex-wrap gap-2">
-                        <button type="button" className="btn btn-primary" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadWorkbook(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.xlsx`, "Monitoring", selectedStudentMonitoringRows)}>Export XLSX</button>
-                        <button type="button" className="btn btn-ghost" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadCsv(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.csv`, selectedStudentMonitoringRows)}>Export CSV</button>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadWorkbook(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.xlsx`, "Monitoring", selectedStudentMonitoringRows)}>Export XLSX</button>
+                        <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadCsv(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.csv`, selectedStudentMonitoringRows)}>Export CSV</button>
                       </div>
                     </div>
                     <div className="space-y-3">
@@ -1220,9 +1220,9 @@ function ReportPageInner() {
                           <span className="hidden sm:inline">Next</span> →
                         </button>
                       </div>
-                      <div className="flex gap-2">
-                        <button type="button" className="btn btn-primary" onClick={downloadMonitoringClassXlsx} disabled={!monitoringReport || selectedMonitoringLaps.length === 0}>Export XLSX</button>
-                        <button type="button" className="btn btn-ghost" onClick={() => downloadCsv(`monitoring-class-${monitoringReport?.date || selectedDate}.csv`, monitoringClassRows())} disabled={!monitoringReport || selectedMonitoringLaps.length === 0}>Export CSV</button>
+                      <div className="flex gap-1.5">
+                        <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadMonitoringClassXlsx} disabled={!monitoringReport || selectedMonitoringLaps.length === 0}>Export XLSX</button>
+                        <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`monitoring-class-${monitoringReport?.date || selectedDate}.csv`, monitoringClassRows())} disabled={!monitoringReport || selectedMonitoringLaps.length === 0}>Export CSV</button>
                       </div>
                     </div>
 
