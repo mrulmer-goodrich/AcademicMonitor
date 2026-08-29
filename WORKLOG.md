@@ -8,8 +8,10 @@ Completed:
 - Restored privacy-safe student indicators to their established top-right, bottom-left, and bottom-right desk positions without readable category or EOG characters
 - Made Command Center block labels visually continuous with their parent block cards
 - Rebuilt Update Students into a denser stable table that keeps row geometry fixed through Edit and unsaved states
-- Combined a new student's name, attributes, EOG level, and notes into one Add Student dialog
-- Added selected-student class tools for setting or removing common attributes, EOG levels, and active status
+- Compacted Add Student so its actions remain visible and all six attributes fit one desktop row
+- Replaced selected-student class tools with Edit All, Save All, and Cancel controls that expose every visible roster record at once
+- Kept individual Edit rows stable, corrected the EOG selector spacing, and placed Cancel at the former Edit target instead of Delete
+- Excluded inactive students and their retained desks from current attendance, seating, monitoring, reporting, performance, and setup-completion data without deleting history
 - Restored the complete five-day by three-lap weekly grid at laptop and tablet widths, clarified the active day on phones, and kept all three rows visible in view and edit modes at 1280×720 and 1024×768
 - Removed explanatory clutter from weekly lap planning, aligned class/week/edit controls on one desktop and tablet row, and fixed block selection so it no longer resets to the URL's initial class
 - Added one compact Copy menu for bringing in the previous week or the displayed week from another active class before review and save
@@ -30,6 +32,7 @@ Verification:
 - Confirmed seating and monitoring indicators occupy the original three anchor zones with empty circle text, and confirmed the weekly lap toolbar remains aligned without horizontal overflow at 1280×720 and 1024×768
 - Confirmed the class selector remains on the chosen block and both copy-source paths return clear empty-source feedback without saving changes
 - Confirmed the attendance toolbar, custom range, and centered student month navigation at 1280×720, 768×900, and 390×844 without page-level horizontal overflow
+- Confirmed compact Add Student, individual Edit, and Edit All at 1280×720 and 390×844; a reversible local inactivation check removed the student from attendance, seating, and monitoring, then restored the original desk after reactivation
 
 ## 2026-08-25 — First-day attendance and classroom workflow correction
 

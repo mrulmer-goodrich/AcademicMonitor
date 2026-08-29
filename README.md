@@ -9,7 +9,7 @@ The core teacher workflow is implemented:
 - Account registration, login, profile, and password changes
 - Required school-year-scoped blocks and students, with archived-year rollover
 - Student categories, EOG levels, and active/inactive status
-- Compact student management with complete single-student setup and selected-student bulk attribute changes
+- Compact student management with complete single-student setup and Edit All attribute changes
 - Drag-and-drop seating charts with student and teacher desks
 - Three named laps per instructional day, with previous-week and same-week cross-class copying
 - Attendance gating before monitoring begins

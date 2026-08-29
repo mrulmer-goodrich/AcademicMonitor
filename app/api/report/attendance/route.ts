@@ -49,7 +49,8 @@ export async function GET(req: Request) {
       where: {
         id: studentId,
         blockId,
-        schoolYearId: schoolYear.id
+        schoolYearId: schoolYear.id,
+        active: true
       },
       select: {
         id: true,
@@ -111,7 +112,8 @@ export async function GET(req: Request) {
         where: {
           schoolYearId: schoolYear.id,
           blockId,
-          date: { gte: rangeStart, lte: rangeEnd }
+          date: { gte: rangeStart, lte: rangeEnd },
+          student: { active: true }
         },
         orderBy: [{ date: "asc" }, { student: { seatNumber: "asc" } }],
         select: {
@@ -156,7 +158,8 @@ export async function GET(req: Request) {
       where: {
         schoolYearId: schoolYear.id,
         blockId,
-        type: "STUDENT"
+        type: "STUDENT",
+        student: { active: true }
       },
       orderBy: {
         createdAt: "asc"
@@ -190,7 +193,8 @@ export async function GET(req: Request) {
       where: {
         schoolYearId: schoolYear.id,
         blockId,
-        date
+        date,
+        student: { active: true }
       },
       orderBy: {
         student: {

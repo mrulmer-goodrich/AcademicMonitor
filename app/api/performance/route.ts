@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const date = normalizeDate(parseISO(dateParam));
 
   const performance = await prisma.lapPerformance.findMany({
-    where: { schoolYearId: schoolYear.id, blockId, date }
+    where: { schoolYearId: schoolYear.id, blockId, date, student: { active: true } }
   });
 
   return NextResponse.json({ performance });

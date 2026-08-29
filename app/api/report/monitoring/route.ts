@@ -47,7 +47,8 @@ export async function GET(req: Request) {
       where: {
         schoolYearId: schoolYear.id,
         blockId,
-        type: "STUDENT"
+        type: "STUDENT",
+        student: { active: true }
       },
       orderBy: {
         createdAt: "asc"
@@ -81,7 +82,8 @@ export async function GET(req: Request) {
       where: {
         schoolYearId: schoolYear.id,
         blockId,
-        date
+        date,
+        student: { active: true }
       },
       select: {
         studentId: true,
@@ -92,7 +94,8 @@ export async function GET(req: Request) {
       where: {
         schoolYearId: schoolYear.id,
         blockId,
-        date
+        date,
+        student: { active: true }
       },
       select: {
         studentId: true,

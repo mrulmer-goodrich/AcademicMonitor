@@ -18,7 +18,7 @@ export async function GET() {
   });
 
   const desksCount = await prisma.desk.count({
-    where: { schoolYearId: schoolYear.id, type: "STUDENT" }
+    where: { schoolYearId: schoolYear.id, type: "STUDENT", student: { active: true } }
   });
 
   const lapsCount = await prisma.lapDefinition.count({

@@ -32,7 +32,10 @@ export async function GET(req: Request) {
     },
     include: { student: true }
   });
-  return NextResponse.json({ desks: desks.map((desk) => normalizeDeskGeometry(desk)) });
+  const visibleDesks = desks.filter(
+    (desk) => desk.type !== DeskType.STUDENT || Boolean(desk.student?.active)
+  );
+  return NextResponse.json({ desks: visibleDesks.map((desk) => normalizeDeskGeometry(desk)) });
 }
 
 export async function POST(req: Request) {

@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const date = normalizeDate(parseISO(dateParam));
 
   const attendance = await prisma.attendanceRecord.findMany({
-    where: { schoolYearId: schoolYear.id, blockId, date },
+    where: { schoolYearId: schoolYear.id, blockId, date, student: { active: true } },
     include: { student: true }
   });
 

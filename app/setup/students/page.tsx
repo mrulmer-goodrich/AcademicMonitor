@@ -24,8 +24,6 @@ type Student = {
   notes?: string | null;
 };
 
-type CategoryKey = "ml" | "mlNew" | "iep504" | "ec" | "ca" | "hiit";
-
 type NewStudentDraft = {
   displayName: string;
   ml: boolean;
@@ -88,6 +86,7 @@ export default function StudentsSetupPage() {
   const [importText, setImportText] = useState("");
   const [showImport, setShowImport] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingAll, setEditingAll] = useState(false);
   const [draft, setDraft] = useState<Record<string, Student>>({});
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -98,11 +97,8 @@ export default function StudentsSetupPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [showInactive, setShowInactive] = useState(false);
   const [notesEditor, setNotesEditor] = useState<{ id: string; name: string; notes: string } | null>(null);
-  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-  const [bulkField, setBulkField] = useState<CategoryKey | "eog" | "active">("ml");
-  const [bulkValue, setBulkValue] = useState("true");
-  const [bulkSaving, setBulkSaving] = useState(false);
-  const editingLocked = Boolean(editingId) || importing || bulkSaving;
+  const [savingAll, setSavingAll] = useState(false);
+  const editingLocked = Boolean(editingId) || editingAll || importing || savingAll;
 
   useEffect(() => {
     loadBlocks();
@@ -115,14 +111,12 @@ export default function StudentsSetupPage() {
   const hasUnsavedChanges = useMemo(() => {
     const hasNewStudentDraft = showAddStudent && JSON.stringify(newStudent) !== JSON.stringify(emptyNewStudent());
     const hasImportDraft = Boolean(importText.trim());
-    const editingStudent = editingId ? students.find((student) => student.id === editingId) : null;
-    const editingDraft = editingId ? draft[editingId] : null;
-    const editingDirty = Boolean(editingStudent && editingDraft && studentHasChanges(editingStudent, editingDraft));
+    const editingDirty = students.some((student) => draft[student.id] && studentHasChanges(student, draft[student.id]));
     const currentNotes = notesEditor ? students.find((student) => student.id === notesEditor.id)?.notes || "" : "";
     const notesDirty = Boolean(notesEditor && notesEditor.notes !== currentNotes);
 
     return hasNewStudentDraft || hasImportDraft || editingDirty || notesDirty;
-  }, [showAddStudent, newStudent, importText, editingId, draft, students, notesEditor]);
+  }, [showAddStudent, newStudent, importText, draft, students, notesEditor]);
 
   const { dialogProps, requestNavigation } = useUnsavedChangesGuard({
     when: hasUnsavedChanges,
@@ -162,36 +156,6 @@ export default function StudentsSetupPage() {
     setShowAddStudent(false);
     setStatusMessage(`${newStudent.displayName.trim()} added.`);
     await loadStudents();
-  }
-
-  async function applyBulkChange() {
-    if (selectedStudentIds.length === 0 || bulkSaving) return;
-    setBulkSaving(true);
-    setError(null);
-    try {
-      const value = bulkField === "eog" ? bulkValue || null : bulkValue === "true";
-      const results = await Promise.all(
-        selectedStudentIds.map((id) =>
-          fetch(`/api/students/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ [bulkField]: value })
-          })
-        )
-      );
-      const failed = results.filter((result) => !result.ok).length;
-      if (failed > 0) {
-        setError(`${failed} selected student${failed === 1 ? "" : "s"} could not be updated.`);
-      } else {
-        setStatusMessage(`${selectedStudentIds.length} student${selectedStudentIds.length === 1 ? "" : "s"} updated.`);
-        setSelectedStudentIds([]);
-      }
-      await loadStudents();
-    } catch {
-      setError("Unable to apply the class change.");
-    } finally {
-      setBulkSaving(false);
-    }
   }
 
   async function updateStudent(id: string, data: Partial<Student>) {
@@ -296,13 +260,53 @@ export default function StudentsSetupPage() {
     return sortDir === "asc" ? " ▲" : " ▼";
   }
 
-  const visibleStudentIds = sortedStudents.map((student) => student.id);
-  const allVisibleSelected = visibleStudentIds.length > 0 && visibleStudentIds.every((id) => selectedStudentIds.includes(id));
+  const changedStudentCount = sortedStudents.filter(
+    (student) => draft[student.id] && studentHasChanges(student, draft[student.id])
+  ).length;
 
-  function toggleStudentSelection(id: string) {
-    setSelectedStudentIds((current) =>
-      current.includes(id) ? current.filter((studentId) => studentId !== id) : [...current, id]
+  function startEditAll() {
+    setEditingId(null);
+    setEditingAll(true);
+    setDraft(Object.fromEntries(sortedStudents.map((student) => [student.id, { ...student }])));
+  }
+
+  function cancelEditAll() {
+    setEditingAll(false);
+    setDraft({});
+  }
+
+  async function saveAllStudents() {
+    const changedStudents = sortedStudents.filter(
+      (student) => draft[student.id] && studentHasChanges(student, draft[student.id])
     );
+    if (changedStudents.length === 0 || savingAll) return;
+
+    setSavingAll(true);
+    setError(null);
+    try {
+      const results = await Promise.all(
+        changedStudents.map((student) =>
+          fetch(`/api/students/${student.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(draft[student.id])
+          })
+        )
+      );
+      const failed = results.filter((result) => !result.ok).length;
+      if (failed > 0) {
+        setError(`${failed} student${failed === 1 ? "" : "s"} could not be saved.`);
+      } else {
+        setStatusMessage(`${changedStudents.length} student${changedStudents.length === 1 ? "" : "s"} saved.`);
+        setEditingAll(false);
+        setDraft({});
+      }
+      await loadStudents();
+    } catch {
+      setError("Unable to save all student changes.");
+    } finally {
+      setSavingAll(false);
+    }
   }
 
   function cancelStudentEdit(id: string) {
@@ -351,10 +355,11 @@ export default function StudentsSetupPage() {
               requestNavigation(() => {
                 setBlockId(nextBlockId);
                 setEditingId(null);
+                setEditingAll(false);
                 setDraft({});
-                setSelectedStudentIds([]);
               });
             }}
+            disabled={editingLocked}
           >
             {blockOptions.map((block) => <option key={block.id} value={block.id}>{block.label}</option>)}
           </select>
@@ -364,8 +369,22 @@ export default function StudentsSetupPage() {
           <button className="btn btn-ghost px-4 py-2 text-sm" type="button" onClick={() => setShowImport(true)} disabled={editingLocked}>
             Import List
           </button>
+          {editingAll ? (
+            <>
+              <button className="btn btn-primary px-4 py-2 text-sm" type="button" onClick={saveAllStudents} disabled={changedStudentCount === 0 || savingAll}>
+                {savingAll ? "Saving…" : `Save All${changedStudentCount ? ` (${changedStudentCount})` : ""}`}
+              </button>
+              <button className="btn btn-ghost px-4 py-2 text-sm" type="button" onClick={cancelEditAll} disabled={savingAll}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-ghost px-4 py-2 text-sm" type="button" onClick={startEditAll} disabled={editingLocked || sortedStudents.length === 0}>
+              Edit All
+            </button>
+          )}
           <label className="ml-auto inline-flex min-h-[36px] items-center gap-2 whitespace-nowrap rounded-full border border-black/15 bg-white px-3 text-xs font-semibold">
-            <input type="checkbox" checked={showInactive} onChange={(event) => setShowInactive(event.target.checked)} />
+            <input type="checkbox" checked={showInactive} onChange={(event) => setShowInactive(event.target.checked)} disabled={editingLocked} />
             Show inactive
           </label>
         </div>
@@ -374,63 +393,10 @@ export default function StudentsSetupPage() {
           {statusMessage || `${students.filter((student) => student.active).length} active students`}
         </div>
 
-        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3">
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="mr-2">
-              <div className="small-header text-sky-900/60">Class tools</div>
-              <div className="text-sm font-semibold text-sky-950">{selectedStudentIds.length} selected</div>
-            </div>
-            <label className="min-w-[150px] flex-1 sm:flex-none">
-              <span className="sr-only">Attribute</span>
-              <select
-                className="form-control py-2 text-sm"
-                value={bulkField}
-                onChange={(event) => {
-                  const nextField = event.target.value as CategoryKey | "eog" | "active";
-                  setBulkField(nextField);
-                  setBulkValue(nextField === "eog" ? "" : "true");
-                }}
-              >
-                {categories.map((category) => <option key={`bulk-${category.key}`} value={category.key}>{category.label}</option>)}
-                <option value="eog">EOG level</option>
-                <option value="active">Student status</option>
-              </select>
-            </label>
-            <label className="min-w-[130px] flex-1 sm:flex-none">
-              <span className="sr-only">New value</span>
-              {bulkField === "eog" ? (
-                <select className="form-control py-2 text-sm" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)}>
-                  <option value="">Not set</option>
-                  {eogOptions.filter(Boolean).map((option) => <option key={`bulk-eog-${option}`} value={option || ""}>{option?.replace("FIVE", "5").replace("FOUR", "4").replace("THREE", "3")}</option>)}
-                </select>
-              ) : (
-                <select className="form-control py-2 text-sm" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)}>
-                  <option value="true">{bulkField === "active" ? "Active" : "Set"}</option>
-                  <option value="false">{bulkField === "active" ? "Inactive" : "Remove"}</option>
-                </select>
-              )}
-            </label>
-            <button className="btn btn-primary px-4 py-2 text-sm" type="button" disabled={selectedStudentIds.length === 0 || bulkSaving || Boolean(editingId)} onClick={applyBulkChange}>
-              {bulkSaving ? "Applying…" : "Apply"}
-            </button>
-            {selectedStudentIds.length > 0 && (
-              <button className="btn btn-ghost px-3 py-2 text-sm" type="button" onClick={() => setSelectedStudentIds([])}>Clear</button>
-            )}
-          </div>
-        </div>
-
-        <div className="hidden max-h-[calc(100vh-300px)] min-h-[280px] overflow-auto lg:block">
-          <table className="table table-compact min-w-[940px]">
+        <div className="hidden max-h-[calc(100vh-230px)] min-h-[280px] overflow-auto lg:block">
+          <table className="table table-compact min-w-[900px]">
             <thead className="sticky-head">
               <tr>
-                <th className="w-8 text-center">
-                  <input
-                    aria-label="Select all visible students"
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    onChange={() => setSelectedStudentIds((current) => allVisibleSelected ? current.filter((id) => !visibleStudentIds.includes(id)) : Array.from(new Set([...current, ...visibleStudentIds])))}
-                  />
-                </th>
                 <th className="w-[150px]"><button className="font-semibold" type="button" onClick={() => toggleSort("displayName")}>Student{sortLabel("displayName")}</button></th>
                 <th className="w-[72px] text-center">Status</th>
                 <th>
@@ -442,19 +408,18 @@ export default function StudentsSetupPage() {
                     ))}
                   </div>
                 </th>
-                <th className="w-[64px] text-center"><button className="font-semibold" type="button" onClick={() => toggleSort("eog")}>EOG{sortLabel("eog")}</button></th>
+                <th className="w-[76px] text-center"><button className="font-semibold" type="button" onClick={() => toggleSort("eog")}>EOG{sortLabel("eog")}</button></th>
                 <th className="w-[64px] text-center">Notes</th>
-                <th className="w-[180px] text-center">Actions</th>
+                <th className="w-[200px] text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
               {sortedStudents.map((student) => {
-                const isEditing = editingId === student.id;
+                const isEditing = editingAll || editingId === student.id;
                 const draftRow = draft[student.id] || student;
                 const hasChanges = studentHasChanges(student, draftRow);
                 return (
                   <tr key={student.id} className={isEditing ? "bg-amber-50/70" : "bg-white/40"}>
-                    <td className="text-center"><input aria-label={`Select ${student.displayName}`} type="checkbox" checked={selectedStudentIds.includes(student.id)} onChange={() => toggleStudentSelection(student.id)} /></td>
                     <td>
                       {isEditing ? (
                         <input className="form-control h-8 py-1.5 text-sm" value={draftRow.displayName} onChange={(event) => setDraft((current) => ({ ...current, [student.id]: { ...draftRow, displayName: event.target.value } }))} />
@@ -480,20 +445,22 @@ export default function StudentsSetupPage() {
                     </td>
                     <td className="text-center">
                       {isEditing ? (
-                        <select className="form-control h-8 py-1 text-xs" value={draftRow.eog || ""} onChange={(event) => setDraft((current) => ({ ...current, [student.id]: { ...draftRow, eog: (event.target.value || null) as Student["eog"] } }))}>
+                        <select className="h-8 w-full min-w-[64px] rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold leading-none" value={draftRow.eog || ""} onChange={(event) => setDraft((current) => ({ ...current, [student.id]: { ...draftRow, eog: (event.target.value || null) as Student["eog"] } }))}>
                           {eogOptions.map((option) => <option key={option || "none"} value={option || ""}>{option ? option.replace("FIVE", "5").replace("FOUR", "4").replace("THREE", "3") : "—"}</option>)}
                         </select>
                       ) : <span className="text-xs font-semibold">{student.eog ? student.eog.replace("FIVE", "5").replace("FOUR", "4").replace("THREE", "3") : "—"}</span>}
                     </td>
                     <td className="text-center"><button className="h-8 whitespace-nowrap rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold" type="button" onClick={() => setNotesEditor({ id: student.id, name: student.displayName, notes: student.notes || "" })}>{student.notes?.trim() ? "Notes •" : "Notes"}</button></td>
                     <td>
-                      <div className="flex h-8 w-[170px] items-center justify-end gap-1">
+                      <div className="flex h-8 w-[190px] items-center justify-end gap-1">
                         <span aria-label={hasChanges ? "Unsaved changes" : undefined} className={`mr-1 h-2 w-2 rounded-full ${hasChanges ? "bg-amber-500" : "bg-transparent"}`} />
-                        {isEditing ? (
+                        {editingAll ? (
+                          <span className="inline-flex h-8 items-center px-2 text-xs font-semibold text-black/45">Editing</span>
+                        ) : isEditing ? (
                           <>
                             <button className="h-8 rounded-lg bg-[#0b1b2a] px-3 text-xs font-bold text-white disabled:opacity-35" type="button" disabled={!hasChanges} onClick={() => updateStudent(student.id, draftRow)}>Save</button>
-                            <button className="h-8 rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold" type="button" onClick={() => cancelStudentEdit(student.id)}>Cancel</button>
                             <button className="h-8 rounded-lg border border-red-200 bg-white px-2 text-xs font-semibold text-red-700" type="button" onClick={() => deleteStudent(student)}>Delete</button>
+                            <button className="h-8 rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold" type="button" onClick={() => cancelStudentEdit(student.id)}>Cancel</button>
                           </>
                         ) : (
                           <button className="h-8 rounded-lg border border-black/15 bg-white px-3 text-xs font-semibold" type="button" disabled={Boolean(editingId)} onClick={() => { setEditingId(student.id); setDraft((current) => ({ ...current, [student.id]: student })); }}>Edit</button>
@@ -503,25 +470,24 @@ export default function StudentsSetupPage() {
                   </tr>
                 );
               })}
-              {sortedStudents.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-sm text-black/55">No students to show.</td></tr>}
+              {sortedStudents.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-sm text-black/55">No students to show.</td></tr>}
             </tbody>
           </table>
         </div>
 
         <div className="grid gap-2 lg:hidden">
           {sortedStudents.map((student) => {
-            const isEditing = editingId === student.id;
+            const isEditing = editingAll || editingId === student.id;
             const draftRow = draft[student.id] || student;
             const hasChanges = studentHasChanges(student, draftRow);
             return (
               <div key={`card-${student.id}`} className={`scroll-mt-24 rounded-2xl border p-3 shadow-sm ${isEditing ? "border-amber-300 bg-amber-50" : "border-black/10 bg-white"}`}>
                 <div className="flex items-center gap-3">
-                  <input aria-label={`Select ${student.displayName}`} type="checkbox" checked={selectedStudentIds.includes(student.id)} onChange={() => toggleStudentSelection(student.id)} />
                   <div className="min-w-0 flex-1">
                     {isEditing ? <input className="form-control py-2" value={draftRow.displayName} onChange={(event) => setDraft((current) => ({ ...current, [student.id]: { ...draftRow, displayName: event.target.value } }))} /> : <div className="truncate font-semibold">{student.displayName}</div>}
                     <div className="text-xs text-black/50">Seat {student.seatNumber} · {draftRow.active ? "Active" : "Inactive"}</div>
                   </div>
-                  {!isEditing && <button className="btn btn-ghost px-3 py-2 text-xs" type="button" disabled={Boolean(editingId)} onClick={() => { setEditingId(student.id); setDraft((current) => ({ ...current, [student.id]: student })); }}>Edit</button>}
+                  {!isEditing && <button className="btn btn-ghost px-3 py-2 text-xs" type="button" disabled={editingLocked} onClick={() => { setEditingId(student.id); setDraft((current) => ({ ...current, [student.id]: student })); }}>Edit</button>}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
                   {categories.map((category) => {
@@ -536,11 +502,13 @@ export default function StudentsSetupPage() {
                       <button className="btn btn-ghost flex-1 justify-center px-3 py-2 text-xs" type="button" onClick={() => setDraft((current) => ({ ...current, [student.id]: { ...draftRow, active: !draftRow.active } }))}>{draftRow.active ? "Set inactive" : "Set active"}</button>
                       <select className="form-control max-w-[130px] py-2 text-xs" value={draftRow.eog || ""} onChange={(event) => setDraft((current) => ({ ...current, [student.id]: { ...draftRow, eog: (event.target.value || null) as Student["eog"] } }))}>{eogOptions.map((option) => <option key={option || "none"} value={option || ""}>EOG {option ? option.replace("FIVE", "5").replace("FOUR", "4").replace("THREE", "3") : "—"}</option>)}</select>
                     </div>
-                    <div className="flex gap-1">
-                      <button className="btn btn-primary px-3 py-2 text-xs" type="button" disabled={!hasChanges} onClick={() => updateStudent(student.id, draftRow)}>Save</button>
-                      <button className="btn btn-ghost px-3 py-2 text-xs" type="button" onClick={() => cancelStudentEdit(student.id)}>Cancel</button>
-                      <button className="btn btn-ghost px-3 py-2 text-xs text-red-700" type="button" onClick={() => deleteStudent(student)}>Delete</button>
-                    </div>
+                    {!editingAll && (
+                      <div className="flex gap-1">
+                        <button className="btn btn-primary px-3 py-2 text-xs" type="button" disabled={!hasChanges} onClick={() => updateStudent(student.id, draftRow)}>Save</button>
+                        <button className="btn btn-ghost px-3 py-2 text-xs text-red-700" type="button" onClick={() => deleteStudent(student)}>Delete</button>
+                        <button className="btn btn-ghost px-3 py-2 text-xs" type="button" onClick={() => cancelStudentEdit(student.id)}>Cancel</button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -552,35 +520,33 @@ export default function StudentsSetupPage() {
 
       {showAddStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="hero-card max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto p-5">
-            <div>
-              <div className="small-header text-black/50">Single student</div>
-              <h2 className="section-title mb-0">Add Student</h2>
-              <div className="text-sm text-black/55">Add the name and student-specific setup together.</div>
-            </div>
+          <div className="hero-card max-h-[calc(100vh-2rem)] w-full max-w-3xl space-y-3 overflow-y-auto p-4" role="dialog" aria-modal="true" aria-labelledby="add-student-heading">
+            <h2 className="sr-only" id="add-student-heading">Add Student</h2>
             <label className="block">
               <span className="text-sm font-semibold">Student name</span>
-              <input autoFocus className="form-control mt-1" value={newStudent.displayName} onChange={(event) => setNewStudent((current) => ({ ...current, displayName: event.target.value }))} />
+              <input autoFocus className="form-control mt-1 py-2" value={newStudent.displayName} onChange={(event) => setNewStudent((current) => ({ ...current, displayName: event.target.value }))} />
             </label>
             <div>
               <div className="text-sm font-semibold">Student attributes</div>
-              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="mt-1.5 grid grid-cols-3 gap-1.5 sm:grid-cols-6">
                 {categories.map((category) => {
                   const active = newStudent[category.key];
-                  return <button key={`new-${category.key}`} className="min-h-[44px] whitespace-nowrap rounded-full border border-black/20 px-3 text-xs font-bold" type="button" aria-pressed={active} style={{ background: active ? category.color : "#f1f1f1" }} onClick={() => setNewStudent((current) => ({ ...current, [category.key]: !active }))}>{category.label}</button>;
+                  return <button key={`new-${category.key}`} className="min-h-[36px] whitespace-nowrap rounded-full border border-black/20 px-2 text-[11px] font-bold" type="button" aria-pressed={active} style={{ background: active ? category.color : "#f1f1f1" }} onClick={() => setNewStudent((current) => ({ ...current, [category.key]: !active }))}>{category.label}</button>;
                 })}
               </div>
             </div>
-            <label className="block">
-              <span className="text-sm font-semibold">EOG level</span>
-              <select className="form-control mt-1" value={newStudent.eog || ""} onChange={(event) => setNewStudent((current) => ({ ...current, eog: (event.target.value || null) as Student["eog"] }))}>
-                {eogOptions.map((option) => <option key={`new-eog-${option || "none"}`} value={option || ""}>{option ? option.replace("FIVE", "5").replace("FOUR", "4").replace("THREE", "3") : "Not set"}</option>)}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold">Notes <span className="font-normal text-black/45">(optional)</span></span>
-              <textarea className="form-control mt-1 min-h-[90px]" value={newStudent.notes} onChange={(event) => setNewStudent((current) => ({ ...current, notes: event.target.value }))} />
-            </label>
+            <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+              <label className="block">
+                <span className="text-sm font-semibold">EOG level</span>
+                <select className="form-control mt-1 py-2" value={newStudent.eog || ""} onChange={(event) => setNewStudent((current) => ({ ...current, eog: (event.target.value || null) as Student["eog"] }))}>
+                  {eogOptions.map((option) => <option key={`new-eog-${option || "none"}`} value={option || ""}>{option ? option.replace("FIVE", "5").replace("FOUR", "4").replace("THREE", "3") : "Not set"}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold">Notes <span className="font-normal text-black/45">(optional)</span></span>
+                <textarea className="form-control mt-1 min-h-[64px] py-2" value={newStudent.notes} onChange={(event) => setNewStudent((current) => ({ ...current, notes: event.target.value }))} />
+              </label>
+            </div>
             <div className="flex gap-2">
               <button className="btn btn-primary" type="button" disabled={!newStudent.displayName.trim()} onClick={addStudent}>Add Student</button>
               <button className="btn btn-ghost" type="button" onClick={() => {
