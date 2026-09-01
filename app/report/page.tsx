@@ -333,7 +333,7 @@ function AttendanceSeatChart({
   attendanceByStudentId: Map<string, AttendanceStatus>;
 }) {
   return (
-    <ClassroomCanvas className="h-[min(560px,70vh)] min-h-[390px] p-4">
+    <ClassroomCanvas className="aspect-[1040/528] w-full" maxScale={2}>
       {desks.length === 0 ? (
         <div className="flex h-full items-center justify-center text-sm text-black/60">
           No seating chart found for this block.
@@ -378,7 +378,7 @@ function MonitoringSeatChart({
   selectedLaps: MonitoringReport["laps"];
 }) {
   return (
-    <ClassroomCanvas className="h-[min(560px,70vh)] min-h-[390px] p-4">
+    <ClassroomCanvas className="aspect-[1040/528] w-full" maxScale={2}>
       {desks.length === 0 ? (
         <div className="flex h-full items-center justify-center text-sm text-black/60">
           No seating chart found for this block.
@@ -689,7 +689,7 @@ function ReportPageInner() {
     const namedLapNumbers = monitoringReport?.laps.map((lap) => lap.lapNumber) || [];
     setSelectedMonitoringLapNumbers((current) => {
       const filtered = current.filter((lapNumber) => namedLapNumbers.includes(lapNumber));
-      return filtered.length > 0 ? filtered : namedLapNumbers;
+      return filtered.length > 0 ? filtered : namedLapNumbers.slice(0, 1);
     });
   }, [monitoringReport]);
 
@@ -1228,6 +1228,9 @@ function ReportPageInner() {
 
                     {monitoringReport && monitoringReport.laps.length > 0 && (
                       <div className="rounded-2xl border border-black/10 bg-white/75 p-4">
+                        <div className="mb-3 text-sm font-bold text-black">
+                          Select one or more laps to display on the classroom map.
+                        </div>
                         <div className="grid gap-2 md:grid-cols-3">
                           {monitoringReport.laps.map((lap) => {
                             const isSelected = selectedMonitoringLapNumbers.includes(lap.lapNumber);
@@ -1240,6 +1243,7 @@ function ReportPageInner() {
                                     ? "border-sky-500 bg-sky-50 shadow-[0_10px_24px_rgba(14,116,144,0.12)]"
                                     : "border-black/10 bg-white hover:border-black/20"
                                 }`}
+                                aria-pressed={isSelected}
                                 onClick={() =>
                                   setSelectedMonitoringLapNumbers((current) =>
                                     current.includes(lap.lapNumber)

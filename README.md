@@ -99,6 +99,9 @@ scripts/      Database seed script
 - Saturday and Sunday monitor records are test data and are excluded from standard reports and weekly reporting totals.
 - Desk segments run left to right from Lap 1 through Lap 3.
 - Tapping a segment cycles green to yellow to red and back to green.
+- Monitoring opens with no laps selected; teachers may select one or more named laps, and performance taps save automatically in order.
+- Attendance remains an explicit batch-save workflow, while Command Center navigation flushes any pending monitoring save before leaving.
+- Class monitoring reports default to the first named lap and allow one or more laps to be displayed and exported together.
 - Absent students are masked and cannot be scored.
 
 ## Deployment

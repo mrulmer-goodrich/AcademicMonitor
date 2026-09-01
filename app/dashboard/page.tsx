@@ -3,7 +3,7 @@ import { addDays } from "date-fns";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isStandardReportingDay } from "@/lib/reporting";
-import { getActiveSchoolYear, getSchoolDate, normalizeDate } from "@/lib/server";
+import { calendarDayRange, getActiveSchoolYear, getSchoolDate, normalizeDate } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -275,7 +275,9 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
               where: {
                 schoolYearId: schoolYear.id,
                 blockId: { in: blockIds },
-                weekStart,
+                // Browser-saved week anchors can carry the teacher's local-midnight
+                // offset, while this server-rendered page uses the school date.
+                weekStart: calendarDayRange(weekStart),
                 dayIndex: todayDayIndex
               },
               select: { blockId: true, lapNumber: true }
@@ -556,7 +558,9 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
         <>
           <div className="hero-card flex flex-1 flex-col gap-3 overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-3 lg:p-3.5">
             <div className="flex flex-col gap-2 border-b border-black/10 pb-2.5 lg:flex-row lg:items-end lg:justify-between">
-              <h1 className="section-title mb-0 text-[clamp(1.85rem,2vw,2.35rem)]">Command Center</h1>
+              <h1 className="section-title relative mb-0 inline-block text-[clamp(1.85rem,2vw,2.35rem)] font-extrabold tracking-[-0.045em] text-[#071c2c] drop-shadow-[0_1px_0_rgba(255,255,255,0.8)] after:absolute after:-bottom-1 after:left-0 after:h-[3px] after:w-16 after:rounded-full after:bg-[linear-gradient(90deg,#1597a5,#c2d83e)] after:content-['']">
+                Command Center
+              </h1>
               <div className="flex flex-wrap items-center gap-2.5">
                 <DashboardQuickAction href="/setup/seating" label="Seating Chart" />
                 <DashboardQuickAction href="/setup/laps" label="Name Your Laps" />

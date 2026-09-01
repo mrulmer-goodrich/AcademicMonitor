@@ -2,16 +2,29 @@
 
 type ReturnToDashboardButtonProps = {
   className?: string;
+  disabled?: boolean;
+  onClick?: () => void | Promise<void>;
 };
 
-export default function ReturnToDashboardButton({ className = "" }: ReturnToDashboardButtonProps) {
+export default function ReturnToDashboardButton({
+  className = "",
+  disabled = false,
+  onClick
+}: ReturnToDashboardButtonProps) {
   return (
     <button
       type="button"
-      onClick={() => window.location.assign("/dashboard")}
+      onClick={() => {
+        if (onClick) {
+          void onClick();
+          return;
+        }
+        window.location.assign("/dashboard");
+      }}
+      disabled={disabled}
       className={`btn btn-primary w-full justify-center px-8 py-4 text-base md:w-auto ${className}`.trim()}
     >
-      Return to Dashboard
+      Command Center
     </button>
   );
 }

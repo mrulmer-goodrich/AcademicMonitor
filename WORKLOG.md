@@ -1,5 +1,25 @@
 # Worklog
 
+## 2026-09-01 — Monitoring entry, reports, and lap-name recognition
+
+Completed:
+
+- Changed the current-day lap lookup from exact `weekStart` timestamp equality to the matching Monday calendar-day window
+- Preserved existing Named Laps records saved at the teacher browser's local midnight while allowing the server-rendered dashboard to find them from its school-date midnight
+- Kept the correction read-only and backward-compatible, with no production-data rewrite or schema migration
+- Reused the calendar-day week-anchor lookup in class monitoring reports so successive named days in the same week resolve correctly
+- Changed Monitoring to open with no selected laps, bolded the selection instruction, dimmed and disabled the classroom map until a named lap is selected, and clarified that multiple laps can be monitored together
+- Made performance taps auto-save through a serialized, short-batch queue so rapid classroom input cannot complete out of order; Command Center navigation flushes pending monitoring changes, while attendance retains explicit batch saving
+- Renamed shared Return to Dashboard controls to Command Center and strengthened the Command Center heading with weight, contrast, and a compact accent without changing surrounding layout dimensions
+- Made class monitoring reports default to the first named lap, clearly invite one-or-more-lap selection, and scale attendance and monitoring classroom maps to the full available width
+
+Verification:
+
+- Reproduced the browser/server mismatch with an Eastern browser anchor of `2026-08-31T04:00:00.000Z` and confirmed it falls inside the corrected server window of `2026-08-31T00:00:00.000Z` through, but not including, `2026-09-01T00:00:00.000Z`
+- Passed strict TypeScript and the complete optimized production build; the build retained the existing hook-dependency warnings
+- Browser-checked the Command Center at desktop width with no visual regression and no browser-console warnings or errors; did not create verification records because the configured database is external
+- Browser-checked the stronger Command Center heading, Command Center navigation labels, monitoring autosave copy, and the expanded class report map with no browser-console warnings or errors
+
 ## 2026-08-29 — Recording QA workflow, privacy, and reporting correction
 
 Completed:

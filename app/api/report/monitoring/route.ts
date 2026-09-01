@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { startOfWeek, parseISO } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { getActiveSchoolYear, normalizeDate, requireUser } from "@/lib/server";
+import { calendarDayRange, getActiveSchoolYear, normalizeDate, requireUser } from "@/lib/server";
 import { isStandardReportingDay } from "@/lib/reporting";
 
 function parseDateParam(value: string | null) {
@@ -107,7 +107,7 @@ export async function GET(req: Request) {
       where: {
         schoolYearId: schoolYear.id,
         blockId,
-        weekStart,
+        weekStart: calendarDayRange(weekStart),
         dayIndex
       },
       orderBy: {

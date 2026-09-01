@@ -14,6 +14,9 @@ Review checklist:
 - Confirm Entire Class attendance switches cleanly among day, week, month, and custom-range views with compact secondary exports and no custom-date collisions
 - Confirm Attendance List remains available with unseated students while seat-map attendance and monitoring remain guarded
 - Confirm the Command Center refreshes immediately after Save & Return and reports the attendance status mix clearly
+- Confirm the Command Center recognizes current-day lap names saved from the weekly planner when browser and server timezones encode Monday midnight differently
+- Confirm Monitoring opens with no laps selected, clearly disables the classroom map until selection, and auto-saves rapid performance taps without losing their final order
+- Confirm class Monitoring Reports find saved lap names across the browser/server week-anchor offset, default to one selected lap, allow multi-lap comparison, and use the full available classroom-map width
 - Confirm the Command Center continues showing the current school day after midnight UTC but before midnight Eastern
 - Confirm the seating editor and attendance/monitoring canvas use the available screen and show every row on the classroom device
 - Archive the remaining 25/26 class, start 26/27, and create the new classes

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { parseISO, startOfDay } from "date-fns";
+import { addDays, parseISO, startOfDay } from "date-fns";
 import { currentSchoolYearLabel } from "@/lib/schoolYear";
 
 export const SCHOOL_TIME_ZONE = process.env.SCHOOL_TIME_ZONE || "America/New_York";
@@ -30,6 +30,11 @@ export async function getActiveSchoolYear(userId: string) {
 
 export function normalizeDate(date: Date) {
   return startOfDay(date);
+}
+
+export function calendarDayRange(date: Date) {
+  const start = normalizeDate(date);
+  return { gte: start, lt: addDays(start, 1) };
 }
 
 export function getSchoolDate(date = new Date()) {

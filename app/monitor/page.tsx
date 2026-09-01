@@ -61,6 +61,13 @@ type PerformanceRecord = {
   color: PerformanceColor;
 };
 
+type PerformanceUpdate = {
+  studentId: string;
+  lapNumber: number;
+  color?: PerformanceColor;
+  remove?: boolean;
+};
+
 const colorCycle: (PerformanceColor | null)[] = ["GREEN", "YELLOW", "RED", null];
 const attendanceCycle: AttendanceStatus[] = ["PRESENT", "ABSENT", "TARDY", "LEFT_EARLY"];
 const lapNumbers = [1, 2, 3];
@@ -78,6 +85,26 @@ function recordMapsEqual<T extends string>(left: Record<string, T>, right: Recor
   const rightKeys = Object.keys(right).sort();
   if (leftKeys.length !== rightKeys.length) return false;
   return leftKeys.every((key, index) => key === rightKeys[index] && left[key] === right[key]);
+}
+
+function performanceUpdatesBetween(
+  saved: Record<string, PerformanceColor>,
+  draft: Record<string, PerformanceColor>
+) {
+  return [
+    ...Object.entries(draft)
+      .filter(([key, color]) => saved[key] !== color)
+      .map(([key, color]) => {
+        const [studentId, lapNumber] = key.split("::");
+        return { studentId, lapNumber: Number(lapNumber), color };
+      }),
+    ...Object.keys(saved)
+      .filter((key) => !(key in draft))
+      .map((key) => {
+        const [studentId, lapNumber] = key.split("::");
+        return { studentId, lapNumber: Number(lapNumber), remove: true };
+      })
+  ] satisfies PerformanceUpdate[];
 }
 
 function attendanceLabel(status: AttendanceStatus) {
@@ -121,6 +148,10 @@ function MonitorPageInner() {
   const [error, setError] = useState<string | null>(null);
   const attendanceReadyRef = useRef(false);
   const attendancePromptInitializedRef = useRef(false);
+  const performanceAutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const performanceSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
+  const latestPerformanceRef = useRef<Record<string, PerformanceColor>>({});
+  const persistedPerformanceRef = useRef<Record<string, PerformanceColor>>({});
 
   const dateToUse = new Date();
   const dateKey = format(dateToUse, "yyyy-MM-dd");
@@ -155,21 +186,17 @@ function MonitorPageInner() {
   }, [blockId, dateKey, activeMode]);
 
   useEffect(() => {
-    const availableLapNumbers = isWeekday
-      ? laps
-          .filter((lap) => lap.dayIndex === dayIndex)
-          .sort((left, right) => left.lapNumber - right.lapNumber)
-          .map((lap) => lap.lapNumber)
-      : lapNumbers;
-
-    setSelectedLaps((prev) => {
-      const filtered = prev.filter((lapNumber) => availableLapNumbers.includes(lapNumber));
-      if (availableLapNumbers.length === 0) {
-        return filtered.length === 0 ? prev : [];
-      }
-      return filtered.length > 0 ? filtered : availableLapNumbers;
-    });
+    setSelectedLaps([]);
   }, [laps, dayIndex, isWeekday]);
+
+  useEffect(
+    () => () => {
+      if (performanceAutosaveTimerRef.current) {
+        clearTimeout(performanceAutosaveTimerRef.current);
+      }
+    },
+    []
+  );
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -237,6 +264,8 @@ function MonitorPageInner() {
       setDraftAttendance(cloneRecordMap(savedAttendanceMap));
       setSavedPerformance(savedPerformanceMap);
       setDraftPerformance(cloneRecordMap(savedPerformanceMap));
+      persistedPerformanceRef.current = cloneRecordMap(savedPerformanceMap);
+      latestPerformanceRef.current = cloneRecordMap(savedPerformanceMap);
       setError(null);
     } catch {
       setError("Unable to load monitor data.");
@@ -332,23 +361,80 @@ function MonitorPageInner() {
     setSaveState(null);
   }
 
+  async function persistPerformanceSnapshot(snapshot: Record<string, PerformanceColor>) {
+    const updates = performanceUpdatesBetween(persistedPerformanceRef.current, snapshot);
+    if (!updates.length) {
+      if (recordMapsEqual(latestPerformanceRef.current, snapshot)) {
+        setSaving(false);
+        setSaveState("Saved automatically.");
+      }
+      return true;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch("/api/performance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blockId, date: dateKey, records: updates })
+      });
+      if (!response.ok) throw new Error("performance");
+
+      const persisted = cloneRecordMap(snapshot);
+      persistedPerformanceRef.current = persisted;
+      setSavedPerformance(persisted);
+
+      if (recordMapsEqual(latestPerformanceRef.current, persisted)) {
+        setSaving(false);
+        setSaveState("Saved automatically.");
+      }
+      return true;
+    } catch {
+      setSaving(false);
+      setSaveState("Auto-save failed. Command Center will retry before leaving.");
+      return false;
+    }
+  }
+
+  function schedulePerformanceAutosave(snapshot: Record<string, PerformanceColor>) {
+    latestPerformanceRef.current = snapshot;
+    if (performanceAutosaveTimerRef.current) {
+      clearTimeout(performanceAutosaveTimerRef.current);
+    }
+    setSaving(true);
+    setSaveState("Saving automatically...");
+
+    performanceAutosaveTimerRef.current = setTimeout(() => {
+      performanceAutosaveTimerRef.current = null;
+      const queuedSnapshot = cloneRecordMap(latestPerformanceRef.current);
+      performanceSaveQueueRef.current = performanceSaveQueueRef.current.then(() =>
+        persistPerformanceSnapshot(queuedSnapshot)
+      );
+    }, 300);
+  }
+
+  async function flushPerformanceAutosave() {
+    if (performanceAutosaveTimerRef.current) {
+      clearTimeout(performanceAutosaveTimerRef.current);
+      performanceAutosaveTimerRef.current = null;
+    }
+    const snapshot = cloneRecordMap(latestPerformanceRef.current);
+    performanceSaveQueueRef.current = performanceSaveQueueRef.current.then(() =>
+      persistPerformanceSnapshot(snapshot)
+    );
+    return performanceSaveQueueRef.current;
+  }
+
   function cyclePerformance(studentId: string, lapNumber: number) {
     const key = performanceKey(studentId, lapNumber);
-    const currentColor = draftPerformance[key] ?? null;
+    const currentColor = latestPerformanceRef.current[key] ?? null;
     const nextColor = colorCycle[(colorCycle.indexOf(currentColor) + 1) % colorCycle.length];
+    const next = cloneRecordMap(latestPerformanceRef.current);
+    if (nextColor) next[key] = nextColor;
+    else delete next[key];
 
-    setDraftPerformance((prev) => {
-      if (!nextColor) {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      }
-      return {
-        ...prev,
-        [key]: nextColor
-      };
-    });
-    setSaveState(null);
+    setDraftPerformance(next);
+    schedulePerformanceAutosave(next);
   }
 
   function lapsSetupHref(includeNotice = false) {
@@ -384,28 +470,7 @@ function MonitorPageInner() {
       .filter(([studentId, status]) => savedAttendance[studentId] !== status)
       .map(([studentId, status]) => ({ studentId, status }));
 
-    const performanceUpdates = [
-      ...Object.entries(draftPerformance)
-        .filter(([key, color]) => savedPerformance[key] !== color)
-        .map(([key, color]) => {
-          const [studentId, lapNumber] = key.split("::");
-          return {
-            studentId,
-            lapNumber: Number(lapNumber),
-            color
-          };
-        }),
-      ...Object.keys(savedPerformance)
-        .filter((key) => !(key in draftPerformance))
-        .map((key) => {
-          const [studentId, lapNumber] = key.split("::");
-          return {
-            studentId,
-            lapNumber: Number(lapNumber),
-            remove: true
-          };
-        })
-    ];
+    const performanceUpdates = performanceUpdatesBetween(savedPerformance, draftPerformance);
 
     try {
       if (attendanceUpdates.length) {
@@ -440,10 +505,13 @@ function MonitorPageInner() {
 
       setSavedAttendance(cloneRecordMap(draftAttendance));
       setSavedPerformance(cloneRecordMap(draftPerformance));
+      persistedPerformanceRef.current = cloneRecordMap(draftPerformance);
+      latestPerformanceRef.current = cloneRecordMap(draftPerformance);
       setSaveState("Saved.");
 
       if (nextUrl) {
-        router.push(nextUrl);
+        if (nextUrl === "/dashboard") window.location.assign(nextUrl);
+        else router.push(nextUrl);
       }
     } catch {
       setSaveState("Unable to save changes.");
@@ -462,6 +530,17 @@ function MonitorPageInner() {
     await saveChanges({ nextUrl: "/dashboard" });
   }
 
+  async function handleCommandCenter() {
+    if (activeMode === "performance") {
+      const saved = await flushPerformanceAutosave();
+      if (saved && recordMapsEqual(persistedPerformanceRef.current, latestPerformanceRef.current)) {
+        window.location.assign("/dashboard");
+      }
+      return;
+    }
+    await saveChanges({ nextUrl: "/dashboard" });
+  }
+
   const monitoringLaps = lapNumbers.map((lapNumber) => {
     const lap = namedLapMap.get(lapNumber);
     return {
@@ -476,28 +555,34 @@ function MonitorPageInner() {
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 px-4 py-4 sm:px-6 sm:py-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <ReturnToDashboardButton />
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="text-sm text-black/60">
-            {saveState || (hasUnsavedChanges ? "Unsaved changes" : "No unsaved changes")}
+        <ReturnToDashboardButton onClick={handleCommandCenter} />
+        {activeMode === "attendance" ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-sm text-black/60" aria-live="polite">
+              {saveState || (hasUnsavedChanges ? "Unsaved changes" : "No unsaved changes")}
+            </div>
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={() => saveChanges()}
+              disabled={!blockId || saving || !hasUnsavedChanges}
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => saveChanges({ nextUrl: "/dashboard" })}
+              disabled={!blockId || saving}
+            >
+              {saving ? "Saving..." : "Save & Command Center"}
+            </button>
           </div>
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => saveChanges()}
-            disabled={!blockId || saving || !hasUnsavedChanges}
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
-          <button
-            className="btn btn-ghost"
-            type="button"
-            onClick={() => saveChanges({ nextUrl: "/dashboard" })}
-            disabled={!blockId || saving}
-          >
-            {saving ? "Saving..." : "Save & Return"}
-          </button>
-        </div>
+        ) : (
+          <div className="text-sm font-medium text-black/65" aria-live="polite">
+            {saveState || "Monitoring changes save automatically."}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -534,7 +619,13 @@ function MonitorPageInner() {
               )}
             </div>
 
-            <div className="text-sm text-black/60">
+            <div
+              className={`text-sm ${
+                activeMode === "performance" && namedLapCount > 0 && selectedMonitoringLaps.length === 0
+                  ? "font-bold text-black"
+                  : "text-black/60"
+              }`}
+            >
               {loading
                 ? "Loading..."
                 : !canUseSeatMap
@@ -547,7 +638,7 @@ function MonitorPageInner() {
                 ? "Name at least one lap to begin monitoring."
                 : selectedMonitoringLaps.length === 0
                 ? "Select one or more named laps to begin monitoring."
-                : "Named laps can be monitored immediately. Unnamed laps open Name Your Laps."}
+                : "You may select more than one lap to monitor at the same time."}
             </div>
           </div>
 
@@ -570,6 +661,7 @@ function MonitorPageInner() {
                           ? "border-sky-500 bg-sky-50 shadow-[0_10px_24px_rgba(14,116,144,0.12)]"
                           : "border-black/10 bg-white hover:border-black/20"
                       }`}
+                      aria-pressed={lap.isSelected}
                       onClick={() =>
                         setSelectedLaps((prev) =>
                           prev.includes(lap.lapNumber)
@@ -631,14 +723,21 @@ function MonitorPageInner() {
                       type="button"
                       onClick={() => requestNavigation(() => window.location.assign("/dashboard"))}
                     >
-                      Return to Dashboard
+                      Command Center
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            <ClassroomCanvas className="h-full border-0 bg-transparent shadow-none" maxScale={2}>
+            <ClassroomCanvas
+              className={`h-full border-0 bg-transparent shadow-none transition duration-200 ${
+                activeMode === "performance" && namedLapCount > 0 && selectedMonitoringLaps.length === 0
+                  ? "pointer-events-none grayscale opacity-40"
+                  : ""
+              }`}
+              maxScale={2}
+            >
             {desks.map((desk) => {
               const status = desk.studentId ? draftAttendance[desk.studentId] : undefined;
               const isAbsent = status === "ABSENT";
