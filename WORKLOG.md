@@ -1,5 +1,45 @@
 # Worklog
 
+## 2026-09-06 — Teacher feedback, multi-grade standards, and historical evidence
+
+Completed:
+
+- Removed the global marketing header from authenticated workspace routes while retaining it on public pages; added direct Account, Public Website, and Logout actions to Command Center
+- Expanded the Command Center accent to the full heading width, reordered setup shortcuts, renamed Other Reports to Reports, and made Weekly Data Collected open the selected block's weekly monitoring report
+- Stabilized the Students table geometry and moved the active count into its compact action row
+- Rebuilt Classes & Years as a compact sortable, school-year-grouped table with archived visibility, guarded `YY/ZZ` labels, and inline editing
+- Added a non-empty multi-grade assignment to every block so a Grade 7 honors block can audit Grade 7 and Grade 8 standards in the same year
+- Replaced legacy unqualified standards with fully qualified Grade 6–8 NC math codes and concise descriptions based on NCDPI standards and unpacking resources
+- Cleared only standard selections when a block's assigned grades change, preserving lap names and historical performance
+- Compacted Weekly Lap Plan, standardized Command Center navigation, moved week navigation right, wrapped long lap names, and returned directly to the requested monitor date and lap
+- Reworked Seating into an assignment-first toolbar, removed routine status clutter, retained visual-only overlap feedback, added multi-select movement/rotation, arrow-key movement, and a contextual remove action
+- Added a database uniqueness constraint and server idempotence so one student cannot receive duplicate desks
+- Allowed Monitoring to open with independently named laps, removed prerequisite-warning flashes, added guarded historical date navigation across the active school year, and preserved the existing serialized autosave behavior
+- Added week, month, and custom-range Monitoring Reports with independent per-day lap selection, grouped day cells, per-student and per-day color totals, and date-bearing CSV/XLSX rows
+- Alphabetized longitudinal report students, added per-student and per-day attendance totals, tightened report selectors, and changed absent monitoring desks to gray with a visible name and ABSENT banner
+
+Verification:
+
+- Prisma formatting and client generation completed
+- Strict TypeScript, Prisma schema validation, `git diff --check`, and the optimized `next build --no-lint` production compile passed after implementation
+- Focused checks passed for school-year normalization, multi-grade deduplication, legacy `G1` to `7.G.1` qualification, preservation of already-qualified Grade 8 codes, and the exact 31/23/25 Grade 6/7/8 standard counts
+- Both the full build's lint phase and a focused direct ESLint run stopped making progress locally and were terminated without a result
+- Audited the configured Railway data before applying the schema: 22 blocks and no duplicate student-desk assignments
+- Applied the Prisma schema, verified all 22 existing blocks received the Grade 7 default, and verified the student-desk uniqueness constraint against existing data
+- Backfilled 27 legacy standard references to fully qualified Grade 7 codes and verified no unqualified references remain
+- Assigned the active 26/27 Honors Math block to both Grade 7 and Grade 8 so its lap planner can audit the union of both standards libraries
+- Browser-accepted Command Center, Students, Classes & Years, Weekly Lap Plan, Seating, historical Monitoring, report selection, and multi-day Monitoring Reports at 1280×720 with no page-level overflow or console warnings/errors
+- Confirmed historical Monitoring derives the full active-year date range from both short and legacy long-form school-year labels
+- Chrome breakpoint emulation was unavailable during the final pass because another extension panel held browser control; the responsive implementation preserves the previously accepted tablet and phone layout contracts
+
+Decisions:
+
+- Block grade ownership is a set rather than a single value; standards shown in lap planning are the union of every assigned grade
+- Existing blocks receive Grade 7 by default when the schema is applied
+- Standard codes persist with their grade prefix so mixed-grade reporting remains unambiguous
+- Historical monitoring is editable only from the active school-year start through the current school day
+- Changing grade ownership invalidates standard selections but does not invalidate lap names or recorded evidence
+
 ## 2026-09-01 — Monitoring entry, reports, and lap-name recognition
 
 Completed:

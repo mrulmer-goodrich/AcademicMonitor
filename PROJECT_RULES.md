@@ -23,6 +23,8 @@
 - Do not reuse a student's seat number within a school year.
 - Do not commit `.env` files, database credentials, local databases, or real student information.
 - Treat schema changes as data migrations, even while local development uses `prisma db push`.
+- Apply schema changes to a verified non-production database before browser acceptance; never run `db:push` against the configured external database without explicit deployment authorization.
+- Store block grade ownership as a non-empty Grade 6–8 set and persist fully qualified standard codes such as `7.G.1`.
 
 ## Documentation
 

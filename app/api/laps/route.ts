@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveSchoolYear, requireUser } from "@/lib/server";
 import { parseISO } from "date-fns";
+import { normalizeGradeLevels, qualifyStandardCode, standardsForGrade } from "@/lib/standards";
 
 export async function GET(req: Request) {
   const user = await requireUser();
@@ -15,6 +16,15 @@ export async function GET(req: Request) {
   }
   const weekStart = parseISO(weekStartParam);
 
+  const block = await prisma.block.findFirst({
+    where: { id: blockId, schoolYearId: schoolYear.id },
+    select: { id: true, gradeLevels: true }
+  });
+  const gradeLevels = normalizeGradeLevels(block?.gradeLevels);
+  if (!block || gradeLevels.length === 0) {
+    return NextResponse.json({ error: "block_not_found" }, { status: 404 });
+  }
+
   const laps = await prisma.lapDefinition.findMany({
     where: {
       schoolYearId: schoolYear.id,
@@ -24,7 +34,13 @@ export async function GET(req: Request) {
     orderBy: [{ dayIndex: "asc" }, { lapNumber: "asc" }]
   });
 
-  return NextResponse.json({ laps });
+  return NextResponse.json({
+    gradeLevels,
+    laps: laps.map((lap) => ({
+      ...lap,
+      standardCode: qualifyStandardCode(lap.standardCode, gradeLevels[0])
+    }))
+  });
 }
 
 export async function POST(req: Request) {
@@ -34,6 +50,15 @@ export async function POST(req: Request) {
   const body = await req.json();
   const blockId = String(body.blockId || "");
   const weekStart = parseISO(String(body.weekStart || ""));
+  const block = await prisma.block.findFirst({
+    where: { id: blockId, schoolYearId: schoolYear.id },
+    select: { id: true, gradeLevels: true }
+  });
+  const gradeLevels = normalizeGradeLevels(block?.gradeLevels);
+  if (!block || gradeLevels.length === 0) {
+    return NextResponse.json({ error: "block_not_found" }, { status: 404 });
+  }
+  const validStandardCodes = new Set(gradeLevels.flatMap((gradeLevel) => standardsForGrade(gradeLevel)).map((standard) => standard.code));
 
   if (Array.isArray(body.entries)) {
     const entries = body.entries
@@ -49,11 +74,12 @@ export async function POST(req: Request) {
           const lapNumber = Number(entry.lapNumber);
           const name = String(entry.name || "").trim();
           if (Number.isNaN(dayIndex) || Number.isNaN(lapNumber)) return null;
+          const standardCode = qualifyStandardCode(entry.standardCode, gradeLevels[0]);
           return {
             dayIndex,
             lapNumber,
             name,
-            standardCode: entry.standardCode ? String(entry.standardCode) : null,
+            standardCode: standardCode && validStandardCodes.has(standardCode) ? standardCode : null,
             delete: Boolean(entry.delete) || !name
           };
         }
@@ -111,7 +137,10 @@ export async function POST(req: Request) {
   const dayIndex = Number(body.dayIndex);
   const lapNumber = Number(body.lapNumber);
   const name = String(body.name || "").trim();
-  const standardCode = body.standardCode ? String(body.standardCode) : null;
+  const requestedStandardCode = qualifyStandardCode(body.standardCode ? String(body.standardCode) : null, gradeLevels[0]);
+  const standardCode = requestedStandardCode && validStandardCodes.has(requestedStandardCode)
+    ? requestedStandardCode
+    : null;
 
   if (!blockId || !name || Number.isNaN(dayIndex) || Number.isNaN(lapNumber)) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });

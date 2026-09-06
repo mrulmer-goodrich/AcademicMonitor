@@ -8,7 +8,7 @@ import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
 import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
 
-type Block = { id: string; blockNumber: number; blockName: string };
+type Block = { id: string; blockNumber: number; blockName: string; gradeLevels: number[] };
 
 type Lap = {
   id: string;
@@ -61,6 +61,7 @@ function LapsSetupPageInner() {
   const focusDate = searchParams.get("focusDate");
   const requestedBlockId = searchParams.get("blockId");
   const notice = searchParams.get("notice");
+  const targetLapNumber = Number(searchParams.get("targetLap"));
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockId, setBlockId] = useState<string>("");
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -77,8 +78,13 @@ function LapsSetupPageInner() {
 
   useEffect(() => {
     loadBlocks();
-    loadStandards();
   }, []);
+
+  const selectedBlock = useMemo(() => blocks.find((block) => block.id === blockId) || null, [blocks, blockId]);
+
+  useEffect(() => {
+    if (selectedBlock) void loadStandards(selectedBlock.gradeLevels);
+  }, [selectedBlock]);
 
   useEffect(() => {
     if (!focusDate) return;
@@ -108,10 +114,13 @@ function LapsSetupPageInner() {
     const targetDate = new Date(`${focusDate}T09:00:00`);
     const targetIndex = (targetDate.getDay() + 6) % 7;
     const targetLaps = laps.filter((lap) => lap.dayIndex === targetIndex && lap.name.trim());
-    if (targetLaps.length === 3) {
+    const targetLapIsReady = Number.isInteger(targetLapNumber) && targetLapNumber >= 1 && targetLapNumber <= 3
+      ? targetLaps.some((lap) => lap.lapNumber === targetLapNumber)
+      : targetLaps.length > 0;
+    if (targetLapIsReady) {
       window.location.href = returnTo;
     }
-  }, [laps, returnTo, focusDate]);
+  }, [laps, returnTo, focusDate, targetLapNumber]);
 
   useEffect(() => {
     if (notice !== "name-laps-before-monitoring") return;
@@ -125,7 +134,10 @@ function LapsSetupPageInner() {
       return;
     }
     const data = await res.json();
-    const availableBlocks: Block[] = data.blocks || [];
+    const availableBlocks: Block[] = (data.blocks || []).map((block: Block) => ({
+      ...block,
+      gradeLevels: Array.isArray(block.gradeLevels) && block.gradeLevels.length > 0 ? block.gradeLevels : [7]
+    }));
     setBlocks(availableBlocks);
     if (!blockId && availableBlocks.length) {
       const matchingBlock = requestedBlockId
@@ -135,8 +147,8 @@ function LapsSetupPageInner() {
     }
   }
 
-  async function loadStandards() {
-    const res = await fetch("/api/standards");
+  async function loadStandards(gradeLevels: number[]) {
+    const res = await fetch(`/api/standards?grades=${gradeLevels.join(",")}`);
     const data = await res.json();
     setStandards(data.standards || []);
   }
@@ -307,7 +319,7 @@ function LapsSetupPageInner() {
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-1 px-4 sm:px-6">
-      <ReturnToDashboardButton className="!px-3 !py-1 text-xs" />
+      <div><ReturnToDashboardButton className="w-auto px-4 py-2 text-sm" /></div>
 
       {error && (
         <div className="hero-card p-4 text-sm text-red-700">
@@ -336,23 +348,7 @@ function LapsSetupPageInner() {
             ))}
           </select>
 
-          <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 whitespace-nowrap sm:flex sm:w-auto sm:shrink-0 sm:gap-2">
-            <button
-              className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm"
-              type="button"
-              onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, -7)))}
-            >
-              ← Previous
-            </button>
-            <div className="text-center text-sm font-semibold sm:text-base">Week of {format(weekStart, "MM/dd/yy")}</div>
-            <button
-              className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm"
-              type="button"
-              onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, 7)))}
-            >
-              Next →
-            </button>
-          </div>
+          {selectedBlock && <div className="whitespace-nowrap rounded-full bg-black/5 px-3 py-2 text-xs font-semibold text-black/60">Grades {selectedBlock.gradeLevels.join(" + ")} standards</div>}
 
           <div className="flex w-full flex-wrap items-center justify-end gap-2 md:ml-auto md:w-auto md:flex-nowrap">
             {!editing && (
@@ -396,6 +392,12 @@ function LapsSetupPageInner() {
               </>
             )}
           </div>
+
+          <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 whitespace-nowrap md:ml-auto md:w-auto md:shrink-0 md:gap-2">
+            <button className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm" type="button" onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, -7)))}>← Previous</button>
+            <div className="text-center text-sm font-semibold sm:text-base">Week of {format(weekStart, "MM/dd/yy")}</div>
+            <button className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm" type="button" onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, 7)))}>Next →</button>
+          </div>
         </div>
 
         {statusMessage && <div className="text-xs text-black/55" aria-live="polite">{statusMessage}</div>}
@@ -437,7 +439,7 @@ function LapsSetupPageInner() {
                     </div>
                   ) : (
                     <div className="mt-2">
-                      <div className="font-semibold">{lap?.name || <span className="text-black/35">No lap name</span>}</div>
+                      <div className="break-words font-semibold [overflow-wrap:anywhere]">{lap?.name || <span className="text-black/35">No lap name</span>}</div>
                       <div className="mt-1 text-xs text-black/55">{lap?.standardCode || "No standard selected"}</div>
                     </div>
                   )}
@@ -484,7 +486,7 @@ function LapsSetupPageInner() {
                     <div
                           className={`min-h-[88px] rounded-xl border p-2 transition ${
                             editing
-                              ? "border-black/15 bg-[#fffdf8] shadow-sm"
+                              ? "border-black/15 bg-white shadow-sm"
                               : focusDayIndex !== null && isFocusDay
                               ? "border-black/20 bg-white shadow-sm"
                               : "border-black/10 bg-white/92"
@@ -492,7 +494,7 @@ function LapsSetupPageInner() {
                         >
                           {!editing && (
                             <div className="min-h-[76px] space-y-1.5">
-                              <div className="text-sm font-semibold text-black">
+                              <div className="break-words [overflow-wrap:anywhere] text-sm font-semibold text-black">
                                 {lap?.name || <span className="text-black/35">No lap name</span>}
                               </div>
                               <div className="text-xs text-black/55">{lap?.standardCode || "No standard selected"}</div>

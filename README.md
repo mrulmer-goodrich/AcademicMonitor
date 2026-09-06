@@ -7,26 +7,27 @@ Academic Monitor is a touch-first classroom tool for recording attendance and st
 The core teacher workflow is implemented:
 
 - Account registration, login, profile, and password changes
-- Required school-year-scoped blocks and students, with archived-year rollover
+- Required school-year-scoped blocks and students, with archived-year rollover and one-or-more instructional grades per block
 - Student categories, EOG levels, and active/inactive status
 - Compact student management with complete single-student setup and Edit All attribute changes
 - Drag-and-drop seating charts with student and teacher desks
-- Three named laps per instructional day, with previous-week and same-week cross-class copying
+- Three named laps per instructional day, with previous-week and same-week cross-class copying and Grade 6–8 NC math standards
 - Attendance gating before monitoring begins
 - Tap-to-cycle performance capture: proficient, developing, and nothing written
 - Privacy-safe classroom indicators that preserve their established desk positions and teacher color/pattern cues without projected category labels or EOG values
-- Day, week, month, individual, monitoring, and attendance reports with CSV/XLSX export
+- Day, week, month, custom-range, individual, monitoring, and attendance reports with CSV/XLSX export
+- Historical monitoring entry from the active school-year start through the current school day
 - Responsive classroom layouts that keep seats, indicators, and lap controls together across Chromebook and tablet sizes
 - Weekend test sessions that can be used for practice without entering standard reports
 - Public landing, about, and contact pages
 
-The production build passes. There is no automated test suite yet.
+The optimized production compile and strict TypeScript checks pass. The full local lint scan can stall after compilation in this environment. There is no automated test suite yet.
 
 Known limitations:
 
 - Authentication uses a lightweight cookie/JWT implementation
 - Password reset is a stub; signed-in password changes work
-- Standards are a built-in seventh-grade math list
+- The built-in standards library currently covers NC Grade 6–8 mathematics; other grades and subjects are not yet included
 - Starting a new school year preserves the prior year and its classes in a collapsible archive; automatic class cloning is not implemented
 
 See [NEXT_TASK.md](NEXT_TASK.md) for current work and [WORKLOG.md](WORKLOG.md) for recent changes.
@@ -90,8 +91,9 @@ scripts/      Database seed script
 
 - A teacher's data is scoped to a school year.
 - A block is a class period within that school year.
+- A block owns one or more instructional grades, so accelerated classes can use standards from multiple grades in the same school year.
 - Each student receives an immutable internal ID and a school-year seat number that is never reused.
-- A teaching day has exactly three laps, and each lap must be named.
+- A teaching day has exactly three lap positions; each position can be named and monitored independently.
 - Attendance List is available before seating is complete; seat-map attendance and lap monitoring require every active student to have a desk.
 - Attendance is complete when every active student has a recorded status. The Command Center separately summarizes present, absent, tardy, and left-early totals.
 - Weekday monitoring requires a seated class and at least one named, selected lap; incomplete attendance produces a warning without blocking the teacher.
@@ -100,8 +102,9 @@ scripts/      Database seed script
 - Desk segments run left to right from Lap 1 through Lap 3.
 - Tapping a segment cycles green to yellow to red and back to green.
 - Monitoring opens with no laps selected; teachers may select one or more named laps, and performance taps save automatically in order.
+- Monitoring dates are limited to the active school year through the current school day; pending performance saves flush before changing dates.
 - Attendance remains an explicit batch-save workflow, while Command Center navigation flushes any pending monitoring save before leaving.
-- Class monitoring reports default to the first named lap and allow one or more laps to be displayed and exported together.
+- Class monitoring reports default to the first named lap for each date, support day/week/month/custom ranges, and allow an independent lap selection for every reported date.
 - Absent students are masked and cannot be scored.
 
 ## Deployment

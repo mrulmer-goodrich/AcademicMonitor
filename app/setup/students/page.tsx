@@ -385,23 +385,22 @@ export default function StudentsSetupPage() {
               </button>
             )}
           </div>
-          <label className="ml-auto inline-flex min-h-[36px] items-center gap-2 whitespace-nowrap rounded-full border border-black/15 bg-white px-3 text-xs font-semibold">
+          <div className="ml-auto flex min-w-[150px] items-center justify-end text-xs font-semibold text-black/60" aria-live="polite">
+            {statusMessage || `${students.filter((student) => student.active).length} active students`}
+          </div>
+          <label className="inline-flex min-h-[36px] items-center gap-2 whitespace-nowrap rounded-full border border-black/15 bg-white px-3 text-xs font-semibold">
             <input type="checkbox" checked={showInactive} onChange={(event) => setShowInactive(event.target.checked)} disabled={editingLocked} />
             Show inactive
           </label>
         </div>
 
-        <div className="flex min-h-[24px] items-center text-xs text-black/60" aria-live="polite">
-          {statusMessage || `${students.filter((student) => student.active).length} active students`}
-        </div>
-
-        <div className="hidden max-h-[calc(100vh-230px)] min-h-[280px] overflow-auto lg:block">
+        <div className="hidden max-h-[calc(100vh-205px)] min-h-[280px] overflow-auto lg:block">
           <table className="table table-compact min-w-[900px]">
             <thead className="sticky-head">
               <tr>
-                <th className="w-[150px]"><button className="font-semibold" type="button" onClick={() => toggleSort("displayName")}>Student{sortLabel("displayName")}</button></th>
-                <th className="w-[72px] text-center">Status</th>
-                <th>
+                <th className="w-[176px]"><button className="font-semibold" type="button" onClick={() => toggleSort("displayName")}>Student{sortLabel("displayName")}</button></th>
+                <th className="w-[84px] text-center">Status</th>
+                <th className="w-[310px]">
                   <div className="flex items-center gap-1">
                     {categories.map((category) => (
                       <button key={`sort-${category.key}`} className="min-w-[44px] whitespace-nowrap rounded-full border border-black/15 px-1.5 py-1 text-[10px] font-bold" type="button" onClick={() => toggleSort(category.key)}>
@@ -441,8 +440,8 @@ export default function StudentsSetupPage() {
                   <tr key={student.id} className={isEditing ? "bg-amber-50/70" : "bg-white/40"}>
                     <td>
                       {isEditing ? (
-                        <input className="form-control h-8 py-1.5 text-sm" value={draftRow.displayName} onChange={(event) => setDraft((current) => ({ ...current, [student.id]: { ...draftRow, displayName: event.target.value } }))} />
-                      ) : <div className="flex h-8 items-center truncate font-semibold">{student.displayName}</div>}
+                        <input className="form-control h-8 py-1.5 text-xs font-semibold" value={draftRow.displayName} onChange={(event) => setDraft((current) => ({ ...current, [student.id]: { ...draftRow, displayName: event.target.value } }))} />
+                      ) : <div className="flex h-8 items-center truncate text-xs font-semibold">{student.displayName}</div>}
                     </td>
                     <td className="text-center">
                       {isEditing ? (

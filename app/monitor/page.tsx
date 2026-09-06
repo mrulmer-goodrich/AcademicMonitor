@@ -3,12 +3,13 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { format, startOfWeek } from "date-fns";
+import { addDays, format, parseISO, startOfWeek } from "date-fns";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 import StudentIndicators from "@/components/StudentIndicators";
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
 import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
+import { normalizeSchoolYearLabel } from "@/lib/schoolYear";
 import { normalizeDeskGeometry } from "@/lib/classroomGeometry";
 
 type Block = { id: string; blockNumber: number; blockName: string };
@@ -126,6 +127,7 @@ function MonitorPageInner() {
   const searchParams = useSearchParams();
   const requestedBlockId = searchParams.get("blockId");
   const requestedMode = searchParams.get("mode") === "performance" ? "performance" : "attendance";
+  const requestedDate = searchParams.get("date");
 
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockId, setBlockId] = useState<string>("");
@@ -146,6 +148,9 @@ function MonitorPageInner() {
   const [saving, setSaving] = useState(false);
   const [saveState, setSaveState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dateKey, setDateKey] = useState(() => /^\d{4}-\d{2}-\d{2}$/.test(requestedDate || "") ? requestedDate! : format(new Date(), "yyyy-MM-dd"));
+  const [schoolToday, setSchoolToday] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [schoolYearStart, setSchoolYearStart] = useState("");
   const attendanceReadyRef = useRef(false);
   const attendancePromptInitializedRef = useRef(false);
   const performanceAutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -153,8 +158,7 @@ function MonitorPageInner() {
   const latestPerformanceRef = useRef<Record<string, PerformanceColor>>({});
   const persistedPerformanceRef = useRef<Record<string, PerformanceColor>>({});
 
-  const dateToUse = new Date();
-  const dateKey = format(dateToUse, "yyyy-MM-dd");
+  const dateToUse = parseISO(`${dateKey}T12:00:00`);
   const weekStart = startOfWeek(dateToUse, { weekStartsOn: 1 });
   const dayIndex = (dateToUse.getDay() + 6) % 7;
   const isWeekday = dayIndex >= 0 && dayIndex <= 4;
@@ -206,6 +210,18 @@ function MonitorPageInner() {
     }
     const data = await res.json();
     const nextBlocks: Block[] = data.blocks || [];
+    const nextSchoolToday = typeof data.schoolDate === "string" ? data.schoolDate : format(new Date(), "yyyy-MM-dd");
+    const normalizedSchoolYear = normalizeSchoolYearLabel(String(data.schoolYear?.label || ""));
+    const schoolYearPrefix = normalizedSchoolYear?.slice(0, 2);
+    const nextSchoolYearStart = schoolYearPrefix ? `20${schoolYearPrefix}-07-01` : "";
+    setSchoolToday(nextSchoolToday);
+    setSchoolYearStart(nextSchoolYearStart);
+    const requestedDateIsValid = Boolean(
+      requestedDate &&
+      requestedDate <= nextSchoolToday &&
+      (!nextSchoolYearStart || requestedDate >= nextSchoolYearStart)
+    );
+    setDateKey(requestedDateIsValid ? requestedDate! : nextSchoolToday);
     setBlocks(nextBlocks);
     if (nextBlocks.length === 0) setLoading(false);
     if (!blockId && nextBlocks.length) {
@@ -437,11 +453,27 @@ function MonitorPageInner() {
     schedulePerformanceAutosave(next);
   }
 
-  function lapsSetupHref(includeNotice = false) {
+  function lapsSetupHref(includeNotice = false, targetLap?: number) {
     const base = `/setup/laps?blockId=${blockId}&focusDate=${dateKey}&returnTo=${encodeURIComponent(
-      `/monitor?blockId=${blockId}&mode=performance`
+      `/monitor?blockId=${blockId}&mode=performance&date=${dateKey}`
     )}`;
-    return includeNotice ? `${base}&notice=name-laps-before-monitoring` : base;
+    return `${base}${includeNotice ? "&notice=name-laps-before-monitoring" : ""}${targetLap ? `&targetLap=${targetLap}` : ""}`;
+  }
+
+  function requestLapSetup(lapNumber: number) {
+    if (!confirm(`Lap ${lapNumber} is not named for ${format(dateToUse, "EEEE, MMMM d")}. Name it now?`)) return;
+    requestNavigation(() => router.push(lapsSetupHref(true, lapNumber)));
+  }
+
+  async function changeMonitorDate(nextDate: string) {
+    if (!nextDate || nextDate < schoolYearStart || nextDate > schoolToday || nextDate === dateKey) return;
+    const changeDate = () => setDateKey(nextDate);
+    if (activeMode === "performance") {
+      const saved = await flushPerformanceAutosave();
+      if (saved) changeDate();
+      return;
+    }
+    requestNavigation(changeDate);
   }
 
   async function saveChanges(options: { nextUrl?: string } = {}) {
@@ -556,6 +588,12 @@ function MonitorPageInner() {
     <div className="mx-auto max-w-[1600px] space-y-6 px-4 py-4 sm:px-6 sm:py-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <ReturnToDashboardButton onClick={handleCommandCenter} />
+        <div className="grid w-full grid-cols-[40px_minmax(150px,1fr)_40px_auto] items-center gap-1.5 sm:w-auto">
+          <button className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold" type="button" aria-label="Previous monitoring date" onClick={() => void changeMonitorDate(format(addDays(dateToUse, -1), "yyyy-MM-dd"))} disabled={Boolean(schoolYearStart && dateKey <= schoolYearStart)}>←</button>
+          <input className="h-10 min-w-0 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium" type="date" value={dateKey} min={schoolYearStart || undefined} max={schoolToday} onChange={(event) => void changeMonitorDate(event.target.value)} aria-label="Monitoring date" />
+          <button className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold" type="button" aria-label="Next monitoring date" onClick={() => void changeMonitorDate(format(addDays(dateToUse, 1), "yyyy-MM-dd"))} disabled={dateKey >= schoolToday}>→</button>
+          <button className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold" type="button" onClick={() => void changeMonitorDate(schoolToday)} disabled={dateKey === schoolToday}>Today</button>
+        </div>
         {activeMode === "attendance" ? (
           <div className="flex flex-wrap items-center gap-3">
             <div className="text-sm text-black/60" aria-live="polite">
@@ -595,6 +633,12 @@ function MonitorPageInner() {
         <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950 shadow-sm">
           <span className="font-semibold">Weekend test session.</span> You can take attendance and monitor all three test
           laps today. Saturday and Sunday records are automatically excluded from standard reports.
+        </div>
+      )}
+
+      {dateKey < schoolToday && (
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 shadow-sm">
+          Editing records for <span className="font-semibold">{format(dateToUse, "EEEE, MMMM d, yyyy")}</span>.
         </div>
       )}
 
@@ -642,7 +686,7 @@ function MonitorPageInner() {
             </div>
           </div>
 
-          {activeMode === "performance" && !attendanceComplete && canUseSeatMap && (
+          {!loading && activeMode === "performance" && !attendanceComplete && canUseSeatMap && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               Attendance is not complete. Monitoring is still available, but attendance should be taken first.
             </div>
@@ -678,7 +722,7 @@ function MonitorPageInner() {
                       key={lap.lapNumber}
                       type="button"
                       className="btn btn-ghost justify-center border-2 border-dashed border-black/20 px-3 py-3 text-center"
-                      onClick={() => requestNavigation(() => router.push(lapsSetupHref(true)))}
+                      onClick={() => requestLapSetup(lap.lapNumber)}
                     >
                       Name Lap {lap.lapNumber}
                     </button>
@@ -702,7 +746,7 @@ function MonitorPageInner() {
               </div>
             )}
 
-            {canUseSeatMap && activeMode === "performance" && namedLapCount === 0 && !isTestSession && (
+            {!loading && canUseSeatMap && activeMode === "performance" && namedLapCount === 0 && !isTestSession && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-[rgba(255,250,243,0.78)] px-6 backdrop-blur-sm">
                 <div className="max-w-xl rounded-[24px] border border-black/10 bg-white/92 px-8 py-7 text-center shadow-[0_18px_40px_rgba(11,27,42,0.14)]">
                   <div className="text-2xl font-semibold">Name a lap before monitoring.</div>
@@ -714,7 +758,7 @@ function MonitorPageInner() {
                     <button
                       className="btn btn-primary"
                       type="button"
-                      onClick={() => requestNavigation(() => router.push(lapsSetupHref(true)))}
+                      onClick={() => requestLapSetup(1)}
                     >
                       Name Your Laps
                     </button>

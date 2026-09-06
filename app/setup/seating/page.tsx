@@ -53,11 +53,11 @@ function SeatingSetupPageInner() {
   const [desks, setDesks] = useState<Desk[]>([]);
   const [unassigned, setUnassigned] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
-  const [selectedDeskId, setSelectedDeskId] = useState<string | null>(null);
+  const [selectedDeskIds, setSelectedDeskIds] = useState<string[]>([]);
+  const [multiSelect, setMultiSelect] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const gridSize = 20;
   const [snapTargetId, setSnapTargetId] = useState<string | null>(null);
-  const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [teacherName, setTeacherName] = useState<string>("Teacher");
   const [canvasScale, setCanvasScale] = useState(1);
   const [creatingDesk, setCreatingDesk] = useState<"student" | "all" | "teacher" | null>(null);
@@ -69,7 +69,10 @@ function SeatingSetupPageInner() {
     startY: number;
     originX: number;
     originY: number;
-    groupPositions?: Record<string, { x: number; y: number }>;
+    moved: boolean;
+    wasSelected: boolean;
+    movingIds: string[];
+    positions: Record<string, { x: number; y: number }>;
   } | null>(null);
 
   useEffect(() => {
@@ -144,7 +147,6 @@ function SeatingSetupPageInner() {
         body: JSON.stringify({ blockId, type: "STUDENT", studentId: selectedStudentId, ...position })
       });
       if (!res.ok) throw new Error("Unable to add that student desk.");
-      setLastSaved("Saved");
       await Promise.all([loadDesks(), loadUnassigned()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to add that student desk.");
@@ -173,7 +175,6 @@ function SeatingSetupPageInner() {
         placedDesks = [...placedDesks, normalizeDeskGeometry(data.desk)];
         setDesks(placedDesks);
       }
-      setLastSaved("Saved");
       await Promise.all([loadDesks(), loadUnassigned()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to add every student desk.");
@@ -195,7 +196,6 @@ function SeatingSetupPageInner() {
         body: JSON.stringify({ blockId, type: "TEACHER", x: 80, y: 80, width: 156, height: 92 })
       });
       if (res.ok) {
-        setLastSaved("Saved");
         await loadDesks();
       }
     } finally {
@@ -210,13 +210,14 @@ function SeatingSetupPageInner() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates)
     });
-    setLastSaved("Saved");
   }
 
-  async function deleteDesk() {
-    if (!selectedDeskId) return;
-    await fetch(`/api/desks/${selectedDeskId}`, { method: "DELETE" });
-    setSelectedDeskId(null);
+  async function removeSelectedDesks() {
+    if (selectedDeskIds.length === 0) return;
+    const label = selectedDeskIds.length === 1 ? "this desk" : `${selectedDeskIds.length} desks`;
+    if (!confirm(`Remove ${label} from the seating chart? Students will return to the unassigned list.`)) return;
+    await Promise.all(selectedDeskIds.map((id) => fetch(`/api/desks/${id}`, { method: "DELETE" })));
+    setSelectedDeskIds([]);
     await loadDesks();
     await loadUnassigned();
   }
@@ -224,70 +225,50 @@ function SeatingSetupPageInner() {
   // grouping controls removed in v1.1 simplification
 
   function onPointerDown(event: React.PointerEvent, desk: Desk) {
+    if (unassigned.length > 0) return;
     event.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setSelectedDeskId(desk.id);
-    const groupPositions =
-      desk.groupId
-        ? Object.fromEntries(
-            desks
-              .filter((d) => d.groupId === desk.groupId)
-              .map((d) => [d.id, { x: d.x, y: d.y }])
-          )
-        : undefined;
+    const wasSelected = selectedDeskIds.includes(desk.id);
+    const movingIds = multiSelect
+      ? (wasSelected ? selectedDeskIds : [...selectedDeskIds, desk.id])
+      : [desk.id];
+    setSelectedDeskIds(movingIds);
     dragRef.current = {
       id: desk.id,
       startX: event.clientX,
       startY: event.clientY,
       originX: desk.x,
       originY: desk.y,
-      groupPositions
+      moved: false,
+      wasSelected,
+      movingIds,
+      positions: Object.fromEntries(desks.filter((item) => movingIds.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }]))
     };
   }
 
   function onPointerMove(event: React.PointerEvent) {
     if (!dragRef.current) return;
-    const { id, startX, startY, originX, originY, groupPositions } = dragRef.current;
-    const dx = (event.clientX - startX) / canvasScale;
-    const dy = (event.clientY - startY) / canvasScale;
+    const { id, startX, startY, movingIds, positions } = dragRef.current;
+    const rawDx = (event.clientX - startX) / canvasScale;
+    const rawDy = (event.clientY - startY) / canvasScale;
+    if (Math.abs(rawDx) > 2 || Math.abs(rawDy) > 2) dragRef.current.moved = true;
+    const snappedDx = Math.round(rawDx / gridSize) * gridSize;
+    const snappedDy = Math.round(rawDy / gridSize) * gridSize;
+    const movingDesks = desks.filter((desk) => movingIds.includes(desk.id));
+    const dx = Math.min(
+      Math.max(snappedDx, ...movingDesks.map((desk) => -(positions[desk.id]?.x ?? desk.x))),
+      ...movingDesks.map((desk) => CLASSROOM_WIDTH - desk.width - (positions[desk.id]?.x ?? desk.x))
+    );
+    const dy = Math.min(
+      Math.max(snappedDy, ...movingDesks.map((desk) => -(positions[desk.id]?.y ?? desk.y))),
+      ...movingDesks.map((desk) => CLASSROOM_HEIGHT - desk.height - (positions[desk.id]?.y ?? desk.y))
+    );
 
     setDesks((prev) => {
-      const current = prev.find((d) => d.id === id);
-      if (!current) return prev;
-      const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-      const maxX = CLASSROOM_WIDTH - current.width;
-      const maxY = CLASSROOM_HEIGHT - current.height;
-      if (current.groupId) {
-        return prev.map((desk) =>
-          desk.groupId === current.groupId
-            ? {
-                ...desk,
-                x: clamp(
-                  Math.round(((groupPositions?.[desk.id]?.x ?? desk.x) + dx) / gridSize) * gridSize,
-                  0,
-                  maxX
-                ),
-                y: clamp(
-                  Math.round(((groupPositions?.[desk.id]?.y ?? desk.y) + dy) / gridSize) * gridSize,
-                  0,
-                  maxY
-                )
-              }
-            : desk
-        );
-      }
-      const nextX = clamp(
-        Math.round((originX + dx) / gridSize) * gridSize,
-        0,
-        maxX
-      );
-      const nextY = clamp(
-        Math.round((originY + dy) / gridSize) * gridSize,
-        0,
-        maxY
-      );
-      return prev.map((desk) => (desk.id === id ? { ...desk, x: nextX, y: nextY } : desk));
+      return prev.map((desk) => movingIds.includes(desk.id)
+        ? { ...desk, x: (positions[desk.id]?.x ?? desk.x) + dx, y: (positions[desk.id]?.y ?? desk.y) + dy }
+        : desk);
     });
 
     const current = desks.find((d) => d.id === id);
@@ -307,9 +288,14 @@ function SeatingSetupPageInner() {
 
   async function onPointerUp() {
     if (!dragRef.current) return;
-    const id = dragRef.current.id;
+    const { id, moved, wasSelected, movingIds } = dragRef.current;
     dragRef.current = null;
     setSnapTargetId(null);
+
+    if (multiSelect && !moved && wasSelected) {
+      setSelectedDeskIds((current) => current.filter((selectedId) => selectedId !== id));
+      return;
+    }
 
     const desk = desks.find((d) => d.id === id);
     if (!desk) return;
@@ -335,19 +321,48 @@ function SeatingSetupPageInner() {
       }
     }
 
-    const updates: Partial<Desk> = { x: nextX, y: nextY };
-    await updateDesk(desk.id, updates);
+    if (movingIds.length > 1) {
+      await Promise.all(movingIds.map((movingId) => {
+        const movingDesk = desks.find((item) => item.id === movingId);
+        return movingDesk ? updateDesk(movingId, { x: movingDesk.x, y: movingDesk.y }) : Promise.resolve();
+      }));
+      return;
+    }
+    await updateDesk(desk.id, { x: nextX, y: nextY });
     setDesks((prev) => prev.map((d) => (d.id === desk.id ? { ...d, x: nextX, y: nextY } : d)));
-    setTimeout(() => setLastSaved(null), 1500);
   }
 
   function rotateSelected(delta: number) {
-    const desk = desks.find((d) => d.id === selectedDeskId);
-    if (!desk) return;
-    const rotation = (desk.rotation + delta) % 360;
-    setDesks((prev) => prev.map((d) => (d.id === desk.id ? { ...d, rotation } : d)));
-    updateDesk(desk.id, { rotation });
+    const selected = desks.filter((desk) => selectedDeskIds.includes(desk.id));
+    if (selected.length === 0) return;
+    setDesks((current) => current.map((desk) => selectedDeskIds.includes(desk.id)
+      ? { ...desk, rotation: (desk.rotation + delta + 360) % 360 }
+      : desk));
+    void Promise.all(selected.map((desk) => updateDesk(desk.id, { rotation: (desk.rotation + delta + 360) % 360 })));
   }
+
+  function moveSelectedBy(dx: number, dy: number) {
+    const selected = desks.filter((desk) => selectedDeskIds.includes(desk.id));
+    if (selected.length === 0 || unassigned.length > 0) return;
+    const allowedDx = Math.min(Math.max(dx, ...selected.map((desk) => -desk.x)), ...selected.map((desk) => CLASSROOM_WIDTH - desk.width - desk.x));
+    const allowedDy = Math.min(Math.max(dy, ...selected.map((desk) => -desk.y)), ...selected.map((desk) => CLASSROOM_HEIGHT - desk.height - desk.y));
+    const next = selected.map((desk) => ({ ...desk, x: desk.x + allowedDx, y: desk.y + allowedDy }));
+    setDesks((current) => current.map((desk) => next.find((item) => item.id === desk.id) || desk));
+    void Promise.all(next.map((desk) => updateDesk(desk.id, { x: desk.x, y: desk.y })));
+  }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (selectedDeskIds.length === 0 || unassigned.length > 0) return;
+      const step = event.shiftKey ? gridSize * 3 : gridSize;
+      const movement = event.key === "ArrowLeft" ? [-step, 0] : event.key === "ArrowRight" ? [step, 0] : event.key === "ArrowUp" ? [0, -step] : event.key === "ArrowDown" ? [0, step] : null;
+      if (!movement) return;
+      event.preventDefault();
+      moveSelectedBy(movement[0], movement[1]);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [desks, selectedDeskIds, unassigned.length]);
 
   const blockOptions = useMemo(
     () => blocks.map((block) => ({ id: block.id, label: `Block ${block.blockNumber} · ${block.blockName}` })),
@@ -371,82 +386,45 @@ function SeatingSetupPageInner() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <ReturnToDashboardButton className="w-auto shrink-0 px-4 py-2 text-sm md:min-w-0" />
+      <div><ReturnToDashboardButton className="w-auto shrink-0 px-4 py-2 text-sm md:min-w-0" /></div>
 
+      <div className="hero-card flex flex-wrap items-center gap-2 p-3">
         {blockLocked ? (
           <div className="rounded-full border border-black/15 bg-white/85 px-3 py-2 text-sm font-semibold text-black/80 shadow-sm">
             {selectedBlock ? `Block ${selectedBlock.blockNumber} · ${selectedBlock.blockName}` : "Selected Block"}
           </div>
         ) : (
-          <select className="form-control max-w-[220px] shrink-0" value={blockId} onChange={(e) => setBlockId(e.target.value)}>
-            {blockOptions.map((block) => (
-              <option key={block.id} value={block.id}>
-                {block.label}
-              </option>
-            ))}
+          <select className="form-control max-w-[240px] shrink-0 py-2 text-sm" value={blockId} onChange={(event) => { setBlockId(event.target.value); setSelectedDeskIds([]); }}>
+            {blockOptions.map((block) => <option key={block.id} value={block.id}>{block.label}</option>)}
           </select>
         )}
 
-        <select
-          className="form-control max-w-[180px] shrink-0"
-          value={selectedStudentId}
-          onChange={(e) => setSelectedStudentId(e.target.value)}
-          disabled={unassigned.length === 0 || Boolean(creatingDesk)}
-        >
-          {unassigned.map((student) => (
-            <option key={student.id} value={student.id}>
-              {student.displayName}
-            </option>
-          ))}
+        <select className="form-control max-w-[200px] shrink-0 py-2 text-sm" aria-label="Unassigned student" value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} disabled={unassigned.length === 0 || Boolean(creatingDesk)}>
+          {unassigned.length === 0 && <option value="">No students to add</option>}
+          {unassigned.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
         </select>
-        <button
-          className="btn btn-primary px-3 py-2 text-sm shrink-0"
-          type="button"
-          onClick={addStudentDesk}
-          disabled={unassigned.length === 0 || Boolean(creatingDesk)}
-        >
-          {creatingDesk === "student" ? "Adding…" : "Add"}
-        </button>
-        <button
-          className="btn btn-ghost px-3 py-2 text-sm shrink-0"
-          type="button"
-          onClick={addAllStudentDesks}
-          disabled={unassigned.length === 0 || Boolean(creatingDesk)}
-        >
-          {creatingDesk === "all" ? `Adding ${unassigned.length}…` : "Add All"}
-        </button>
-        {unassigned.length === 0 && <div className="text-sm text-black/60 w-full lg:w-auto">All students assigned</div>}
-        <button className="btn btn-ghost px-3 py-2 text-sm shrink-0" type="button" onClick={addTeacherDesk} disabled={Boolean(creatingDesk)}>
-          {creatingDesk === "teacher" ? "Adding…" : "Add Teacher Desk"}
-        </button>
-        <button className="btn btn-ghost px-3 py-2 text-sm shrink-0" type="button" onClick={() => rotateSelected(15)}>
-          +15°
-        </button>
-        <button className="btn btn-ghost px-3 py-2 text-sm shrink-0" type="button" onClick={() => rotateSelected(-15)}>
-          -15°
-        </button>
-        <button
-          className="btn btn-ghost px-3 py-2 text-sm shrink-0"
-          type="button"
-          onClick={deleteDesk}
-          disabled={!selectedDeskId}
-        >
-          Delete
-        </button>
-        <div className="h-5 basis-full text-sm text-black/60" aria-live="polite">
-          {lastSaved ? "Saved" : "Layout changes save immediately"}
+        <button className="btn btn-primary shrink-0 px-3 py-2 text-sm" type="button" onClick={addStudentDesk} disabled={unassigned.length === 0 || Boolean(creatingDesk)}>{creatingDesk === "student" ? "Adding…" : "Add Student"}</button>
+        <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={addAllStudentDesks} disabled={unassigned.length === 0 || Boolean(creatingDesk)}>{creatingDesk === "all" ? `Adding ${unassigned.length}…` : "Add All"}</button>
+
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={addTeacherDesk} disabled={unassigned.length > 0 || Boolean(creatingDesk)}>{creatingDesk === "teacher" ? "Adding…" : "Add Teacher Desk"}</button>
+          <button className={`btn shrink-0 px-3 py-2 text-sm ${multiSelect ? "btn-primary" : "btn-ghost"}`} type="button" aria-pressed={multiSelect} onClick={() => { setMultiSelect((current) => !current); setSelectedDeskIds([]); }} disabled={unassigned.length > 0}>Select Multiple</button>
+          <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={() => rotateSelected(-15)} disabled={unassigned.length > 0 || selectedDeskIds.length === 0}>−15°</button>
+          <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={() => rotateSelected(15)} disabled={unassigned.length > 0 || selectedDeskIds.length === 0}>+15°</button>
+          <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={() => setSelectedDeskIds([])} disabled={selectedDeskIds.length === 0}>Clear Selection</button>
+          {selectedDeskIds.length > 0 && (
+            <details className="relative">
+              <summary className="btn btn-ghost cursor-pointer list-none px-3 py-2 text-sm">More</summary>
+              <div className="absolute right-0 z-20 mt-2 w-52 rounded-xl border border-black/10 bg-white p-2 shadow-xl">
+                <button className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-50" type="button" onClick={() => void removeSelectedDesks()}>Remove selected desk{selectedDeskIds.length === 1 ? "" : "s"}</button>
+              </div>
+            </details>
+          )}
         </div>
       </div>
 
-      {overlappingDeskIds.size > 0 && (
-        <div className="rounded-2xl border border-amber-400/60 bg-amber-50/90 px-4 py-2 text-sm text-amber-950">
-          {overlappingDeskIds.size} desks overlap. They are highlighted below so you can separate them.
-        </div>
-      )}
-
       <ClassroomCanvas
-        className="aspect-[1040/528] w-full"
+        className={`aspect-[1040/528] w-full ${unassigned.length > 0 ? "opacity-60" : ""}`}
         canvasClassName="rounded-2xl border border-black/10"
         maxScale={2}
         onScaleChange={setCanvasScale}
@@ -464,7 +442,7 @@ function SeatingSetupPageInner() {
           <div
             key={desk.id}
             className={`absolute rounded-2xl border border-black/20 bg-white/90 text-center text-xs shadow ${
-              desk.id === selectedDeskId ? "ring-2 ring-ocean" : ""
+              selectedDeskIds.includes(desk.id) ? "ring-2 ring-ocean" : ""
             } ${desk.id === snapTargetId ? "ring-2 ring-coral" : ""} ${
               overlappingDeskIds.has(desk.id) ? "ring-4 ring-amber-400" : ""
             } ${

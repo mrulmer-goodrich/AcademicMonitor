@@ -43,62 +43,63 @@ model User {
 }
 
 model SchoolYear {
-  id        String   @id @default(cuid())
-  userId    String
-  label     String
-  active    Boolean  @default(true)
-  archived  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  blocks    Block[]
-  students  Student[]
-  desks     Desk[]
-  laps      LapDefinition[]
-  attendance AttendanceRecord[]
+  id             String             @id @default(cuid())
+  userId         String
+  label          String
+  active         Boolean            @default(true)
+  archived       Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  user           User               @relation(fields: [userId], references: [id])
+  blocks         Block[]
+  students       Student[]
+  desks          Desk[]
+  laps           LapDefinition[]
+  attendance     AttendanceRecord[]
   lapPerformance LapPerformance[]
 
   @@unique([userId, label])
 }
 
 model Block {
-  id           String   @id @default(cuid())
-  schoolYearId String
-  blockNumber  Int
-  blockName    String
-  archived     Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
-  students     Student[]
-  desks        Desk[]
-  laps         LapDefinition[]
-  attendance   AttendanceRecord[]
+  id             String             @id @default(cuid())
+  schoolYearId   String
+  blockNumber    Int
+  blockName      String
+  gradeLevels    Int[]              @default([7])
+  archived       Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  schoolYear     SchoolYear         @relation(fields: [schoolYearId], references: [id])
+  students       Student[]
+  desks          Desk[]
+  laps           LapDefinition[]
+  attendance     AttendanceRecord[]
   lapPerformance LapPerformance[]
 
   @@unique([schoolYearId, blockNumber])
 }
 
 model Student {
-  id            String   @id @default(cuid())
-  schoolYearId  String
-  blockId       String
-  seatNumber    Int
-  displayName   String
-  active        Boolean  @default(true)
-  ml            Boolean  @default(false)
-  mlNew         Boolean  @default(false)
-  iep504        Boolean  @default(false)
-  ec            Boolean  @default(false)
-  ca            Boolean  @default(false)
-  hiit          Boolean  @default(false)
-  eog           EogLevel?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String    @id @default(cuid())
+  schoolYearId String
+  blockId      String
+  seatNumber   Int
+  displayName  String
+  active       Boolean   @default(true)
+  ml           Boolean   @default(false)
+  mlNew        Boolean   @default(false)
+  iep504       Boolean   @default(false)
+  ec           Boolean   @default(false)
+  ca           Boolean   @default(false)
+  hiit         Boolean   @default(false)
+  eog          EogLevel?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  schoolYear    SchoolYear @relation(fields: [schoolYearId], references: [id])
-  block         Block      @relation(fields: [blockId], references: [id])
-  desks         Desk[]
-  attendance    AttendanceRecord[]
+  schoolYear     SchoolYear         @relation(fields: [schoolYearId], references: [id])
+  block          Block              @relation(fields: [blockId], references: [id])
+  desks          Desk[]
+  attendance     AttendanceRecord[]
   lapPerformance LapPerformance[]
 
   @@unique([schoolYearId, seatNumber])
@@ -110,7 +111,7 @@ model Desk {
   schoolYearId String
   blockId      String
   type         DeskType
-  studentId    String?
+  studentId    String?  @unique
   seatNumber   Int?
   x            Float    @default(0)
   y            Float    @default(0)
@@ -121,9 +122,9 @@ model Desk {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
-  block        Block      @relation(fields: [blockId], references: [id])
-  student      Student?   @relation(fields: [studentId], references: [id])
+  schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
+  block      Block      @relation(fields: [blockId], references: [id])
+  student    Student?   @relation(fields: [studentId], references: [id])
 }
 
 model LapDefinition {
@@ -138,43 +139,43 @@ model LapDefinition {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
-  block        Block      @relation(fields: [blockId], references: [id])
+  schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
+  block      Block      @relation(fields: [blockId], references: [id])
 
   @@unique([blockId, weekStart, dayIndex, lapNumber])
 }
 
 model AttendanceRecord {
-  id           String   @id @default(cuid())
+  id           String           @id @default(cuid())
   schoolYearId String
   blockId      String
   studentId    String
   date         DateTime
   status       AttendanceStatus
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
-  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
-  block        Block      @relation(fields: [blockId], references: [id])
-  student      Student    @relation(fields: [studentId], references: [id])
+  schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
+  block      Block      @relation(fields: [blockId], references: [id])
+  student    Student    @relation(fields: [studentId], references: [id])
 
   @@unique([studentId, date])
 }
 
 model LapPerformance {
-  id           String   @id @default(cuid())
+  id           String           @id @default(cuid())
   schoolYearId String
   blockId      String
   studentId    String
   date         DateTime
   lapNumber    Int
   color        PerformanceColor
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
-  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
-  block        Block      @relation(fields: [blockId], references: [id])
-  student      Student    @relation(fields: [studentId], references: [id])
+  schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
+  block      Block      @relation(fields: [blockId], references: [id])
+  student    Student    @relation(fields: [studentId], references: [id])
 
   @@unique([studentId, date, lapNumber])
 }

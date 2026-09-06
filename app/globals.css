@@ -41,6 +41,14 @@ a {
   padding-top: var(--topbar-height);
 }
 
+.app-shell-workspace main {
+  padding-top: 0;
+}
+
+.app-shell-workspace {
+  --topbar-height: 0px;
+}
+
 .hero-card {
   background: #ffffff;
   border: 1px solid rgba(11, 27, 42, 0.08);

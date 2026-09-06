@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getActiveSchoolYear, requireUser } from "@/lib/server";
+import { getActiveSchoolYear, getSchoolDate, requireUser } from "@/lib/server";
+import { normalizeGradeLevels } from "@/lib/standards";
 
 export async function GET(req: Request) {
   const user = await requireUser();
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
     where: { schoolYearId: schoolYear.id, ...(includeArchived ? {} : { archived: false }) },
     orderBy: { blockNumber: "asc" }
   });
-  return NextResponse.json({ blocks, schoolYear });
+  return NextResponse.json({ blocks, schoolYear, schoolDate: getSchoolDate().toISOString().slice(0, 10) });
 }
 
 export async function POST(req: Request) {
@@ -21,7 +22,8 @@ export async function POST(req: Request) {
   const body = await req.json();
   const blockNumber = Number(body.blockNumber);
   const blockName = String(body.blockName || "").trim();
-  if (!blockNumber || !blockName) {
+  const gradeLevels = normalizeGradeLevels(body.gradeLevels);
+  if (!blockNumber || !blockName || gradeLevels.length === 0) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
   const schoolYear = await getActiveSchoolYear(user.id);
@@ -29,7 +31,8 @@ export async function POST(req: Request) {
     data: {
       schoolYearId: schoolYear.id,
       blockNumber,
-      blockName
+      blockName,
+      gradeLevels
     }
   });
   return NextResponse.json({ block });

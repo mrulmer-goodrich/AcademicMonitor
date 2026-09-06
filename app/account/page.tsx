@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
 import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
+import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 
 type Me = {
   email: string;
@@ -106,6 +107,7 @@ export default function AccountPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-6 space-y-6">
+      <div><ReturnToDashboardButton className="w-auto px-4 py-2 text-sm" /></div>
       <div>
         <h1 className="section-title">Account</h1>
       </div>

@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isStandardReportingDay } from "@/lib/reporting";
 import { calendarDayRange, getActiveSchoolYear, getSchoolDate, normalizeDate } from "@/lib/server";
+import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -488,7 +489,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
           green: counts.green,
           yellow: counts.yellow,
           red: counts.red,
-          href: `/report?blockId=${block.id}&reportType=monitoring&scope=class&date=${todayIso}`
+          href: `/report?blockId=${block.id}&reportType=monitoring&scope=class&view=week&date=${todayIso}`
         };
       });
     }
@@ -558,14 +559,17 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
         <>
           <div className="hero-card flex flex-1 flex-col gap-3 overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-3 lg:p-3.5">
             <div className="flex flex-col gap-2 border-b border-black/10 pb-2.5 lg:flex-row lg:items-end lg:justify-between">
-              <h1 className="section-title relative mb-0 inline-block text-[clamp(1.85rem,2vw,2.35rem)] font-extrabold tracking-[-0.045em] text-[#071c2c] drop-shadow-[0_1px_0_rgba(255,255,255,0.8)] after:absolute after:-bottom-1 after:left-0 after:h-[3px] after:w-16 after:rounded-full after:bg-[linear-gradient(90deg,#1597a5,#c2d83e)] after:content-['']">
+              <h1 className="section-title relative mb-0 inline-block w-fit text-[clamp(1.85rem,2vw,2.35rem)] font-extrabold tracking-[-0.045em] text-[#071c2c] drop-shadow-[0_1px_0_rgba(255,255,255,0.8)] after:absolute after:-bottom-1 after:left-0 after:h-[3px] after:w-full after:rounded-full after:bg-[linear-gradient(90deg,#1597a5,#c2d83e)] after:content-['']">
                 Command Center
               </h1>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <DashboardQuickAction href="/setup/seating" label="Seating Chart" />
-                <DashboardQuickAction href="/setup/laps" label="Name Your Laps" />
-                <DashboardQuickAction href="/setup/blocks" label="Update Blocks" />
-                <DashboardQuickAction href="/setup/students" label="Update Students" />
+              <div className="flex flex-wrap items-center justify-end gap-2.5">
+                <DashboardQuickAction href="/setup/blocks" label="Classes & Years" />
+                <DashboardQuickAction href="/setup/students" label="Students" />
+                <DashboardQuickAction href="/setup/seating" label="Seating" />
+                <DashboardQuickAction href="/setup/laps" label="Weekly Lap Plan" />
+                <DashboardQuickAction href="/account" label="Account" />
+                <DashboardQuickAction href="/" label="Public Website" />
+                <LogoutButton />
               </div>
             </div>
 
@@ -594,7 +598,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
                           <DashboardTile kind="laps" tile={block.laps} />
                           <DashboardTile kind="monitoring" tile={block.monitoring} />
                           {stats ? <WeeklyStatsCard stats={stats} /> : <div />}
-                          <DashboardReportsButton href={block.reportsHref} label="OTHER REPORTS" />
+                          <DashboardReportsButton href={block.reportsHref} label="REPORTS" />
                         </div>
                       </div>
                     );

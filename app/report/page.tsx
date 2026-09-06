@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import { addDays, addMonths, differenceInCalendarDays, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
 import { normalizeDeskGeometry } from "@/lib/classroomGeometry";
+import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 
 type Block = {
   id: string;
@@ -26,6 +27,7 @@ type PerformanceColor = "GREEN" | "YELLOW" | "RED";
 type ReportType = "attendance" | "monitoring";
 type ReportScope = "class" | "student";
 type ClassAttendanceView = "day" | "week" | "month" | "custom";
+type MonitoringView = "day" | "week" | "month" | "custom";
 
 type ReportDesk = {
   id: string;
@@ -114,6 +116,17 @@ type MonitoringReport = {
     name: string;
     standardCode: string | null;
   }[];
+};
+
+type MonitoringRangeReport = {
+  block: Block;
+  rangeStart: string;
+  rangeEnd: string;
+  dates: string[];
+  students: { id: string; displayName: string; seatNumber: number }[];
+  attendance: { date: string; studentId: string; status: AttendanceStatus }[];
+  performance: { date: string; studentId: string; lapNumber: number; color: PerformanceColor }[];
+  laps: { date: string; lapNumber: number; name: string; standardCode: string | null }[];
 };
 
 const calendarDayLabels = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
@@ -239,6 +252,21 @@ function performanceBackground(color?: PerformanceColor) {
   if (color === "YELLOW") return "rgba(253, 224, 71, 0.25)";
   if (color === "RED") return "rgba(248, 113, 113, 0.25)";
   return "transparent";
+}
+
+function performanceClasses(color?: PerformanceColor) {
+  if (color === "GREEN") return "bg-emerald-100 text-emerald-800";
+  if (color === "YELLOW") return "bg-yellow-100 text-yellow-900";
+  if (color === "RED") return "bg-red-100 text-red-800";
+  return "bg-slate-100 text-slate-500";
+}
+
+function emptyAttendanceTotals() {
+  return { PRESENT: 0, ABSENT: 0, TARDY: 0, LEFT_EARLY: 0 } satisfies Record<AttendanceStatus, number>;
+}
+
+function emptyPerformanceTotals() {
+  return { GREEN: 0, YELLOW: 0, RED: 0, UNRECORDED: 0 };
 }
 
 function buildCalendarDays(monthIso: string) {
@@ -392,8 +420,8 @@ function MonitoringSeatChart({
           return (
             <div
               key={desk.id}
-              className={`absolute rounded-2xl border border-black/10 px-2 py-2 text-center shadow ${
-                isAbsent ? "bg-red-200 opacity-35" : "bg-slate-100/75"
+              className={`absolute overflow-hidden rounded-2xl border border-black/10 px-2 py-2 text-center shadow ${
+                isAbsent ? "bg-slate-300" : "bg-slate-100/75"
               }`}
               style={{
                 left: normalizedDesk.x,
@@ -404,7 +432,8 @@ function MonitoringSeatChart({
               }}
             >
               <div className="relative z-10 flex h-full w-full flex-col items-center justify-center">
-                {!isAbsent && <div className="text-base font-semibold">{desk.student?.displayName || ""}</div>}
+                <div className="text-base font-semibold">{desk.student?.displayName || ""}</div>
+                {isAbsent && <div className="mt-1 rounded bg-slate-900 px-2 py-0.5 text-[10px] font-bold tracking-[0.12em] text-white">ABSENT</div>}
               </div>
               {!isAbsent && desk.studentId && selectedLaps.length > 0 && (
                 <div className="absolute inset-0 z-0 flex">
@@ -445,6 +474,9 @@ function ReportPageInner() {
   );
   const requestedDate = searchParams.get("date") || todayIso;
   const requestedStudentId = searchParams.get("studentId") || "";
+  const requestedMonitoringView = (["day", "week", "month", "custom"] as MonitoringView[]).includes(searchParams.get("view") as MonitoringView)
+    ? searchParams.get("view") as MonitoringView
+    : "day";
 
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -455,6 +487,7 @@ function ReportPageInner() {
   const [selectedStudentId, setSelectedStudentId] = useState(requestedStudentId);
   const [visibleMonthIso, setVisibleMonthIso] = useState(format(startOfMonth(parseIsoDate(requestedDate)), "yyyy-MM-dd"));
   const [classAttendanceView, setClassAttendanceView] = useState<ClassAttendanceView>("day");
+  const [monitoringView, setMonitoringView] = useState<MonitoringView>(requestedMonitoringView);
   const [customRangeStart, setCustomRangeStart] = useState(
     format(startOfWeek(parseIsoDate(requestedDate), { weekStartsOn: 1 }), "yyyy-MM-dd"),
   );
@@ -466,8 +499,10 @@ function ReportPageInner() {
   const [attendanceClassReport, setAttendanceClassReport] = useState<AttendanceClassReport | null>(null);
   const [attendanceClassRangeReport, setAttendanceClassRangeReport] = useState<AttendanceClassRangeReport | null>(null);
   const [monitoringReport, setMonitoringReport] = useState<MonitoringReport | null>(null);
+  const [monitoringRangeReport, setMonitoringRangeReport] = useState<MonitoringRangeReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedMonitoringLapNumbers, setSelectedMonitoringLapNumbers] = useState<number[]>([]);
+  const [selectedRangeLaps, setSelectedRangeLaps] = useState<Record<string, number[]>>({});
 
   const selectedBlock = useMemo(
     () => blocks.find((block) => block.id === selectedBlockId) || null,
@@ -478,7 +513,10 @@ function ReportPageInner() {
     return day === 0 || day === 6;
   }, [selectedDate]);
   const customRangeError = useMemo(() => {
-    if (classAttendanceView !== "custom") return null;
+    const usesCustomRange = reportType === "attendance"
+      ? classAttendanceView === "custom"
+      : reportType === "monitoring" && monitoringView === "custom";
+    if (!usesCustomRange) return null;
     const start = parseISO(customRangeStart);
     const end = parseISO(customRangeEnd);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
@@ -488,9 +526,11 @@ function ReportPageInner() {
     if (rangeLength < 0) return "The end date must be on or after the start date.";
     if (rangeLength > 45) return "The start and end dates must be no more than 45 days apart.";
     return null;
-  }, [classAttendanceView, customRangeStart, customRangeEnd]);
+  }, [reportType, classAttendanceView, monitoringView, customRangeStart, customRangeEnd]);
   const activeStudents = useMemo(
-    () => students.filter((student) => student.active),
+    () => students
+      .filter((student) => student.active)
+      .sort((left, right) => left.displayName.localeCompare(right.displayName)),
     [students]
   );
 
@@ -498,13 +538,14 @@ function ReportPageInner() {
     setReportType(requestedReportType);
     setScope(requestedScope);
     setSelectedDate(requestedDate);
+    setMonitoringView(requestedMonitoringView);
     setVisibleMonthIso(format(startOfMonth(parseIsoDate(requestedDate)), "yyyy-MM-dd"));
     setCustomRangeStart(format(startOfWeek(parseIsoDate(requestedDate), { weekStartsOn: 1 }), "yyyy-MM-dd"));
     setCustomRangeEnd(format(endOfWeek(parseIsoDate(requestedDate), { weekStartsOn: 1 }), "yyyy-MM-dd"));
     if (requestedStudentId) {
       setSelectedStudentId(requestedStudentId);
     }
-  }, [requestedReportType, requestedScope, requestedDate, requestedStudentId]);
+  }, [requestedReportType, requestedScope, requestedDate, requestedStudentId, requestedMonitoringView]);
 
   useEffect(() => {
     async function loadBlocks() {
@@ -659,7 +700,7 @@ function ReportPageInner() {
   }, [reportType, scope, selectedBlockId, selectedDate, classAttendanceView, customRangeStart, customRangeEnd, customRangeError]);
 
   useEffect(() => {
-    if (reportType !== "monitoring" || !selectedBlockId) {
+    if (reportType !== "monitoring" || !selectedBlockId || monitoringView !== "day") {
       setMonitoringReport(null);
       return;
     }
@@ -683,7 +724,43 @@ function ReportPageInner() {
     }
 
     void loadMonitoringReport();
-  }, [reportType, selectedBlockId, selectedDate]);
+  }, [reportType, selectedBlockId, selectedDate, monitoringView]);
+
+  useEffect(() => {
+    if (reportType !== "monitoring" || !selectedBlockId || monitoringView === "day") {
+      setMonitoringRangeReport(null);
+      return;
+    }
+
+    async function loadMonitoringRangeReport() {
+      setLoading(true);
+      setError(null);
+      if (customRangeError) {
+        setMonitoringRangeReport(null);
+        setLoading(false);
+        return;
+      }
+      const range = attendanceRange(
+        monitoringView as Exclude<MonitoringView, "day">,
+        selectedDate,
+        customRangeStart,
+        customRangeEnd
+      );
+      try {
+        const res = await fetch(
+          `/api/report/monitoring?blockId=${selectedBlockId}&start=${range.start}&end=${range.end}`
+        );
+        if (!res.ok) throw new Error("monitoring_range");
+        setMonitoringRangeReport(await res.json());
+      } catch {
+        setError("Unable to load the monitoring date range.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadMonitoringRangeReport();
+  }, [reportType, selectedBlockId, selectedDate, monitoringView, customRangeStart, customRangeEnd, customRangeError]);
 
   useEffect(() => {
     const namedLapNumbers = monitoringReport?.laps.map((lap) => lap.lapNumber) || [];
@@ -692,6 +769,26 @@ function ReportPageInner() {
       return filtered.length > 0 ? filtered : namedLapNumbers.slice(0, 1);
     });
   }, [monitoringReport]);
+
+  useEffect(() => {
+    if (!monitoringRangeReport) {
+      setSelectedRangeLaps({});
+      return;
+    }
+    const lapNumbersByDate = new Map<string, number[]>();
+    monitoringRangeReport.dates.forEach((date) => lapNumbersByDate.set(date, []));
+    monitoringRangeReport.laps.forEach((lap) => {
+      lapNumbersByDate.set(lap.date, [...(lapNumbersByDate.get(lap.date) || []), lap.lapNumber]);
+    });
+    setSelectedRangeLaps((current) => {
+      const next: Record<string, number[]> = {};
+      lapNumbersByDate.forEach((lapNumbers, date) => {
+        const valid = (current[date] || []).filter((lapNumber) => lapNumbers.includes(lapNumber));
+        next[date] = valid.length > 0 ? valid : lapNumbers.slice(0, 1);
+      });
+      return next;
+    });
+  }, [monitoringRangeReport]);
 
   const attendanceStudentMonthRecords = useMemo(() => {
     if (!attendanceStudentReport) return [];
@@ -716,9 +813,27 @@ function ReportPageInner() {
     () => new Map((attendanceClassRangeReport?.attendance || []).map((record) => [`${record.studentId}-${record.date}`, record.status])),
     [attendanceClassRangeReport]
   );
-  const activeClassAttendanceSummary = classAttendanceView === "day"
-    ? attendanceClassReport?.summary
-    : attendanceClassRangeReport?.summary;
+  const rangeAttendanceStudentTotals = useMemo(() => {
+    const totals = new Map<string, ReturnType<typeof emptyAttendanceTotals>>();
+    attendanceClassRangeReport?.students.forEach((student) => totals.set(student.id, emptyAttendanceTotals()));
+    attendanceClassRangeReport?.attendance.forEach((record) => {
+      const entry = totals.get(record.studentId) || emptyAttendanceTotals();
+      entry[record.status] += 1;
+      totals.set(record.studentId, entry);
+    });
+    return totals;
+  }, [attendanceClassRangeReport]);
+  const rangeAttendanceDateTotals = useMemo(() => {
+    const totals = new Map<string, ReturnType<typeof emptyAttendanceTotals>>();
+    attendanceClassRangeReport?.dates.forEach((date) => totals.set(date, emptyAttendanceTotals()));
+    attendanceClassRangeReport?.attendance.forEach((record) => {
+      const entry = totals.get(record.date) || emptyAttendanceTotals();
+      entry[record.status] += 1;
+      totals.set(record.date, entry);
+    });
+    return totals;
+  }, [attendanceClassRangeReport]);
+  const activeClassAttendanceSummary = attendanceClassReport?.summary;
   const hasClassAttendanceData = classAttendanceView === "day"
     ? Boolean(attendanceClassReport)
     : Boolean(attendanceClassRangeReport);
@@ -749,6 +864,54 @@ function ReportPageInner() {
       ),
     [monitoringReport, selectedMonitoringLapNumbers]
   );
+
+  const monitoringRangeAttendanceByCell = useMemo(
+    () => new Map((monitoringRangeReport?.attendance || []).map((record) => [`${record.studentId}-${record.date}`, record.status])),
+    [monitoringRangeReport]
+  );
+  const monitoringRangePerformanceByCell = useMemo(
+    () => new Map((monitoringRangeReport?.performance || []).map((record) => [`${record.studentId}-${record.date}-${record.lapNumber}`, record.color])),
+    [monitoringRangeReport]
+  );
+  const monitoringRangeLapsByDate = useMemo(() => {
+    const result = new Map<string, MonitoringRangeReport["laps"]>();
+    monitoringRangeReport?.dates.forEach((date) => result.set(date, []));
+    monitoringRangeReport?.laps.forEach((lap) => result.set(lap.date, [...(result.get(lap.date) || []), lap]));
+    return result;
+  }, [monitoringRangeReport]);
+  const monitoringRangeStudentTotals = useMemo(() => {
+    const totals = new Map<string, ReturnType<typeof emptyPerformanceTotals>>();
+    monitoringRangeReport?.students.forEach((student) => totals.set(student.id, emptyPerformanceTotals()));
+    monitoringRangeReport?.students.forEach((student) => {
+      const entry = totals.get(student.id) || emptyPerformanceTotals();
+      monitoringRangeReport.dates.forEach((date) => {
+        if (monitoringRangeAttendanceByCell.get(`${student.id}-${date}`) === "ABSENT") return;
+        (selectedRangeLaps[date] || []).forEach((lapNumber) => {
+          const color = monitoringRangePerformanceByCell.get(`${student.id}-${date}-${lapNumber}`);
+          if (color) entry[color] += 1;
+          else entry.UNRECORDED += 1;
+        });
+      });
+      totals.set(student.id, entry);
+    });
+    return totals;
+  }, [monitoringRangeReport, monitoringRangeAttendanceByCell, monitoringRangePerformanceByCell, selectedRangeLaps]);
+  const monitoringRangeDateTotals = useMemo(() => {
+    const totals = new Map<string, ReturnType<typeof emptyPerformanceTotals>>();
+    monitoringRangeReport?.dates.forEach((date) => {
+      const entry = emptyPerformanceTotals();
+      monitoringRangeReport.students.forEach((student) => {
+        if (monitoringRangeAttendanceByCell.get(`${student.id}-${date}`) === "ABSENT") return;
+        (selectedRangeLaps[date] || []).forEach((lapNumber) => {
+          const color = monitoringRangePerformanceByCell.get(`${student.id}-${date}-${lapNumber}`);
+          if (color) entry[color] += 1;
+          else entry.UNRECORDED += 1;
+        });
+      });
+      totals.set(date, entry);
+    });
+    return totals;
+  }, [monitoringRangeReport, monitoringRangeAttendanceByCell, monitoringRangePerformanceByCell, selectedRangeLaps]);
 
   const selectedStudentMonitoringRows = useMemo(() => {
     if (!monitoringReport || !selectedStudentId) return [];
@@ -800,18 +963,36 @@ function ReportPageInner() {
   }
 
   function monitoringClassRows() {
-    if (!monitoringReport || selectedMonitoringLaps.length === 0) return [];
-    return monitoringReport.desks
-      .filter((desk) => Boolean(desk.studentId && desk.student))
-      .flatMap((desk) =>
-        selectedMonitoringLaps.map((lap) => ({
-          Name: desk.student?.displayName || "",
-          "Lap #": String(lap.lapNumber),
-          "Lap Name": lap.name,
-          "NC Standard": lap.standardCode || "",
-          Color: desk.studentId ? monitoringPerformanceByCell.get(`${desk.studentId}-${lap.lapNumber}`) || "" : ""
-        }))
+    if (monitoringView !== "day" && monitoringRangeReport) {
+      return monitoringRangeReport.students.flatMap((student) =>
+        monitoringRangeReport.dates.flatMap((date) => {
+          const attendance = monitoringRangeAttendanceByCell.get(`${student.id}-${date}`);
+          return (monitoringRangeLapsByDate.get(date) || [])
+            .filter((lap) => (selectedRangeLaps[date] || []).includes(lap.lapNumber))
+            .map((lap) => ({
+              Name: student.displayName,
+              Date: date,
+              Attendance: attendanceLabel(attendance),
+              "Lap #": String(lap.lapNumber),
+              "Lap Name": lap.name,
+              "NC Standard": lap.standardCode || "",
+              Color: attendance === "ABSENT" ? "ABSENT" : monitoringRangePerformanceByCell.get(`${student.id}-${date}-${lap.lapNumber}`) || ""
+            }));
+        })
       );
+    }
+    if (!monitoringReport || selectedMonitoringLaps.length === 0) return [];
+    return monitoringReport.students.flatMap((student) =>
+      selectedMonitoringLaps.map((lap) => ({
+        Name: student.displayName,
+        Date: monitoringReport.date,
+        Attendance: attendanceLabel(monitoringAttendanceByStudentId.get(student.id)),
+        "Lap #": String(lap.lapNumber),
+        "Lap Name": lap.name,
+        "NC Standard": lap.standardCode || "",
+        Color: monitoringAttendanceByStudentId.get(student.id) === "ABSENT" ? "ABSENT" : monitoringPerformanceByCell.get(`${student.id}-${lap.lapNumber}`) || ""
+      }))
+    );
   }
 
   function downloadAttendanceStudentXlsx() {
@@ -837,11 +1018,11 @@ function ReportPageInner() {
   }
 
   function downloadMonitoringClassXlsx() {
-    if (!monitoringReport || selectedMonitoringLaps.length === 0) return;
     const rows = monitoringClassRows();
+    if (rows.length === 0) return;
 
     downloadWorkbook(
-      `monitoring-class-${monitoringReport.date}.xlsx`,
+      `monitoring-class-${monitoringView === "day" ? selectedDate : `${monitoringRangeReport?.rangeStart || selectedDate}-${monitoringRangeReport?.rangeEnd || selectedDate}`}.xlsx`,
       "Monitoring",
       rows
     );
@@ -849,19 +1030,14 @@ function ReportPageInner() {
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-4 sm:px-6">
+      <div className="mb-3">
+        <ReturnToDashboardButton />
+      </div>
       <div className="hero-card overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-4 md:p-6">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end">
-          <h1 className="text-center text-3xl font-semibold tracking-[-0.03em] text-black sm:col-start-2 sm:row-start-1">
+        <div>
+          <h1 className="text-center text-3xl font-semibold tracking-[-0.03em] text-black">
             Reports
           </h1>
-          {blocks.length > 1 && (
-            <label className="block w-full max-w-sm text-left sm:col-start-1 sm:row-start-1 sm:min-w-[280px]">
-              <span className="small-header text-black/45">Class</span>
-              <select className="form-control mt-1 bg-white py-2 text-base font-medium" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
-                {blocks.map((block) => <option key={block.id} value={block.id}>Block {block.blockNumber} · {block.blockName}</option>)}
-              </select>
-            </label>
-          )}
         </div>
 
         {error && (
@@ -907,27 +1083,51 @@ function ReportPageInner() {
             {reportType && (
               <>
                 {reportType === "monitoring" && (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className={scope === "class" ? "btn btn-primary" : "btn btn-ghost"}
-                      onClick={() => setScope("class")}
-                    >
-                      Entire Class
-                    </button>
-                    <button
-                      type="button"
-                      className={scope === "student" ? "btn btn-primary" : "btn btn-ghost"}
-                      onClick={() => setScope("student")}
-                    >
-                      Individual Student
-                    </button>
-                  </div>
+                  <>
+                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white/70 p-3 2xl:flex-nowrap">
+                      <select className="h-10 min-w-[210px] rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold" aria-label="Class" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
+                        {blocks.map((block) => <option key={block.id} value={block.id}>Block {block.blockNumber} · {block.blockName}</option>)}
+                      </select>
+                      <div className="flex shrink-0 rounded-xl bg-black/5 p-1" aria-label="Monitoring report scope">
+                        <button type="button" className={`rounded-lg px-3 py-2 text-sm font-semibold ${scope === "class" ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => setScope("class")}>Entire Class</button>
+                        <button type="button" className={`rounded-lg px-3 py-2 text-sm font-semibold ${scope === "student" ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => { setScope("student"); setMonitoringView("day"); }}>Individual Student</button>
+                      </div>
+                      {scope === "class" && (
+                        <div className="flex shrink-0 rounded-xl bg-black/5 p-1" aria-label="Monitoring date range">
+                          {(["day", "week", "month", "custom"] as MonitoringView[]).map((view) => (
+                            <button key={view} type="button" className={`rounded-lg px-3 py-2 text-sm font-semibold capitalize ${monitoringView === view ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => setMonitoringView(view)}>{view}</button>
+                          ))}
+                        </div>
+                      )}
+                      {scope === "class" && monitoringView === "custom" ? (
+                        <div className="grid w-full shrink-0 gap-2 sm:w-[360px] sm:grid-cols-2">
+                          <label className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-black/55"><span>Start</span><input className="h-10 min-w-0 flex-1 rounded-lg border border-black/15 bg-white px-2 text-sm" type="date" value={customRangeStart} onChange={(event) => setCustomRangeStart(event.target.value)} /></label>
+                          <label className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-black/55"><span>End</span><input className="h-10 min-w-0 flex-1 rounded-lg border border-black/15 bg-white px-2 text-sm" type="date" value={customRangeEnd} onChange={(event) => setCustomRangeEnd(event.target.value)} /></label>
+                        </div>
+                      ) : (
+                        <div className="grid w-[240px] shrink-0 grid-cols-[40px_148px_40px] gap-1.5">
+                          <button type="button" className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold" onClick={() => setSelectedDate((current) => monitoringView === "month" ? shiftMonthIso(current, -1) : shiftIsoDate(current, monitoringView === "week" ? -7 : -1))} aria-label="Previous monitoring date">←</button>
+                          <input className="h-10 min-w-0 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} aria-label="Monitoring date" />
+                          <button type="button" className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold" onClick={() => setSelectedDate((current) => monitoringView === "month" ? shiftMonthIso(current, 1) : shiftIsoDate(current, monitoringView === "week" ? 7 : 1))} aria-label="Next monitoring date">→</button>
+                        </div>
+                      )}
+                      {scope === "class" && (
+                        <div className="flex shrink-0 gap-1.5">
+                          <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadMonitoringClassXlsx} disabled={monitoringClassRows().length === 0}>Export XLSX</button>
+                          <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`monitoring-class-${selectedDate}.csv`, monitoringClassRows())} disabled={monitoringClassRows().length === 0}>Export CSV</button>
+                        </div>
+                      )}
+                    </div>
+                    {customRangeError && monitoringView === "custom" && scope === "class" && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{customRangeError}</div>}
+                  </>
                 )}
 
                 {reportType === "attendance" && (
                   <>
-                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white/70 p-3 xl:flex-nowrap">
+                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white/70 p-3 2xl:flex-nowrap">
+                      <select className="h-10 min-w-[210px] rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold" aria-label="Class" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
+                        {blocks.map((block) => <option key={block.id} value={block.id}>Block {block.blockNumber} · {block.blockName}</option>)}
+                      </select>
                       <div className="flex shrink-0 rounded-xl bg-black/5 p-1" aria-label="Attendance report scope">
                         <button
                           type="button"
@@ -1064,7 +1264,7 @@ function ReportPageInner() {
                   </>
                 )}
 
-                {selectedDateIsTest && scope === "class" && (reportType === "monitoring" || classAttendanceView === "day") && (
+                {selectedDateIsTest && scope === "class" && ((reportType === "monitoring" && monitoringView === "day") || (reportType === "attendance" && classAttendanceView === "day")) && (
                   <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950">
                     Weekend records are test data and are intentionally excluded from standard reports. Choose a weekday to view class results.
                   </div>
@@ -1111,7 +1311,7 @@ function ReportPageInner() {
 
                 {reportType === "attendance" && scope === "class" && (
                   <div className="space-y-3">
-                    {activeClassAttendanceSummary && (
+                    {classAttendanceView === "day" && activeClassAttendanceSummary && (
                       <div className="flex flex-wrap gap-2 text-xs">
                         <div className="rounded-full bg-emerald-100 px-3 py-1.5 font-semibold text-emerald-800">Present: {activeClassAttendanceSummary.PRESENT}</div>
                         <div className="rounded-full bg-red-100 px-3 py-1.5 font-semibold text-red-800">Absent: {activeClassAttendanceSummary.ABSENT}</div>
@@ -1135,10 +1335,14 @@ function ReportPageInner() {
                           <thead>
                             <tr>
                               <th className="sticky left-0 z-10 min-w-[170px] bg-white">Student</th>
+                              <th className="min-w-[180px]">Student totals</th>
                               {attendanceClassRangeReport.dates.map((date) => (
-                                <th key={date} className="min-w-[54px] text-center">
+                                <th key={date} className="min-w-[94px] text-center">
                                   <div>{format(parseIsoDate(date), "EEE")}</div>
                                   <div className="font-normal text-black/45">{format(parseIsoDate(date), "M/d")}</div>
+                                  <div className="mt-1 text-[9px] font-semibold text-black/45">
+                                    {(() => { const total = rangeAttendanceDateTotals.get(date) || emptyAttendanceTotals(); return `P${total.PRESENT} A${total.ABSENT} T${total.TARDY} LE${total.LEFT_EARLY}`; })()}
+                                  </div>
                                 </th>
                               ))}
                             </tr>
@@ -1147,6 +1351,9 @@ function ReportPageInner() {
                             {attendanceClassRangeReport.students.map((student) => (
                               <tr key={`range-${student.id}`}>
                                 <td className="sticky left-0 z-[1] bg-white font-semibold">{student.displayName}</td>
+                                <td className="text-xs font-semibold text-black/55">
+                                  {(() => { const total = rangeAttendanceStudentTotals.get(student.id) || emptyAttendanceTotals(); return `P ${total.PRESENT} · A ${total.ABSENT} · T ${total.TARDY} · LE ${total.LEFT_EARLY}`; })()}
+                                </td>
                                 {attendanceClassRangeReport.dates.map((date) => {
                                   const status = rangeAttendanceByCell.get(`${student.id}-${date}`);
                                   return (
@@ -1197,48 +1404,17 @@ function ReportPageInner() {
 
                 {reportType === "monitoring" && scope === "class" && (
                   <div className="space-y-4">
-                    <div className="flex flex-wrap items-end justify-between gap-3">
-                      <div className="grid w-full max-w-xl grid-cols-[auto_minmax(150px,1fr)_auto] gap-2 sm:w-auto">
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => setSelectedDate((current) => shiftIsoDate(current, -1))}
-                        >
-                          ← <span className="hidden sm:inline">Previous</span>
-                        </button>
-                        <input
-                          className="form-control min-w-0 bg-white"
-                          type="date"
-                          value={selectedDate}
-                          onChange={(event) => setSelectedDate(event.target.value)}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => setSelectedDate((current) => shiftIsoDate(current, 1))}
-                        >
-                          <span className="hidden sm:inline">Next</span> →
-                        </button>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadMonitoringClassXlsx} disabled={!monitoringReport || selectedMonitoringLaps.length === 0}>Export XLSX</button>
-                        <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`monitoring-class-${monitoringReport?.date || selectedDate}.csv`, monitoringClassRows())} disabled={!monitoringReport || selectedMonitoringLaps.length === 0}>Export CSV</button>
-                      </div>
-                    </div>
-
-                    {monitoringReport && monitoringReport.laps.length > 0 && (
-                      <div className="rounded-2xl border border-black/10 bg-white/75 p-4">
-                        <div className="mb-3 text-sm font-bold text-black">
-                          Select one or more laps to display on the classroom map.
-                        </div>
-                        <div className="grid gap-2 md:grid-cols-3">
+                    {monitoringView === "day" && monitoringReport && monitoringReport.laps.length > 0 && (
+                      <div className="rounded-2xl border border-black/10 bg-white/75 p-3">
+                        <div className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-black/45">Displayed laps</div>
+                        <div className="flex flex-wrap gap-2">
                           {monitoringReport.laps.map((lap) => {
                             const isSelected = selectedMonitoringLapNumbers.includes(lap.lapNumber);
                             return (
                               <button
                                 key={lap.lapNumber}
                                 type="button"
-                                className={`rounded-xl border px-3 py-3 text-left transition ${
+                                className={`min-w-[180px] flex-1 rounded-xl border px-3 py-2 text-left transition ${
                                   isSelected
                                     ? "border-sky-500 bg-sky-50 shadow-[0_10px_24px_rgba(14,116,144,0.12)]"
                                     : "border-black/10 bg-white hover:border-black/20"
@@ -1252,9 +1428,8 @@ function ReportPageInner() {
                                   )
                                 }
                               >
-                                <div className="small-header text-black/45">Lap {lap.lapNumber}</div>
-                                <div className="mt-1 text-sm font-semibold">{lap.name}</div>
-                                <div className="mt-1 text-xs text-black/55">{lap.standardCode || "No NC Standard"}</div>
+                                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-black/45">Lap {lap.lapNumber} · {lap.standardCode || "No standard"}</div>
+                                <div className="mt-0.5 text-sm font-semibold">{lap.name}</div>
                               </button>
                             );
                           })}
@@ -1262,25 +1437,80 @@ function ReportPageInner() {
                       </div>
                     )}
 
-                    {monitoringReport && monitoringReport.laps.length === 0 && (
+                    {monitoringView === "day" && monitoringReport && monitoringReport.laps.length === 0 && (
                       <div className="hero-card p-4 text-sm text-black/60">
                         No laps were named for this block on {monitoringReport.date}.
                       </div>
                     )}
 
-                    {monitoringReport?.usesCurrentSeatingLayout && (
-                      <div className="text-sm text-black/60">
-                        This report uses the current seating chart layout for the selected date.
-                      </div>
-                    )}
-
-                    {monitoringReport && (
+                    {monitoringView === "day" && monitoringReport && (
                       <MonitoringSeatChart
                         desks={monitoringReport.desks}
                         attendanceByStudentId={monitoringAttendanceByStudentId}
                         performanceByCell={monitoringPerformanceByCell}
                         selectedLaps={selectedMonitoringLaps}
                       />
+                    )}
+
+                    {monitoringView !== "day" && monitoringRangeReport && (
+                      <>
+                        <div className="grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
+                          {monitoringRangeReport.dates.map((date) => {
+                            const laps = monitoringRangeLapsByDate.get(date) || [];
+                            return (
+                              <div key={`lap-picker-${date}`} className="rounded-xl border border-black/10 bg-white/75 p-3">
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                  <div className="text-xs font-bold text-black">{format(parseIsoDate(date), "EEE, MMM d")}</div>
+                                  <div className="text-[10px] text-black/45">{laps.length ? "Choose laps" : "No named laps"}</div>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {laps.map((lap) => {
+                                    const isSelected = (selectedRangeLaps[date] || []).includes(lap.lapNumber);
+                                    return (
+                                      <button key={`${date}-${lap.lapNumber}`} type="button" aria-pressed={isSelected} title={`${lap.name} · ${lap.standardCode || "No standard"}`} className={`rounded-lg border px-2 py-1 text-xs font-semibold ${isSelected ? "border-sky-500 bg-sky-50 text-sky-900" : "border-black/10 bg-white text-black/55"}`} onClick={() => setSelectedRangeLaps((current) => ({ ...current, [date]: isSelected ? (current[date] || []).filter((value) => value !== lap.lapNumber) : [...(current[date] || []), lap.lapNumber].sort() }))}>Lap {lap.lapNumber}</button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white">
+                          <table className="table table-compact min-w-max">
+                            <thead>
+                              <tr>
+                                <th className="sticky left-0 z-10 min-w-[170px] bg-white">Student</th>
+                                <th className="min-w-[155px]">Student totals</th>
+                                {monitoringRangeReport.dates.map((date) => {
+                                  const total = monitoringRangeDateTotals.get(date) || emptyPerformanceTotals();
+                                  return <th key={`monitor-header-${date}`} className="min-w-[180px] text-center"><div>{format(parseIsoDate(date), "EEE, M/d")}</div><div className="mt-1 text-[9px] font-semibold text-black/45">G{total.GREEN} Y{total.YELLOW} R{total.RED} —{total.UNRECORDED}</div></th>;
+                                })}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {monitoringRangeReport.students.map((student) => {
+                                const total = monitoringRangeStudentTotals.get(student.id) || emptyPerformanceTotals();
+                                return (
+                                  <tr key={`monitor-range-${student.id}`}>
+                                    <td className="sticky left-0 z-[1] bg-white font-semibold">{student.displayName}</td>
+                                    <td className="text-xs font-semibold text-black/55">G {total.GREEN} · Y {total.YELLOW} · R {total.RED} · — {total.UNRECORDED}</td>
+                                    {monitoringRangeReport.dates.map((date) => {
+                                      const attendance = monitoringRangeAttendanceByCell.get(`${student.id}-${date}`);
+                                      const selected = (monitoringRangeLapsByDate.get(date) || []).filter((lap) => (selectedRangeLaps[date] || []).includes(lap.lapNumber));
+                                      return (
+                                        <td key={`${student.id}-${date}`} className={attendance === "ABSENT" ? "bg-slate-200 text-center" : "text-center"}>
+                                          {attendance === "ABSENT" ? <span className="text-[10px] font-bold tracking-[0.1em] text-slate-700">ABSENT</span> : selected.length === 0 ? <span className="text-black/30">—</span> : <div className="flex flex-wrap justify-center gap-1">{selected.map((lap) => { const color = monitoringRangePerformanceByCell.get(`${student.id}-${date}-${lap.lapNumber}`); return <span key={`${student.id}-${date}-${lap.lapNumber}`} title={`${lap.name} · ${lap.standardCode || "No standard"}`} className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${performanceClasses(color)}`}>{lap.lapNumber}</span>; })}</div>}
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
                     )}
                   </div>
                 )}

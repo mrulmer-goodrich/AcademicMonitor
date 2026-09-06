@@ -31,7 +31,8 @@ export async function GET(req: Request) {
     select: {
       id: true,
       blockNumber: true,
-      blockName: true
+      blockName: true,
+      gradeLevels: true
     }
   });
 
@@ -105,7 +106,7 @@ export async function GET(req: Request) {
     const [students, attendance] = await Promise.all([
       prisma.student.findMany({
         where: { schoolYearId: schoolYear.id, blockId, active: true },
-        orderBy: { seatNumber: "asc" },
+        orderBy: { displayName: "asc" },
         select: { id: true, displayName: true, seatNumber: true }
       }),
       prisma.attendanceRecord.findMany({
@@ -115,7 +116,7 @@ export async function GET(req: Request) {
           date: { gte: rangeStart, lte: rangeEnd },
           student: { active: true }
         },
-        orderBy: [{ date: "asc" }, { student: { seatNumber: "asc" } }],
+        orderBy: [{ date: "asc" }, { student: { displayName: "asc" } }],
         select: {
           date: true,
           studentId: true,

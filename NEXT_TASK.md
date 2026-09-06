@@ -2,39 +2,17 @@
 
 ## Active work
 
-The recording-QA correction pass is implemented for live device review. It covers projected-screen privacy, student-management density and class tools, the complete weekly lap-planning model, and longitudinal attendance reports.
-
-Review checklist:
-
-- Confirm Add All places a full real roster without overlap and that legacy overlaps are highlighted clearly
-- Confirm seating and monitoring preserve useful indicator colors/patterns in their established top-right, bottom-left, and bottom-right positions without readable category letters or EOG values when projected
-- Confirm student rows remain fixed when Edit and unsaved states appear, the compact Add Student dialog keeps its actions visible, desktop Edit All stays aligned over the row Edit actions, and inactive students disappear from live classroom workflows
-- Confirm the complete 5-day by 3-lap week remains visible and stable in both view and edit modes on the classroom laptop, including block switching and previous-week/cross-class copying
-- Confirm individual attendance visibly distinguishes Present from no record and navigates previous/future months with arrows grouped directly around the centered month label
-- Confirm Entire Class attendance switches cleanly among day, week, month, and custom-range views with compact secondary exports and no custom-date collisions
-- Confirm Attendance List remains available with unseated students while seat-map attendance and monitoring remain guarded
-- Confirm the Command Center refreshes immediately after Save & Return and reports the attendance status mix clearly
-- Confirm the Command Center recognizes current-day lap names saved from the weekly planner when browser and server timezones encode Monday midnight differently
-- Confirm Monitoring opens with no laps selected, clearly disables the classroom map until selection, and auto-saves rapid performance taps without losing their final order
-- Confirm class Monitoring Reports find saved lap names across the browser/server week-anchor offset, default to one selected lap, allow multi-lap comparison, and use the full available classroom-map width
-- Confirm the Command Center continues showing the current school day after midnight UTC but before midnight Eastern
-- Confirm the seating editor and attendance/monitoring canvas use the available screen and show every row on the classroom device
-- Archive the remaining 25/26 class, start 26/27, and create the new classes
-- Confirm weekend attendance and performance entries behave as expected and remain absent from standard reports
-- Review the new student cards, single-day lap planner, and individual-student monitoring report
-- Decide whether the next pass should deepen reporting trends or focus on sales-facing copy and visuals
+No active engineering task. The nine-day teacher feedback release was completed on 2026-09-06.
 
 ## Known follow-up opportunities
 
-These are current product limitations, not committed work:
-
 - Replace the stubbed password-reset route with a secure email flow
-- Decide whether to expand or make the standards library configurable
-- Decide whether a future rollover should optionally clone class names, students, or seating layouts
-- Add automated tests for authentication, setup gates, performance capture, and report exports
-- Add trend charts and multi-week comparisons to individual-student monitoring reports
+- Add standards for other grades or subjects if the product expands beyond middle-grades mathematics
+- Decide whether rollover should optionally clone class names, students, or seating layouts
+- Add automated tests for authentication, setup gates, historical performance capture, and report exports
+- Add multi-week trend charts to individual-student monitoring reports
 
 ## Blockers and questions
 
-- Production work requires a valid PostgreSQL `DATABASE_URL`
-- Optimized builds can pause silently for about a minute in this local environment; the August 29 production build completed successfully after the pause
+- `next lint` currently stops making progress locally without returning findings. Strict TypeScript, Prisma validation, focused behavior checks, browser acceptance, and `next build --no-lint` pass; no lint result should be inferred from those successful gates.
+- Chrome breakpoint emulation was unavailable during the final pass because another extension panel held browser control. The final desktop states passed; the responsive layouts remain covered by their existing CSS contracts and the previously accepted tablet/phone suite.
