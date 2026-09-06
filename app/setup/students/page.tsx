@@ -78,6 +78,10 @@ function studentHasChanges(student: Student, draftRow: Student) {
   );
 }
 
+function getNotesPreview(notes?: string | null) {
+  return notes?.replace(/\s+/g, " ").trim() || "";
+}
+
 export default function StudentsSetupPage() {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -401,12 +405,20 @@ export default function StudentsSetupPage() {
         </div>
 
         <div className="hidden min-h-[280px] lg:block lg:overflow-visible">
-          <table className="table table-compact min-w-[900px]">
+          <table className="table table-compact w-full min-w-[1026px] table-fixed">
+            <colgroup>
+              <col className="w-[190px]" />
+              <col className="w-[94px]" />
+              <col className="w-[330px]" />
+              <col className="w-[78px]" />
+              <col className="w-[84px]" />
+              <col className="w-[250px]" />
+            </colgroup>
             <thead className="sticky-head">
               <tr>
-                <th className="w-[176px]"><button className="font-semibold" type="button" onClick={() => toggleSort("displayName")}>Student{sortLabel("displayName")}</button></th>
-                <th className="w-[84px] text-center">Status</th>
-                <th className="w-[310px]">
+                <th><button className="font-semibold" type="button" onClick={() => toggleSort("displayName")}>Student{sortLabel("displayName")}</button></th>
+                <th className="text-center">Status</th>
+                <th>
                   <div className="flex items-center gap-1">
                     {categories.map((category) => (
                       <button key={`sort-${category.key}`} className="min-w-[44px] whitespace-nowrap rounded-full border border-black/15 px-1.5 py-1 text-[10px] font-bold" type="button" onClick={() => toggleSort(category.key)}>
@@ -415,10 +427,10 @@ export default function StudentsSetupPage() {
                     ))}
                   </div>
                 </th>
-                <th className="w-[76px] text-center"><button className="font-semibold" type="button" onClick={() => toggleSort("eog")}>EOG{sortLabel("eog")}</button></th>
-                <th className="w-[64px] text-center">Notes</th>
-                <th className="w-[200px]">
-                  <div className="flex min-h-8 items-center justify-end gap-1">
+                <th className="text-center"><button className="font-semibold" type="button" onClick={() => toggleSort("eog")}>EOG{sortLabel("eog")}</button></th>
+                <th className="text-center">Notes</th>
+                <th>
+                  <div className="flex min-h-8 w-full items-center justify-end gap-1">
                     {editingAll ? (
                       <>
                         <button className="h-8 rounded-lg bg-[#0b1b2a] px-3 text-xs font-bold text-white disabled:opacity-35" type="button" onClick={saveAllStudents} disabled={changedStudentCount === 0 || savingAll}>
@@ -429,7 +441,7 @@ export default function StudentsSetupPage() {
                         </button>
                       </>
                     ) : (
-                      <button className="h-8 rounded-lg border border-black/15 bg-white px-3 text-xs font-semibold shadow-sm" type="button" onClick={startEditAll} disabled={editingLocked || sortedStudents.length === 0}>
+                      <button className="h-8 w-[72px] rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold shadow-sm" type="button" onClick={startEditAll} disabled={editingLocked || sortedStudents.length === 0}>
                         Edit All
                       </button>
                     )}
@@ -476,18 +488,26 @@ export default function StudentsSetupPage() {
                     </td>
                     <td className="text-center"><button className="h-8 whitespace-nowrap rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold" type="button" onClick={() => setNotesEditor({ id: student.id, name: student.displayName, notes: student.notes || "" })}>{student.notes?.trim() ? "Notes •" : "Notes"}</button></td>
                     <td>
-                      <div className="flex h-8 w-[190px] items-center justify-end gap-1">
-                        <span aria-label={hasChanges ? "Unsaved changes" : undefined} className={`mr-1 h-2 w-2 rounded-full ${hasChanges ? "bg-amber-500" : "bg-transparent"}`} />
+                      <div className="flex h-8 w-full min-w-0 items-center justify-end gap-1">
                         {editingAll ? (
-                          <span className="inline-flex h-8 items-center px-2 text-xs font-semibold text-black/45">Editing</span>
+                          <>
+                            <span aria-label={hasChanges ? "Unsaved changes" : undefined} className={`mr-1 h-2 w-2 shrink-0 rounded-full ${hasChanges ? "bg-amber-500" : "bg-transparent"}`} />
+                            <span className="inline-flex h-8 items-center px-2 text-xs font-semibold text-black/45">Editing</span>
+                          </>
                         ) : isEditing ? (
                           <>
+                            <span aria-label={hasChanges ? "Unsaved changes" : undefined} className={`mr-1 h-2 w-2 shrink-0 rounded-full ${hasChanges ? "bg-amber-500" : "bg-transparent"}`} />
                             <button className="h-8 rounded-lg bg-[#0b1b2a] px-3 text-xs font-bold text-white disabled:opacity-35" type="button" disabled={!hasChanges} onClick={() => updateStudent(student.id, draftRow)}>Save</button>
                             <button className="h-8 rounded-lg border border-red-200 bg-white px-2 text-xs font-semibold text-red-700" type="button" onClick={() => deleteStudent(student)}>Delete</button>
                             <button className="h-8 rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold" type="button" onClick={() => cancelStudentEdit(student.id)}>Cancel</button>
                           </>
                         ) : (
-                          <button className="h-8 rounded-lg border border-black/15 bg-white px-3 text-xs font-semibold" type="button" disabled={Boolean(editingId)} onClick={() => { setEditingId(student.id); setDraft((current) => ({ ...current, [student.id]: student })); }}>Edit</button>
+                          <>
+                            <span className="min-w-0 flex-1 truncate pr-2 text-[10px] text-black/45" title={getNotesPreview(student.notes)}>
+                              {getNotesPreview(student.notes)}
+                            </span>
+                            <button className="h-8 w-[72px] shrink-0 rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold" type="button" disabled={Boolean(editingId)} onClick={() => { setEditingId(student.id); setDraft((current) => ({ ...current, [student.id]: student })); }}>Edit</button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -513,12 +533,32 @@ export default function StudentsSetupPage() {
                   </div>
                   {!isEditing && <button className="btn btn-ghost px-3 py-2 text-xs" type="button" disabled={editingLocked} onClick={() => { setEditingId(student.id); setDraft((current) => ({ ...current, [student.id]: student })); }}>Edit</button>}
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {categories.map((category) => {
-                    const active = Boolean(draftRow[category.key]);
-                    return isEditing ? <button key={`mobile-${student.id}-${category.key}`} className="min-h-[36px] whitespace-nowrap rounded-full border border-black/20 px-2 text-[10px] font-bold" type="button" aria-pressed={active} style={{ background: active ? category.color : "#f1f1f1", opacity: active ? 1 : 0.55 }} onClick={() => setDraft((current) => ({ ...current, [student.id]: { ...draftRow, [category.key]: !active } }))}>{category.label}</button> : active ? <span key={`mobile-${student.id}-${category.key}`} className="whitespace-nowrap rounded-full border border-black/15 px-2 py-1 text-[10px] font-bold" style={{ background: category.color }}>{category.label}</span> : null;
-                  })}
-                  {draftRow.eog && <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold">EOG {draftRow.eog.replace("FIVE", "5").replace("FOUR", "4").replace("THREE", "3")}</span>}
+                <div className="mt-2 grid grid-cols-[72px_minmax(0,1fr)] items-start gap-x-2 gap-y-1.5 text-xs">
+                  <span className="pt-1 font-semibold text-black/50">Attributes</span>
+                  <div className="flex min-w-0 flex-wrap gap-1">
+                    {categories.map((category) => {
+                      const active = Boolean(draftRow[category.key]);
+                      const className = "inline-flex min-h-[28px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-full border border-black/20 px-2 text-[10px] font-bold";
+                      return isEditing ? (
+                        <button key={`mobile-${student.id}-${category.key}`} className={className} type="button" aria-pressed={active} style={{ background: active ? category.color : "#f1f1f1", opacity: active ? 1 : 0.55 }} onClick={() => setDraft((current) => ({ ...current, [student.id]: { ...draftRow, [category.key]: !active } }))}>{category.label}</button>
+                      ) : (
+                        <span key={`mobile-${student.id}-${category.key}`} className={className} style={{ background: active ? category.color : "transparent", opacity: active ? 1 : 0.25 }}>{category.label}</span>
+                      );
+                    })}
+                  </div>
+                  <span className="pt-1 font-semibold text-black/50">EOG</span>
+                  <span className="inline-flex min-h-[28px] items-center font-semibold">
+                    {draftRow.eog ? draftRow.eog.replace("FIVE", "5").replace("FOUR", "4").replace("THREE", "3") : "—"}
+                  </span>
+                  <span className="pt-1 font-semibold text-black/50">Notes</span>
+                  <button
+                    className="min-h-[28px] min-w-0 truncate rounded-lg border border-black/10 bg-slate-50 px-2 text-left text-xs text-black/60"
+                    type="button"
+                    title={getNotesPreview(student.notes) || "No notes"}
+                    onClick={() => setNotesEditor({ id: student.id, name: student.displayName, notes: student.notes || "" })}
+                  >
+                    {getNotesPreview(student.notes) || "No notes"}
+                  </button>
                 </div>
                 {isEditing && (
                   <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">

@@ -308,6 +308,37 @@ function PerformanceTotals({ totals, compact = false }: { totals: ReturnType<typ
   );
 }
 
+function ExportMenu({
+  disabled,
+  onXlsx,
+  onCsv
+}: {
+  disabled: boolean;
+  onXlsx: () => void;
+  onCsv: () => void;
+}) {
+  const triggerClass = "inline-flex h-11 min-w-[126px] items-center justify-center gap-1 rounded-xl border border-black/15 bg-white px-4 text-sm font-semibold shadow-[0_4px_12px_rgba(11,27,42,0.07)] transition hover:-translate-y-px hover:border-black/25 hover:shadow-[0_8px_18px_rgba(11,27,42,0.11)]";
+
+  if (disabled) {
+    return <button type="button" className={`${triggerClass} cursor-not-allowed opacity-35`} disabled>Export</button>;
+  }
+
+  return (
+    <details className="group relative">
+      <summary className={`${triggerClass} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>
+        Export
+        <span aria-hidden="true" className="text-[10px] transition group-open:rotate-180">▾</span>
+      </summary>
+      <div className="invisible absolute right-0 top-[calc(100%-2px)] z-40 w-44 pt-2 opacity-0 transition group-hover:visible group-hover:opacity-100 group-open:visible group-open:opacity-100">
+        <div className="rounded-xl border border-black/10 bg-white p-1.5 shadow-[0_14px_34px_rgba(11,27,42,0.18)]">
+          <button type="button" className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-left text-xs font-semibold text-black/70 transition hover:bg-black/[0.05] hover:text-black" onClick={onXlsx}>Excel (.xlsx)</button>
+          <button type="button" className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-left text-xs font-semibold text-black/70 transition hover:bg-black/[0.05] hover:text-black" onClick={onCsv}>CSV (.csv)</button>
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function buildCalendarDays(monthIso: string) {
   const monthDate = startOfMonth(parseIsoDate(monthIso));
   const lastDay = endOfMonth(monthDate).getDate();
@@ -525,7 +556,7 @@ function ReportPageInner() {
   const [selectedDate, setSelectedDate] = useState(requestedDate);
   const [selectedStudentId, setSelectedStudentId] = useState(requestedStudentId);
   const [visibleMonthIso, setVisibleMonthIso] = useState(format(startOfMonth(parseIsoDate(requestedDate)), "yyyy-MM-dd"));
-  const [classAttendanceView, setClassAttendanceView] = useState<ClassAttendanceView>("day");
+  const [classAttendanceView, setClassAttendanceView] = useState<ClassAttendanceView>(requestedMonitoringView);
   const [monitoringView, setMonitoringView] = useState<MonitoringView>(requestedMonitoringView);
   const [customRangeStart, setCustomRangeStart] = useState(
     format(startOfWeek(parseIsoDate(requestedDate), { weekStartsOn: 1 }), "yyyy-MM-dd"),
@@ -955,6 +986,41 @@ function ReportPageInner() {
     });
     return totals;
   }, [monitoringRangeReport, monitoringRangeAttendanceByCell, monitoringRangePerformanceByCell, selectedRangeLaps]);
+  const monitoringRangeGrandTotals = useMemo(() => {
+    const totals = emptyPerformanceTotals();
+    monitoringRangeDateTotals.forEach((entry) => {
+      totals.GREEN += entry.GREEN;
+      totals.YELLOW += entry.YELLOW;
+      totals.RED += entry.RED;
+    });
+    return totals;
+  }, [monitoringRangeDateTotals]);
+  const monitoringRangeCellTotals = useMemo(() => {
+    const totals = new Map<string, ReturnType<typeof emptyPerformanceTotals>>();
+    monitoringRangeReport?.students.forEach((student) => {
+      monitoringRangeReport.dates.forEach((date) => {
+        const entry = emptyPerformanceTotals();
+        if (monitoringRangeAttendanceByCell.get(`${student.id}-${date}`) !== "ABSENT") {
+          (selectedRangeLaps[date] || []).forEach((lapNumber) => {
+            const color = monitoringRangePerformanceByCell.get(`${student.id}-${date}-${lapNumber}`);
+            if (color) entry[color] += 1;
+          });
+        }
+        totals.set(`${student.id}-${date}`, entry);
+      });
+    });
+    return totals;
+  }, [monitoringRangeReport, monitoringRangeAttendanceByCell, monitoringRangePerformanceByCell, selectedRangeLaps]);
+  const rangeAttendanceGrandTotals = useMemo(() => {
+    const totals = emptyAttendanceTotals();
+    rangeAttendanceDateTotals.forEach((entry) => {
+      totals.PRESENT += entry.PRESENT;
+      totals.ABSENT += entry.ABSENT;
+      totals.TARDY += entry.TARDY;
+      totals.LEFT_EARLY += entry.LEFT_EARLY;
+    });
+    return totals;
+  }, [rangeAttendanceDateTotals]);
 
   const selectedStudentMonitoringRows = useMemo(() => {
     if (!monitoringReport || !selectedStudentId) return [];
@@ -1125,7 +1191,7 @@ function ReportPageInner() {
 
             {reportType && (
               <>
-                <div className="grid gap-2 rounded-2xl border border-black/10 bg-white/70 p-3 lg:grid-cols-[minmax(210px,1fr)_minmax(360px,440px)_minmax(210px,1fr)]">
+                <div className="grid gap-3 rounded-2xl border border-black/10 bg-white/70 p-3 lg:grid-cols-[minmax(220px,320px)_minmax(300px,390px)_minmax(140px,240px)] lg:justify-between lg:gap-x-8">
                   <select
                     className="h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold lg:col-start-1 lg:row-start-1"
                     aria-label="Class"
@@ -1140,11 +1206,11 @@ function ReportPageInner() {
                     <button type="button" className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${scope === "student" ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => { setScope("student"); if (reportType === "monitoring") setMonitoringView("day"); }}>Individual Student</button>
                   </div>
 
-                  <div className="flex w-full rounded-xl bg-black/5 p-1 lg:col-start-2 lg:row-start-1" aria-label={`${reportType} date range`}>
+                  <div className="flex w-full rounded-xl border border-black/10 bg-[#f4efe7] p-1 lg:col-start-2 lg:row-start-1" aria-label={`${reportType} date range`}>
                     {scope === "class" ? (
                       reportType === "monitoring"
-                        ? (["day", "week", "month", "custom"] as MonitoringView[]).map((view) => <button key={view} type="button" className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold capitalize ${monitoringView === view ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => setMonitoringView(view)}>{view}</button>)
-                        : (["day", "week", "month", "custom"] as ClassAttendanceView[]).map((view) => <button key={view} type="button" className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold capitalize ${classAttendanceView === view ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => setClassAttendanceView(view)}>{view}</button>)
+                        ? (["day", "week", "month", "custom"] as MonitoringView[]).map((view) => <button key={view} type="button" className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold capitalize transition ${monitoringView === view ? "bg-[#0b1b2a] text-white shadow-sm" : "text-black/55 hover:bg-white/80 hover:text-black"}`} onClick={() => setMonitoringView(view)}>{view}</button>)
+                        : (["day", "week", "month", "custom"] as ClassAttendanceView[]).map((view) => <button key={view} type="button" className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold capitalize transition ${classAttendanceView === view ? "bg-[#0b1b2a] text-white shadow-sm" : "text-black/55 hover:bg-white/80 hover:text-black"}`} onClick={() => setClassAttendanceView(view)}>{view}</button>)
                     ) : (
                       <div className="flex h-9 w-full items-center justify-center text-sm font-semibold text-black/60">
                         {reportType === "monitoring" ? "Daily monitoring" : "Monthly attendance"}
@@ -1181,29 +1247,17 @@ function ReportPageInner() {
                     )}
                   </div>
 
-                  <div className="flex w-full justify-end gap-1.5 lg:col-start-3 lg:row-start-2">
+                  <div className="flex w-full justify-end lg:col-start-3 lg:row-start-2">
                     {reportType === "monitoring" ? (
                       scope === "class" ? (
-                        <>
-                          <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadMonitoringClassXlsx} disabled={monitoringClassRows().length === 0}>Export XLSX</button>
-                          <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`monitoring-class-${selectedDate}.csv`, monitoringClassRows())} disabled={monitoringClassRows().length === 0}>Export CSV</button>
-                        </>
+                        <ExportMenu disabled={monitoringClassRows().length === 0} onXlsx={downloadMonitoringClassXlsx} onCsv={() => downloadCsv(`monitoring-class-${selectedDate}.csv`, monitoringClassRows())} />
                       ) : (
-                        <>
-                          <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadWorkbook(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.xlsx`, "Monitoring", selectedStudentMonitoringRows)}>Export XLSX</button>
-                          <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadCsv(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.csv`, selectedStudentMonitoringRows)}>Export CSV</button>
-                        </>
+                        <ExportMenu disabled={selectedStudentMonitoringRows.length === 0} onXlsx={() => downloadWorkbook(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.xlsx`, "Monitoring", selectedStudentMonitoringRows)} onCsv={() => downloadCsv(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.csv`, selectedStudentMonitoringRows)} />
                       )
                     ) : scope === "class" ? (
-                      <>
-                        <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadAttendanceClassXlsx} disabled={!hasClassAttendanceData}>Export XLSX</button>
-                        <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`attendance-class-${attendanceClassDateLabel()}.csv`, attendanceClassRows())} disabled={!hasClassAttendanceData}>Export CSV</button>
-                      </>
+                      <ExportMenu disabled={!hasClassAttendanceData} onXlsx={downloadAttendanceClassXlsx} onCsv={() => downloadCsv(`attendance-class-${attendanceClassDateLabel()}.csv`, attendanceClassRows())} />
                     ) : (
-                      <>
-                        <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadAttendanceStudentXlsx} disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}>Export XLSX</button>
-                        <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`attendance-${attendanceStudentReport?.student.displayName || "student"}-${todayIso}.csv`, attendanceStudentRows())} disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}>Export CSV</button>
-                      </>
+                      <ExportMenu disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0} onXlsx={downloadAttendanceStudentXlsx} onCsv={() => downloadCsv(`attendance-${attendanceStudentReport?.student.displayName || "student"}-${todayIso}.csv`, attendanceStudentRows())} />
                     )}
                   </div>
                 </div>
@@ -1283,7 +1337,10 @@ function ReportPageInner() {
                           <thead>
                             <tr>
                               <th className="sticky left-0 z-10 min-w-[170px] bg-white">Student</th>
-                              <th className="min-w-[180px] text-center">Student totals</th>
+                              <th className="min-w-[180px] text-center align-top">
+                                <div>Student totals</div>
+                                <div className="mt-7"><AttendanceTotals totals={rangeAttendanceGrandTotals} compact /></div>
+                              </th>
                               {attendanceClassRangeReport.dates.map((date) => (
                                 <th key={date} className="min-w-[94px] text-center">
                                   <div>{format(parseIsoDate(date), "EEE")}</div>
@@ -1396,14 +1453,18 @@ function ReportPageInner() {
                             <thead>
                               <tr>
                                 <th className="sticky left-0 z-10 min-w-[170px] bg-white">Student</th>
-                                <th className="min-w-[155px] text-center">Student totals</th>
+                                <th className="min-w-[155px] text-center align-top">
+                                  <div>Student totals</div>
+                                  <div className="my-2 min-h-[92px]" aria-hidden="true" />
+                                  <PerformanceTotals totals={monitoringRangeGrandTotals} compact />
+                                </th>
                                 {monitoringRangeReport.dates.map((date) => {
                                   const total = monitoringRangeDateTotals.get(date) || emptyPerformanceTotals();
                                   const laps = monitoringRangeLapsByDate.get(date) || [];
                                   return (
                                     <th key={`monitor-header-${date}`} className="min-w-[150px] text-center align-top">
                                       <div>{format(parseIsoDate(date), "EEE, M/d")}</div>
-                                      <div className="my-2 flex min-h-[28px] flex-col items-center gap-1">
+                                      <div className="my-2 flex min-h-[92px] flex-col items-center gap-1">
                                         {laps.map((lap) => {
                                           const isSelected = (selectedRangeLaps[date] || []).includes(lap.lapNumber);
                                           return (
@@ -1426,10 +1487,14 @@ function ReportPageInner() {
                                     <td className="text-center"><PerformanceTotals totals={total} /></td>
                                     {monitoringRangeReport.dates.map((date) => {
                                       const attendance = monitoringRangeAttendanceByCell.get(`${student.id}-${date}`);
-                                      const selected = (monitoringRangeLapsByDate.get(date) || []).filter((lap) => (selectedRangeLaps[date] || []).includes(lap.lapNumber));
+                                      const dateTotal = monitoringRangeDateTotals.get(date) || emptyPerformanceTotals();
+                                      const dateHasData = dateTotal.GREEN + dateTotal.YELLOW + dateTotal.RED > 0;
+                                      const cellTotal = monitoringRangeCellTotals.get(`${student.id}-${date}`) || emptyPerformanceTotals();
                                       return (
-                                        <td key={`${student.id}-${date}`} className={attendance === "ABSENT" ? "bg-slate-200 text-center" : "text-center"}>
-                                          {attendance === "ABSENT" ? <span className="text-[10px] font-bold tracking-[0.1em] text-slate-700">ABSENT</span> : <div className="flex flex-wrap justify-center gap-1">{selected.flatMap((lap) => { const color = monitoringRangePerformanceByCell.get(`${student.id}-${date}-${lap.lapNumber}`); return color ? [<span key={`${student.id}-${date}-${lap.lapNumber}`} title={`${lap.name} · ${lap.standardCode || "No standard"}`} className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${performanceClasses(color)}`}>{lap.lapNumber}</span>] : []; })}</div>}
+                                        <td key={`${student.id}-${date}`} className={attendance === "ABSENT" && dateHasData ? "bg-slate-200 text-center" : "text-center"}>
+                                          {attendance === "ABSENT" && dateHasData
+                                            ? <span className="inline-flex h-7 items-center justify-center text-[10px] font-bold tracking-[0.1em] text-slate-700">ABSENT</span>
+                                            : <PerformanceTotals totals={cellTotal} />}
                                         </td>
                                       );
                                     })}

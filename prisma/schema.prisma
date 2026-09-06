@@ -33,47 +33,50 @@ enum DeskType {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  passwordHash String
-  teacherName  String
-  displayName  String
-  createdAt    DateTime     @default(now())
-  schoolYears  SchoolYear[]
+  id                    String                 @id @default(cuid())
+  email                 String                 @unique
+  passwordHash          String
+  teacherName           String
+  displayName           String
+  createdAt             DateTime               @default(now())
+  schoolYears           SchoolYear[]
+  historicalEditReasons HistoricalEditReason[]
 }
 
 model SchoolYear {
-  id             String             @id @default(cuid())
-  userId         String
-  label          String
-  active         Boolean            @default(true)
-  archived       Boolean            @default(false)
-  createdAt      DateTime           @default(now())
-  user           User               @relation(fields: [userId], references: [id])
-  blocks         Block[]
-  students       Student[]
-  desks          Desk[]
-  laps           LapDefinition[]
-  attendance     AttendanceRecord[]
-  lapPerformance LapPerformance[]
+  id                    String                 @id @default(cuid())
+  userId                String
+  label                 String
+  active                Boolean                @default(true)
+  archived              Boolean                @default(false)
+  createdAt             DateTime               @default(now())
+  user                  User                   @relation(fields: [userId], references: [id])
+  blocks                Block[]
+  students              Student[]
+  desks                 Desk[]
+  laps                  LapDefinition[]
+  attendance            AttendanceRecord[]
+  lapPerformance        LapPerformance[]
+  historicalEditReasons HistoricalEditReason[]
 
   @@unique([userId, label])
 }
 
 model Block {
-  id             String             @id @default(cuid())
-  schoolYearId   String
-  blockNumber    Int
-  blockName      String
-  gradeLevels    Int[]              @default([7])
-  archived       Boolean            @default(false)
-  createdAt      DateTime           @default(now())
-  schoolYear     SchoolYear         @relation(fields: [schoolYearId], references: [id])
-  students       Student[]
-  desks          Desk[]
-  laps           LapDefinition[]
-  attendance     AttendanceRecord[]
-  lapPerformance LapPerformance[]
+  id                    String                 @id @default(cuid())
+  schoolYearId          String
+  blockNumber           Int
+  blockName             String
+  gradeLevels           Int[]                  @default([7])
+  archived              Boolean                @default(false)
+  createdAt             DateTime               @default(now())
+  schoolYear            SchoolYear             @relation(fields: [schoolYearId], references: [id])
+  students              Student[]
+  desks                 Desk[]
+  laps                  LapDefinition[]
+  attendance            AttendanceRecord[]
+  lapPerformance        LapPerformance[]
+  historicalEditReasons HistoricalEditReason[]
 
   @@unique([schoolYearId, blockNumber])
 }
@@ -178,4 +181,22 @@ model LapPerformance {
   student    Student    @relation(fields: [studentId], references: [id])
 
   @@unique([studentId, date, lapNumber])
+}
+
+model HistoricalEditReason {
+  id           String   @id @default(cuid())
+  userId       String
+  schoolYearId String
+  blockId      String
+  date         DateTime
+  mode         String
+  explanation  String
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id])
+  schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
+  block      Block      @relation(fields: [blockId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([blockId, date])
 }

@@ -2,13 +2,19 @@
 
 import { useState } from "react";
 
-export default function LogoutButton() {
+export default function LogoutButton({
+  className = "inline-flex min-h-[38px] items-center justify-center whitespace-nowrap rounded-lg px-3 py-2 text-[12px] font-semibold leading-none text-black/65 transition hover:bg-white hover:text-black",
+  label = "Log out"
+}: {
+  className?: string;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <button className="inline-flex min-h-[38px] items-center justify-center whitespace-nowrap rounded-lg px-3 py-2 text-[12px] font-semibold leading-none text-black/65 transition hover:bg-white hover:text-black" type="button" onClick={() => setOpen(true)}>
-        Log out
+      <button className={className} type="button" onClick={() => setOpen(true)}>
+        {label}
       </button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">

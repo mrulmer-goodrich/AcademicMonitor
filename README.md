@@ -15,8 +15,9 @@ The core teacher workflow is implemented:
 - Attendance gating before monitoring begins
 - Tap-to-cycle performance capture: proficient, developing, and nothing written
 - Privacy-safe classroom indicators that preserve their established desk positions and teacher color/pattern cues without projected category labels or EOG values
-- Day, week, month, custom-range, individual, monitoring, and attendance reports with consistent two-row controls, centered totals, and CSV/XLSX export
-- Historical monitoring entry from the active school-year start through the current school day, with a once-per-date-entry warning before prior-day edits
+- Day, week, month, custom-range, individual, monitoring, and attendance reports with consistent two-row controls, centered totals, and one CSV/XLSX export menu
+- Historical attendance and monitoring entry from the active school-year start through the current school day, with a required explanation recorded once per prior-date editing visit
+- Serialized autosave for attendance, monitoring, and weekly lap planning, with pending writes flushed before navigation
 - Responsive classroom layouts that keep seats, indicators, and lap controls together across Chromebook and tablet sizes
 - Weekend test sessions that can be used for practice without entering standard reports
 - Public landing, about, and contact pages
@@ -103,9 +104,9 @@ scripts/      Database seed script
 - Saturday and Sunday monitor records are test data and are excluded from standard reports and weekly reporting totals.
 - Desk segments run left to right from Lap 1 through Lap 3.
 - Tapping a segment cycles green to yellow to red and back to green.
-- Monitoring opens with no laps selected; teachers may select one or more named laps, and performance taps save automatically in order. Entering each prior-day editing visit requires one clear warning, without repeated prompts while remaining on that date.
+- Monitoring opens with no laps selected; teachers may select one or more named laps, and performance taps save automatically in order. Entering each prior-day attendance or monitoring visit requires one clear warning and an auditable explanation, without repeated prompts while remaining on that date.
 - Monitoring dates are limited to the active school year through the current school day; pending performance saves flush before changing dates.
-- Attendance remains an explicit batch-save workflow, while Command Center navigation flushes any pending monitoring save before leaving.
+- Attendance taps, attendance-list changes, and bulk attendance changes save automatically through the same serialized queue; pending attendance and performance writes flush before navigation.
 - Class monitoring reports preselect only named laps that contain recorded evidence for each date, support day/week/month/custom ranges, and allow an independent lap selection for every reported date. Named laps without evidence do not contribute an unrecorded total.
 - Absent students are masked and cannot be scored.
 

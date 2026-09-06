@@ -26,7 +26,10 @@ export async function POST(req: Request) {
   if (!blockNumber || !blockName || gradeLevels.length === 0) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
-  const schoolYear = await getActiveSchoolYear(user.id);
+  const schoolYear = body.schoolYearId
+    ? await prisma.schoolYear.findFirst({ where: { id: String(body.schoolYearId), userId: user.id } })
+    : await getActiveSchoolYear(user.id);
+  if (!schoolYear) return NextResponse.json({ error: "school_year_not_found" }, { status: 404 });
   const block = await prisma.block.create({
     data: {
       schoolYearId: schoolYear.id,

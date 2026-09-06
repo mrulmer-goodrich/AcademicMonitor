@@ -54,7 +54,8 @@ function SeatingSetupPageInner() {
   const [blockId, setBlockId] = useState<string>("");
   const [desks, setDesks] = useState<Desk[]>([]);
   const [unassigned, setUnassigned] = useState<Student[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
+  const [showStudentPicker, setShowStudentPicker] = useState(false);
+  const [studentsToAdd, setStudentsToAdd] = useState<string[]>([]);
   const [selectedDeskIds, setSelectedDeskIds] = useState<string[]>([]);
   const [multiSelect, setMultiSelect] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +63,7 @@ function SeatingSetupPageInner() {
   const [snapTargetId, setSnapTargetId] = useState<string | null>(null);
   const [teacherName, setTeacherName] = useState<string>("Teacher");
   const [canvasScale, setCanvasScale] = useState(1);
-  const [creatingDesk, setCreatingDesk] = useState<"student" | "all" | "teacher" | null>(null);
+  const [creatingDesk, setCreatingDesk] = useState<"students" | "teacher" | null>(null);
   const creatingDeskRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
@@ -132,60 +133,49 @@ function SeatingSetupPageInner() {
     const res = await fetch(`/api/desks?blockId=${blockId}&unassigned=1`);
     const data = await res.json();
     setUnassigned(data.students || []);
-    setSelectedStudentId((current) =>
-      data.students?.some((student: Student) => student.id === current) ? current : data.students?.[0]?.id || ""
-    );
+    setStudentsToAdd((current) => current.filter((id) => data.students?.some((student: Student) => student.id === id)));
   }
 
-  async function addStudentDesk() {
-    if (!selectedStudentId || creatingDeskRef.current) return;
+  async function addStudentDesks(studentIds: string[]) {
+    if (!studentIds.length || creatingDeskRef.current) return false;
     creatingDeskRef.current = true;
-    setCreatingDesk("student");
-    setError(null);
-    try {
-      const position = findOpenStudentDeskPosition(desks);
-      const res = await fetch("/api/desks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blockId, type: "STUDENT", studentId: selectedStudentId, ...position })
-      });
-      if (!res.ok) throw new Error("Unable to add that student desk.");
-      await Promise.all([loadDesks(), loadUnassigned()]);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to add that student desk.");
-    } finally {
-      creatingDeskRef.current = false;
-      setCreatingDesk(null);
-    }
-  }
-
-  async function addAllStudentDesks() {
-    if (!unassigned.length || creatingDeskRef.current) return;
-    creatingDeskRef.current = true;
-    setCreatingDesk("all");
+    setCreatingDesk("students");
     setError(null);
     let placedDesks = [...desks];
     try {
-      for (const student of unassigned) {
+      for (const studentId of studentIds) {
+        const student = unassigned.find((item) => item.id === studentId);
         const position = findOpenStudentDeskPosition(placedDesks);
         const res = await fetch("/api/desks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ blockId, type: "STUDENT", studentId: student.id, ...position })
+          body: JSON.stringify({ blockId, type: "STUDENT", studentId, ...position })
         });
-        if (!res.ok) throw new Error(`Unable to add a desk for ${student.displayName}.`);
+        if (!res.ok) throw new Error(`Unable to add a desk for ${student?.displayName || "that student"}.`);
         const data = await res.json();
         placedDesks = [...placedDesks, normalizeDeskGeometry(data.desk)];
         setDesks(placedDesks);
       }
       await Promise.all([loadDesks(), loadUnassigned()]);
+      return true;
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to add every student desk.");
+      setError(nextError instanceof Error ? nextError.message : "Unable to add that student desk.");
       await Promise.all([loadDesks(), loadUnassigned()]);
+      return false;
     } finally {
       creatingDeskRef.current = false;
       setCreatingDesk(null);
     }
+  }
+
+  async function handleAddStudents() {
+    if (unassigned.length === 0 || creatingDeskRef.current) return;
+    if (unassigned.length === 1) {
+      await addStudentDesks([unassigned[0].id]);
+      return;
+    }
+    setStudentsToAdd([]);
+    setShowStudentPicker(true);
   }
 
   async function addTeacherDesk() {
@@ -236,7 +226,7 @@ function SeatingSetupPageInner() {
   // grouping controls removed in v1.1 simplification
 
   function onPointerDown(event: React.PointerEvent, desk: Desk) {
-    if (unassigned.length > 0) return;
+    if (!multiSelect || unassigned.length > 0) return;
     event.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -385,6 +375,7 @@ function SeatingSetupPageInner() {
     [requestedBlockId, blocks]
   );
   const overlappingDeskIds = useMemo(() => findOverlappingDeskIds(desks), [desks]);
+  const hasTeacherDesk = useMemo(() => desks.some((desk) => desk.type === "TEACHER"), [desks]);
 
   // auto-fit removed
 
@@ -411,20 +402,29 @@ function SeatingSetupPageInner() {
           </select>
         )}
 
-        <select className="form-control !w-[160px] shrink-0 py-2 text-sm" aria-label="Unassigned student" value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} disabled={unassigned.length === 0 || Boolean(creatingDesk)}>
-          {unassigned.length === 0 && <option value="">No students to add</option>}
-          {unassigned.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
-        </select>
-        <button className="btn btn-primary shrink-0 px-3 py-2 text-sm" type="button" onClick={addStudentDesk} disabled={unassigned.length === 0 || Boolean(creatingDesk)}>{creatingDesk === "student" ? "Adding…" : "Add Student"}</button>
-        <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={addTeacherDesk} disabled={Boolean(creatingDesk)}>{creatingDesk === "teacher" ? "Adding…" : "Add Teacher Desk"}</button>
-        <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={addAllStudentDesks} disabled={unassigned.length === 0 || Boolean(creatingDesk)}>{creatingDesk === "all" ? `Adding ${unassigned.length}…` : "Add All"}</button>
+        <button
+          className="btn btn-primary w-[156px] shrink-0 justify-center px-3 py-2 text-sm disabled:border-black/10 disabled:bg-black/[0.08] disabled:text-black/30"
+          type="button"
+          onClick={() => void handleAddStudents()}
+          disabled={unassigned.length === 0 || Boolean(creatingDesk)}
+        >
+          {creatingDesk === "students" ? "Adding…" : "Add Student(s)"}
+        </button>
+        <button
+          className="btn btn-primary w-[156px] shrink-0 justify-center px-3 py-2 text-sm disabled:border-black/10 disabled:bg-black/[0.08] disabled:text-black/30"
+          type="button"
+          onClick={addTeacherDesk}
+          disabled={hasTeacherDesk || Boolean(creatingDesk)}
+        >
+          {creatingDesk === "teacher" ? "Adding…" : "Add Teacher Desk"}
+        </button>
         </div>
 
         <div className="grid grid-cols-[132px_64px_64px_92px] items-center justify-start gap-2 lg:justify-end">
-          <button className={`btn w-[132px] justify-center px-3 py-2 text-sm ${multiSelect ? "btn-primary" : "btn-ghost"}`} type="button" aria-pressed={multiSelect} onClick={() => { setMultiSelect((current) => !current); setSelectedDeskIds([]); }} disabled={unassigned.length > 0}>Select Multiple</button>
-          <button className="btn btn-ghost w-16 justify-center px-2 py-2 text-sm" type="button" onClick={() => rotateSelected(-15)} disabled={unassigned.length > 0 || selectedDeskIds.length === 0}>−15°</button>
-          <button className="btn btn-ghost w-16 justify-center px-2 py-2 text-sm" type="button" onClick={() => rotateSelected(15)} disabled={unassigned.length > 0 || selectedDeskIds.length === 0}>+15°</button>
-          <button className="btn btn-ghost w-[92px] justify-center px-3 py-2 text-sm text-red-700" type="button" onClick={() => void removeSelectedDesks()} disabled={selectedDeskIds.length === 0}>Delete</button>
+          <button className={`btn w-[132px] justify-center px-3 py-2 text-sm ${multiSelect ? "btn-primary" : "btn-ghost"}`} type="button" aria-pressed={multiSelect} onClick={() => { setMultiSelect((current) => !current); setSelectedDeskIds([]); }} disabled={unassigned.length > 0}>{multiSelect ? "Done Arranging" : "Arrange Desks"}</button>
+          <button className="btn btn-ghost w-16 justify-center px-2 py-2 text-sm" type="button" onClick={() => rotateSelected(-15)} disabled={!multiSelect || unassigned.length > 0 || selectedDeskIds.length === 0}>−15°</button>
+          <button className="btn btn-ghost w-16 justify-center px-2 py-2 text-sm" type="button" onClick={() => rotateSelected(15)} disabled={!multiSelect || unassigned.length > 0 || selectedDeskIds.length === 0}>+15°</button>
+          <button className="btn btn-ghost w-[92px] justify-center px-3 py-2 text-sm text-red-700" type="button" onClick={() => void removeSelectedDesks()} disabled={!multiSelect || selectedDeskIds.length === 0}>Delete</button>
         </div>
       </div>
 
@@ -478,6 +478,63 @@ function SeatingSetupPageInner() {
           </div>
         )}
       </ClassroomCanvas>
+      {showStudentPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="hero-card max-h-[calc(100vh-2rem)] w-full max-w-lg space-y-4 overflow-y-auto p-5" role="dialog" aria-modal="true" aria-labelledby="add-students-heading">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.16em] text-ocean">Seating chart</div>
+              <h2 className="mt-1 text-xl font-bold" id="add-students-heading">Add students</h2>
+              <p className="mt-1 text-sm text-black/55">Choose the students who need desks.</p>
+            </div>
+            <button
+              className="btn btn-ghost w-full justify-center px-3 py-2 text-sm"
+              type="button"
+              onClick={() => setStudentsToAdd(studentsToAdd.length === unassigned.length ? [] : unassigned.map((student) => student.id))}
+            >
+              {studentsToAdd.length === unassigned.length ? "Clear All" : "Select All"}
+            </button>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {unassigned.map((student) => {
+                const checked = studentsToAdd.includes(student.id);
+                return (
+                  <label key={`add-desk-${student.id}`} className={`flex min-h-[44px] cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-sm font-semibold ${checked ? "border-ocean bg-ocean/10" : "border-black/10 bg-white"}`}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => setStudentsToAdd((current) => checked ? current.filter((id) => id !== student.id) : [...current, student.id])}
+                    />
+                    <span className="min-w-0 truncate">{student.displayName}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                className="btn btn-ghost px-4 py-2 text-sm"
+                type="button"
+                disabled={Boolean(creatingDesk)}
+                onClick={() => { setShowStudentPicker(false); setStudentsToAdd([]); }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary px-4 py-2 text-sm"
+                type="button"
+                disabled={studentsToAdd.length === 0 || Boolean(creatingDesk)}
+                onClick={async () => {
+                  const added = await addStudentDesks(studentsToAdd);
+                  if (added) {
+                    setShowStudentPicker(false);
+                    setStudentsToAdd([]);
+                  }
+                }}
+              >
+                {creatingDesk === "students" ? "Adding…" : `Add Selected${studentsToAdd.length ? ` (${studentsToAdd.length})` : ""}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <ActionDialog {...actionDialogProps} />
     </div>
   );

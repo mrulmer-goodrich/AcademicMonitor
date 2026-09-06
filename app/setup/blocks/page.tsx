@@ -41,8 +41,9 @@ function toggleGrade(grades: number[], grade: number) {
 export default function BlocksSetupPage() {
   const [schoolYears, setSchoolYears] = useState<SchoolYear[]>([]);
   const [activeSchoolYear, setActiveSchoolYear] = useState<SchoolYear | null>(null);
-  const [schoolYearLabel, setSchoolYearLabel] = useState("");
   const [newSchoolYearLabel, setNewSchoolYearLabel] = useState(currentSchoolYearLabel());
+  const [showAddClass, setShowAddClass] = useState(false);
+  const [classSchoolYearId, setClassSchoolYearId] = useState("");
   const [blockNumber, setBlockNumber] = useState(1);
   const [blockName, setBlockName] = useState("");
   const [gradeLevels, setGradeLevels] = useState<number[]>([7]);
@@ -92,13 +93,9 @@ export default function BlocksSetupPage() {
   }, [allRows, showArchived, sortDir, sortKey]);
 
   const archivedCount = allRows.filter((row) => row.archived || !row.schoolYearActive).length;
-  const activeCount = allRows.filter((row) => row.schoolYearActive && !row.archived).length;
 
   const hasUnsavedChanges = useMemo(() => {
-    if (blockName.trim() || newSchoolYearLabel !== currentSchoolYearLabel()) return true;
-    if (activeSchoolYear && schoolYearLabel !== (normalizeSchoolYearLabel(activeSchoolYear.label) || activeSchoolYear.label)) {
-      return true;
-    }
+    if ((showAddClass && blockName.trim()) || newSchoolYearLabel !== currentSchoolYearLabel()) return true;
     if (!editingId) return false;
     const original = allRows.find((block) => block.id === editingId);
     const draftRow = draft[editingId];
@@ -107,7 +104,7 @@ export default function BlocksSetupPage() {
       original.blockName !== draftRow.blockName ||
       original.gradeLevels.join(",") !== draftRow.gradeLevels.join(",")
     ));
-  }, [activeSchoolYear, allRows, blockName, draft, editingId, newSchoolYearLabel, schoolYearLabel]);
+  }, [allRows, blockName, draft, editingId, newSchoolYearLabel, showAddClass]);
 
   const { dialogProps } = useUnsavedChangesGuard({
     when: hasUnsavedChanges,
@@ -131,20 +128,20 @@ export default function BlocksSetupPage() {
     const activeYear = years.find((year) => year.active && !year.archived) || null;
     setSchoolYears(years);
     setActiveSchoolYear(activeYear);
-    setSchoolYearLabel(activeYear ? normalizeSchoolYearLabel(activeYear.label) || activeYear.label : "");
+    setClassSchoolYearId((current) => years.some((year) => year.id === current) ? current : activeYear?.id || years[0]?.id || "");
   }
 
   async function addBlock() {
     setError(null);
     setStatusMessage(null);
-    if (!activeSchoolYear || !normalizeSchoolYearLabel(schoolYearLabel)) {
-      setError("Add a valid current school year before creating a class.");
+    if (!classSchoolYearId || !schoolYears.some((year) => year.id === classSchoolYearId)) {
+      setError("Choose a school year before creating a class.");
       return;
     }
     const res = await fetch("/api/blocks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ blockNumber, blockName, gradeLevels })
+      body: JSON.stringify({ schoolYearId: classSchoolYearId, blockNumber, blockName, gradeLevels })
     });
     if (!res.ok) {
       setError("Unable to create class. Check that the block number and name are valid for this school year.");
@@ -152,6 +149,8 @@ export default function BlocksSetupPage() {
     }
     setBlockName("");
     setBlockNumber((current) => current + 1);
+    setGradeLevels([7]);
+    setShowAddClass(false);
     setStatusMessage("Class added.");
     await loadData();
   }
@@ -203,22 +202,28 @@ export default function BlocksSetupPage() {
     }
   }
 
-  async function saveSchoolYear(id: string, label: string) {
-    const normalized = normalizeSchoolYearLabel(label);
-    if (!normalized) {
-      setError("Use a consecutive school year from 25/26 through 99/00.");
-      return;
-    }
-    const res = await fetch(`/api/school-years/${id}`, {
+  async function restoreSchoolYear(block: BlockRow) {
+    const confirmed = await ask({
+      eyebrow: "Restore school year",
+      title: `Make ${block.schoolYearLabel} active again?`,
+      description: <>This restores the full <strong>{block.schoolYearLabel}</strong> school year and all of its classes. The current school year will move into the historical section, and no records will be deleted.</>,
+      confirmLabel: `Restore ${block.schoolYearLabel}`,
+      cancelLabel: "Cancel",
+      tone: "warning",
+      size: "large"
+    });
+    if (!confirmed) return;
+    const res = await fetch(`/api/school-years/${block.schoolYearId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: normalized })
+      body: JSON.stringify({ active: true })
     });
-    if (!res.ok) setError("Unable to save that school year. The label may already exist.");
-    else {
-      setStatusMessage("School year saved.");
-      await loadData();
+    if (!res.ok) {
+      setError("Unable to restore that school year.");
+      return;
     }
+    setStatusMessage(`${block.schoolYearLabel} restored.`);
+    await loadData();
   }
 
   async function startSchoolYear() {
@@ -247,8 +252,6 @@ export default function BlocksSetupPage() {
       return;
     }
     setNewSchoolYearLabel(currentSchoolYearLabel());
-    setBlockNumber(1);
-    setBlockName("");
     setStatusMessage(`${normalized} started.`);
     await loadData();
   }
@@ -266,6 +269,20 @@ export default function BlocksSetupPage() {
     return sortDir === "asc" ? " ▲" : " ▼";
   }
 
+  function nextBlockNumber(schoolYearId: string) {
+    const year = schoolYears.find((item) => item.id === schoolYearId);
+    return Math.max(0, ...(year?.blocks.map((block) => block.blockNumber) || [])) + 1;
+  }
+
+  function openAddClass() {
+    const schoolYearId = activeSchoolYear?.id || schoolYears[0]?.id || "";
+    setClassSchoolYearId(schoolYearId);
+    setBlockNumber(nextBlockNumber(schoolYearId));
+    setBlockName("");
+    setGradeLevels([7]);
+    setShowAddClass(true);
+  }
+
   return (
     <div className="mx-auto max-w-[1440px] space-y-4 px-4 py-4 sm:px-6">
       <div><ReturnToDashboardButton className="w-auto px-4 py-2 text-sm" /></div>
@@ -273,49 +290,33 @@ export default function BlocksSetupPage() {
       {error && <div className="hero-card p-4 text-sm text-red-700">{error} <Link className="underline" href="/dashboard">Go to login</Link></div>}
 
       <section className="hero-card space-y-3 p-4">
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="w-[150px]">
-            <span className="small-header text-black/55">Current year</span>
-            <input className="form-control mt-1 py-2 text-sm" value={schoolYearLabel} onChange={(event) => setSchoolYearLabel(event.target.value)} placeholder="26/27" />
-          </label>
-          <button className="btn btn-ghost px-3 py-2 text-sm" type="button" disabled={!activeSchoolYear} onClick={() => activeSchoolYear && saveSchoolYear(activeSchoolYear.id, schoolYearLabel)}>Save Year</button>
-
-          <label className="w-[108px]">
-            <span className="small-header text-black/55">Block</span>
-            <input className="form-control mt-1 py-2 text-sm" type="number" min={1} value={blockNumber} onChange={(event) => setBlockNumber(Number(event.target.value))} />
-          </label>
-          <label className="min-w-[220px] flex-1">
-            <span className="small-header text-black/55">Class name</span>
-            <input className="form-control mt-1 py-2 text-sm" value={blockName} onChange={(event) => setBlockName(event.target.value)} placeholder="Math" onKeyDown={(event) => { if (event.key === "Enter") void addBlock(); }} />
-          </label>
-          <fieldset className="shrink-0">
-            <legend className="small-header text-black/55">Grades taught</legend>
-            <div className="mt-1 flex h-10 items-center gap-1 rounded-xl border border-black/15 bg-white px-2">
-              {[6, 7, 8].map((grade) => <button key={grade} className={`rounded-lg px-2 py-1 text-xs font-semibold ${gradeLevels.includes(grade) ? "bg-[#0b1b2a] text-white" : "bg-black/5 text-black/55"}`} type="button" aria-pressed={gradeLevels.includes(grade)} onClick={() => setGradeLevels((current) => toggleGrade(current, grade))}>{grade}</button>)}
-            </div>
-          </fieldset>
-          <button className="btn btn-primary px-4 py-2 text-sm" type="button" onClick={addBlock} disabled={!blockName.trim()}>Add Class</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="btn btn-primary px-4 py-2 text-sm" type="button" onClick={openAddClass} disabled={schoolYears.length === 0}>Add Class</button>
           <label className="ml-auto inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-full border border-black/15 bg-white px-3 text-xs font-semibold">
             <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
             Show archived ({archivedCount})
           </label>
-        </div>
-
-        <div className="flex min-h-6 items-center justify-between gap-3 text-xs text-black/60" aria-live="polite">
-          <span>{activeCount} active {activeCount === 1 ? "class" : "classes"}</span>
-          <span>{statusMessage}</span>
+          <span className="sr-only" aria-live="polite">{statusMessage}</span>
         </div>
 
         <div className="min-h-[280px] overflow-x-auto md:overflow-visible">
-          <table className="table table-compact min-w-[780px]">
+          <table className="table table-compact w-full min-w-[1000px] table-fixed">
+            <colgroup>
+              <col className="w-[128px]" />
+              <col className="w-[90px]" />
+              <col />
+              <col className="w-[280px]" />
+              <col className="w-[118px]" />
+              <col className="w-[286px]" />
+            </colgroup>
             <thead className="sticky-head">
               <tr>
-                <th className="w-[118px]"><button className="font-semibold" type="button" onClick={() => toggleSort("schoolYear")}>School Year{sortLabel("schoolYear")}</button></th>
-                <th className="w-[90px]"><button className="font-semibold" type="button" onClick={() => toggleSort("blockNumber")}>Block{sortLabel("blockNumber")}</button></th>
+                <th><button className="font-semibold" type="button" onClick={() => toggleSort("schoolYear")}>School Year{sortLabel("schoolYear")}</button></th>
+                <th><button className="font-semibold" type="button" onClick={() => toggleSort("blockNumber")}>Block{sortLabel("blockNumber")}</button></th>
                 <th><button className="font-semibold" type="button" onClick={() => toggleSort("blockName")}>Class Name{sortLabel("blockName")}</button></th>
-                <th className="w-[170px]"><button className="font-semibold" type="button" onClick={() => toggleSort("gradeLevels")}>Grades{sortLabel("gradeLevels")}</button></th>
-                <th className="w-[100px]"><button className="font-semibold" type="button" onClick={() => toggleSort("status")}>Status{sortLabel("status")}</button></th>
-                <th className="w-[250px] text-right">Actions</th>
+                <th><button className="font-semibold" type="button" onClick={() => toggleSort("gradeLevels")}>Grades{sortLabel("gradeLevels")}</button></th>
+                <th><button className="font-semibold" type="button" onClick={() => toggleSort("status")}>Status{sortLabel("status")}</button></th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -339,14 +340,14 @@ export default function BlocksSetupPage() {
                       </td>
                     </tr>
                   )}
-                  <tr className={isEditing ? "bg-amber-50/70" : isHistorical ? "bg-slate-50/80 text-black/70" : "bg-white/40"}>
+                  <tr className={`h-[52px] ${isEditing ? "bg-amber-50/70" : isHistorical ? "bg-slate-50/80 text-black/70" : "bg-white/40"}`}>
                     <td className="font-semibold">{block.schoolYearLabel}</td>
                     <td>{isEditing ? <input className="form-control h-8 max-w-[76px] py-1 text-sm" type="number" min={1} value={draftRow.blockNumber} onChange={(event) => setDraft((current) => ({ ...current, [block.id]: { ...draftRow, blockNumber: Number(event.target.value) } }))} /> : block.blockNumber}</td>
-                    <td>{isEditing ? <input className="form-control h-8 py-1 text-sm font-semibold" value={draftRow.blockName} onChange={(event) => setDraft((current) => ({ ...current, [block.id]: { ...draftRow, blockName: event.target.value } }))} /> : <span className="font-semibold">{block.blockName}</span>}</td>
-                    <td>{isEditing ? <div className="flex h-8 items-center gap-1">{[6, 7, 8].map((grade) => <button key={grade} className={`rounded-lg px-2 py-1 text-xs font-semibold ${draftRow.gradeLevels.includes(grade) ? "bg-[#0b1b2a] text-white" : "bg-black/5 text-black/55"}`} type="button" aria-pressed={draftRow.gradeLevels.includes(grade)} onClick={() => setDraft((current) => ({ ...current, [block.id]: { ...draftRow, gradeLevels: toggleGrade(draftRow.gradeLevels, grade) } }))}>{grade}</button>)}</div> : gradeLabel(block.gradeLevels)}</td>
+                    <td className="overflow-hidden">{isEditing ? <input className="form-control h-8 py-1 text-sm font-semibold" value={draftRow.blockName} onChange={(event) => setDraft((current) => ({ ...current, [block.id]: { ...draftRow, blockName: event.target.value } }))} /> : <span className="block truncate whitespace-nowrap font-semibold" title={block.blockName}>{block.blockName}</span>}</td>
+                    <td className="overflow-hidden">{isEditing ? <div className="flex h-8 items-center gap-1">{[6, 7, 8].map((grade) => <button key={grade} className={`rounded-lg px-2 py-1 text-xs font-semibold ${draftRow.gradeLevels.includes(grade) ? "bg-[#0b1b2a] text-white" : "bg-black/5 text-black/55"}`} type="button" aria-pressed={draftRow.gradeLevels.includes(grade)} onClick={() => setDraft((current) => ({ ...current, [block.id]: { ...draftRow, gradeLevels: toggleGrade(draftRow.gradeLevels, grade) } }))}>{grade}</button>)}</div> : <span className="block truncate whitespace-nowrap" title={gradeLabel(block.gradeLevels)}>{gradeLabel(block.gradeLevels)}</span>}</td>
                     <td><span className={`inline-flex h-7 items-center rounded-full px-2 text-[11px] font-semibold ${isArchived ? "bg-slate-200 text-slate-600" : "bg-emerald-100 text-emerald-800"}`}>{isHistorical ? "Historical" : block.archived ? "Archived" : "Active"}</span></td>
                     <td>
-                      <div className="flex h-8 items-center justify-end gap-1">
+                      <div className="grid h-8 grid-cols-[82px_96px_82px] items-center justify-end gap-1">
                         {isEditing ? (
                           <>
                             <button className="h-8 rounded-lg bg-[#0b1b2a] px-3 text-xs font-bold text-white" type="button" onClick={async () => { if (await updateBlock(block, draftRow)) setEditingId(null); }}>Save</button>
@@ -355,7 +356,11 @@ export default function BlocksSetupPage() {
                         ) : (
                           <button className="h-8 rounded-lg border border-black/15 bg-white px-3 text-xs font-semibold" type="button" onClick={() => { setEditingId(block.id); setDraft((current) => ({ ...current, [block.id]: block })); }}>Edit</button>
                         )}
-                        {block.schoolYearActive && <button className="h-8 rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold" type="button" onClick={() => void updateBlock(block, { archived: !block.archived })}>{block.archived ? "Unarchive" : "Archive"}</button>}
+                        {!isEditing && (isHistorical ? (
+                          <button className="h-8 rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold" type="button" onClick={() => void restoreSchoolYear(block)}>Unarchive</button>
+                        ) : (
+                          <button className="h-8 rounded-lg border border-black/15 bg-white px-2 text-xs font-semibold" type="button" onClick={() => void updateBlock(block, { archived: !block.archived })}>{block.archived ? "Unarchive" : "Archive"}</button>
+                        ))}
                         <button className="h-8 rounded-lg border border-red-200 bg-white px-2 text-xs font-semibold text-red-700" type="button" onClick={() => void deleteBlock(block)}>Delete</button>
                       </div>
                     </td>
@@ -377,6 +382,43 @@ export default function BlocksSetupPage() {
           <span className="text-xs text-black/55">One school year remains active. Prior classes and records are preserved in the archived view.</span>
         </div>
       </details>
+
+      {showAddClass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#07131f]/70 p-4 backdrop-blur-[3px] sm:p-6">
+          <div className="hero-card max-h-[calc(100vh-2rem)] w-full max-w-2xl space-y-4 overflow-y-auto p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="add-class-heading">
+            <div>
+              <div className="small-header text-black/50">Classes & Years</div>
+              <h2 className="section-title mt-1" id="add-class-heading">Add Class</h2>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
+              <label className="block">
+                <span className="text-sm font-semibold">School year</span>
+                <select className="form-control mt-1 py-2" value={classSchoolYearId} onChange={(event) => { const schoolYearId = event.target.value; setClassSchoolYearId(schoolYearId); setBlockNumber(nextBlockNumber(schoolYearId)); }}>
+                  {schoolYears.map((year) => <option key={year.id} value={year.id}>{normalizeSchoolYearLabel(year.label) || year.label}{year.active && !year.archived ? " · Current" : " · Historical"}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold">Block number</span>
+                <input className="form-control mt-1 py-2" type="number" min={1} value={blockNumber} onChange={(event) => setBlockNumber(Number(event.target.value))} />
+              </label>
+            </div>
+            <label className="block">
+              <span className="text-sm font-semibold">Class name</span>
+              <input autoFocus className="form-control mt-1 py-2" value={blockName} onChange={(event) => setBlockName(event.target.value)} placeholder="Math" onKeyDown={(event) => { if (event.key === "Enter" && blockName.trim()) void addBlock(); }} />
+            </label>
+            <fieldset>
+              <legend className="text-sm font-semibold">Grades taught</legend>
+              <div className="mt-1.5 grid grid-cols-3 gap-2">
+                {[6, 7, 8].map((grade) => <button key={`new-grade-${grade}`} className={`min-h-10 rounded-xl border border-black/15 px-3 text-sm font-semibold ${gradeLevels.includes(grade) ? "bg-[#0b1b2a] text-white" : "bg-black/5 text-black/55"}`} type="button" aria-pressed={gradeLevels.includes(grade)} onClick={() => setGradeLevels((current) => toggleGrade(current, grade))}>Grade {grade}</button>)}
+              </div>
+            </fieldset>
+            <div className="flex gap-2">
+              <button className="btn btn-primary" type="button" disabled={!blockName.trim() || !classSchoolYearId} onClick={() => void addBlock()}>Add Class</button>
+              <button className="btn btn-ghost" type="button" onClick={() => { setShowAddClass(false); setBlockName(""); setGradeLevels([7]); }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <UnsavedChangesDialog {...dialogProps} />
       <ActionDialog {...actionDialogProps} />

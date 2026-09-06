@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isStandardReportingDay } from "@/lib/reporting";
 import { calendarDayRange, getActiveSchoolYear, getSchoolDate, normalizeDate } from "@/lib/server";
-import LogoutButton from "@/components/LogoutButton";
+import DashboardAccountMenu from "@/components/DashboardAccountMenu";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -164,7 +164,7 @@ function DashboardQuickAction({
   return (
     <Link
       href={href}
-      className="inline-flex min-h-[38px] items-center justify-center whitespace-nowrap rounded-lg px-3 py-2 text-center text-[12px] font-semibold leading-none text-black/65 transition hover:bg-white hover:text-black"
+      className="inline-flex min-h-[38px] items-center justify-center whitespace-nowrap rounded-lg border border-white/80 bg-white/70 px-3 py-2 text-center text-[12px] font-semibold leading-none text-black/70 shadow-[0_4px_12px_rgba(11,27,42,0.08)] transition hover:-translate-y-px hover:bg-white hover:text-black hover:shadow-[0_8px_18px_rgba(11,27,42,0.12)]"
     >
       <div>{label}</div>
     </Link>
@@ -185,7 +185,7 @@ function WeeklyStatsCard({ stats }: { stats: WeeklyStats }) {
       className="feature-card relative h-[104px] gap-1 border border-black/10 px-2.5 py-2"
     >
       <div className="absolute left-3 right-3 top-2 text-center text-[10px] font-semibold uppercase tracking-[0.05em] text-black/55">
-        Weekly Data Collected
+        Current Week
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center gap-2 pt-4">
         <div className="relative h-[62px] w-[62px] shrink-0 rounded-full" style={{ background: donutBackground }}>
@@ -567,9 +567,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
                 <DashboardQuickAction href="/setup/students" label="Students" />
                 <DashboardQuickAction href="/setup/seating" label="Seating" />
                 <DashboardQuickAction href="/setup/laps" label="Weekly Lap Plan" />
-                <DashboardQuickAction href="/account" label="Account" />
-                <DashboardQuickAction href="/" label="Public Website" />
-                <LogoutButton />
+                <DashboardAccountMenu />
               </div>
             </div>
 

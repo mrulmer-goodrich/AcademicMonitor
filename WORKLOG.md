@@ -15,19 +15,28 @@ Completed:
 - Centered longitudinal report cells; replaced textual totals with fixed-position colored count circles; left zero slots blank; and removed unrecorded named laps from monitoring totals
 - Made monitoring lap defaults reflect actual evidence for each date, including valid zero-lap and multi-lap defaults, and stacked date-specific lap selectors inside their report headers
 - Replaced the stalling framework lint wrapper with a direct application-source ESLint command and added explicit typecheck and complete verify commands
+- Replaced inline class creation with an Add Class overlay, kept the class table geometry stable, and made historical school years explicitly restorable
+- Reworked Seating assignment into one Add Student(s) flow with direct single-student placement, multi-student selection, a stable teacher-desk action, and an Arrange Desks mode
+- Made attendance and weekly lap planning autosave through serialized queues and flush pending writes before context changes or navigation
+- Added required prior-day explanations for attendance and monitoring and persisted the audit record in a dedicated teacher-, year-, and block-scoped table
+- Consolidated every report export into one flyout, added range grand totals, suppressed irrelevant absence markers, and preserved fixed centered G/Y/R positions across report cells
+- Added the Command Center Account flyout, strengthened optional navigation affordances, changed dashboard summaries to Current Week, and added a narrow back-navigation style recovery guard
 
 Verification:
 
 - Browser-accepted Command Center, Classes & Years, class-grade warning, Weekly Lap Plan view/edit, Seating controls, Students, historical-date warnings, unnamed-lap warning, and shared attendance/monitoring report controls at 1280 px
 - Confirmed prior-day warnings appear once while staying on a date, reappear on a different prior date, and reappear when returning to the original prior date
 - Confirmed the browser console remained free of warnings and errors across the final monitoring flow
+- Browser-accepted the final Command Center, Classes & Years, Add Class overlay, Students desktop/phone layouts, Seating, Weekly Lap Plan view/edit, attendance list, both prior-day warnings, attendance/monitoring report controls, export flyout, and back-navigation recovery at 1280×720 and 390×844 with no page-level overflow or console warnings/errors
 - Direct ESLint completed with zero errors and the nine pre-existing hook-dependency warnings; strict TypeScript, whitespace validation, and the optimized production build passed
+- Validated the configured database schema diff as additive-only, applied the historical-edit audit table and indexes, regenerated Prisma Client, and confirmed the configured database is in sync
 
 Decisions:
 
-- Restoring a class applies to a manually archived class in the current school year; historical-year classes remain historical so restoring cannot silently reactivate an old year
+- Restoring a historical class intentionally restores its complete school year as the current year and archives the previously current year, keeping year ownership internally consistent
 - Report totals represent recorded evidence only; a named lap without a score is visually empty and does not become a fourth result category
 - Shared report controls retain the same six spatial positions for both report types, while individual reports use a fixed descriptive range slot
+- Prior-day explanations are audit metadata; they authorize the editing visit and do not replace the attendance or performance record itself
 
 ## 2026-09-06 — Teacher feedback, multi-grade standards, and historical evidence
 

@@ -2,7 +2,7 @@
 
 ## Active work
 
-No active engineering task. The post-release teacher polish pass was completed on 2026-09-06 and is ready for delivery.
+No active engineering task. The teacher workflow, autosave, historical-audit, and responsive reporting release was completed and verified on 2026-09-06.
 
 ## Known follow-up opportunities
 
@@ -11,7 +11,8 @@ No active engineering task. The post-release teacher polish pass was completed o
 - Decide whether rollover should optionally clone class names, students, or seating layouts
 - Add automated tests for authentication, setup gates, historical performance capture, and report exports
 - Add multi-week trend charts to individual-student monitoring reports
+- Consider making the Command Center `Current Week` summary heading a period selector for current day, current week, current month, or lifetime totals
 
 ## Blockers and questions
 
-- In-app breakpoint emulation is unavailable in the current browser-control session. The affected desktop states passed at 1280 px; responsive behavior remains covered by the existing mobile/tablet layouts and prior accepted breakpoint suite.
+None.

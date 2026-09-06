@@ -145,16 +145,18 @@ function MonitorPageInner() {
   const [savedPerformance, setSavedPerformance] = useState<Record<string, PerformanceColor>>({});
   const [draftPerformance, setDraftPerformance] = useState<Record<string, PerformanceColor>>({});
   const [selectedLaps, setSelectedLaps] = useState<number[]>([]);
-  const [attendanceCompletionPromptOpen, setAttendanceCompletionPromptOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saveState, setSaveState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [historicalWarningOpen, setHistoricalWarningOpen] = useState(false);
+  const [historicalExplanation, setHistoricalExplanation] = useState("");
+  const [historicalSubmitting, setHistoricalSubmitting] = useState(false);
   const [dateKey, setDateKey] = useState(() => /^\d{4}-\d{2}-\d{2}$/.test(requestedDate || "") ? requestedDate! : format(new Date(), "yyyy-MM-dd"));
   const [schoolToday, setSchoolToday] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [schoolYearStart, setSchoolYearStart] = useState("");
-  const attendanceReadyRef = useRef(false);
-  const attendancePromptInitializedRef = useRef(false);
+  const attendanceAutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attendanceSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
+  const latestAttendanceRef = useRef<Record<string, AttendanceStatus>>({});
+  const persistedAttendanceRef = useRef<Record<string, AttendanceStatus>>({});
   const performanceAutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const performanceSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const latestPerformanceRef = useRef<Record<string, PerformanceColor>>({});
@@ -189,38 +191,29 @@ function MonitorPageInner() {
   }, [blockId, requestedMode]);
 
   useEffect(() => {
-    attendancePromptInitializedRef.current = false;
-    setAttendanceCompletionPromptOpen(false);
-  }, [blockId, dateKey, activeMode]);
-
-  useEffect(() => {
     setSelectedLaps([]);
   }, [laps, dayIndex, isWeekday]);
 
   useEffect(() => {
     if (!blockId || loading) return;
     const visitKey = `${blockId}:${dateKey}:${activeMode}`;
-    if (historicalVisitKeyRef.current === visitKey) return;
-    historicalVisitKeyRef.current = visitKey;
-    if (activeMode !== "performance" || dateKey >= schoolToday) return;
-
-    void ask({
-      eyebrow: "Historical monitoring",
-      title: "You are entering data for a prior day",
-      description: <>You are about to edit monitoring records for <strong>{format(parseISO(`${dateKey}T12:00:00`), "EEEE, MMMM d, yyyy")}</strong>. Changes will be saved to that date, not today. This warning will stay out of your way until you leave this date.</>,
-      confirmLabel: "Edit This Prior Day",
-      cancelLabel: "Return to Today",
-      tone: "warning",
-      size: "large"
-    }).then((confirmed) => {
-      if (!confirmed) setDateKey(schoolToday);
-    });
-  }, [activeMode, ask, blockId, dateKey, loading, schoolToday]);
+    if (dateKey >= schoolToday) {
+      setHistoricalWarningOpen(false);
+      setHistoricalExplanation("");
+      return;
+    }
+    if (historicalVisitKeyRef.current === visitKey || historicalWarningOpen) return;
+    setHistoricalExplanation("");
+    setHistoricalWarningOpen(true);
+  }, [activeMode, blockId, dateKey, historicalWarningOpen, loading, schoolToday]);
 
   useEffect(
     () => () => {
       if (performanceAutosaveTimerRef.current) {
         clearTimeout(performanceAutosaveTimerRef.current);
+      }
+      if (attendanceAutosaveTimerRef.current) {
+        clearTimeout(attendanceAutosaveTimerRef.current);
       }
     },
     []
@@ -256,7 +249,6 @@ function MonitorPageInner() {
 
   async function loadMonitorData() {
     setLoading(true);
-    setSaveState(null);
 
     try {
       const [desksRes, studentsRes, unassignedRes, attendanceRes, lapsRes, performanceRes] = await Promise.all([
@@ -302,6 +294,8 @@ function MonitorPageInner() {
       setLaps(lapsData.laps || []);
       setSavedAttendance(savedAttendanceMap);
       setDraftAttendance(cloneRecordMap(savedAttendanceMap));
+      persistedAttendanceRef.current = cloneRecordMap(savedAttendanceMap);
+      latestAttendanceRef.current = cloneRecordMap(savedAttendanceMap);
       setSavedPerformance(savedPerformanceMap);
       setDraftPerformance(cloneRecordMap(savedPerformanceMap));
       persistedPerformanceRef.current = cloneRecordMap(savedPerformanceMap);
@@ -341,84 +335,104 @@ function MonitorPageInner() {
     [savedAttendance, draftAttendance, savedPerformance, draftPerformance]
   );
 
-  const { dialogProps, requestNavigation } = useUnsavedChangesGuard({
+  const { dialogProps } = useUnsavedChangesGuard({
     when: hasUnsavedChanges,
     description: "You have unsaved attendance or monitoring changes on this screen. Leaving now will discard them."
   });
 
-  useEffect(() => {
-    if (loading || activeMode !== "attendance") {
-      attendanceReadyRef.current = attendanceComplete;
-      return;
-    }
-
-    if (!attendancePromptInitializedRef.current) {
-      attendancePromptInitializedRef.current = true;
-      attendanceReadyRef.current = attendanceComplete;
-      return;
-    }
-
-    const wasComplete = attendanceReadyRef.current;
-    attendanceReadyRef.current = attendanceComplete;
-
-    if (!wasComplete && attendanceComplete) {
-      setAttendanceCompletionPromptOpen(true);
-    }
-  }, [attendanceComplete, activeMode, loading]);
-
   function cycleAttendance(studentId: string) {
-    setDraftAttendance((prev) => {
-      const current = prev[studentId];
-      const next = current
-        ? attendanceCycle[(attendanceCycle.indexOf(current) + 1) % attendanceCycle.length]
-        : "PRESENT";
-      return {
-        ...prev,
-        [studentId]: next
-      };
-    });
-    setSaveState(null);
+    const current = latestAttendanceRef.current[studentId];
+    const nextStatus = current
+      ? attendanceCycle[(attendanceCycle.indexOf(current) + 1) % attendanceCycle.length]
+      : "PRESENT";
+    const next = { ...latestAttendanceRef.current, [studentId]: nextStatus };
+    setDraftAttendance(next);
+    scheduleAttendanceAutosave(next);
   }
 
   function setAttendanceStatus(studentId: string, status: AttendanceStatus) {
-    setDraftAttendance((prev) => ({
-      ...prev,
-      [studentId]: status
-    }));
-    setSaveState(null);
+    const next = { ...latestAttendanceRef.current, [studentId]: status };
+    setDraftAttendance(next);
+    scheduleAttendanceAutosave(next);
   }
 
   async function bulkAttendance(status: AttendanceStatus) {
     const confirmed = await ask({
       eyebrow: "Attendance shortcut",
       title: `Mark everyone ${attendanceLabel(status).toLowerCase()}?`,
-      description: `This will set all ${activeStudents.length} active students to ${attendanceLabel(status).toLowerCase()}. You can still adjust individual students before saving.`,
+      description: `This will set all ${activeStudents.length} active students to ${attendanceLabel(status).toLowerCase()}. You can still adjust individual students afterward.`,
       confirmLabel: `Mark All ${attendanceLabel(status)}`,
       cancelLabel: "Cancel",
       tone: "info"
     });
     if (!confirmed) return;
-    setDraftAttendance((prev) => {
-      const next = { ...prev };
-      activeStudents.forEach((studentId) => {
-        next[studentId] = status;
-      });
-      return next;
+    const next = { ...latestAttendanceRef.current };
+    activeStudents.forEach((studentId) => {
+      next[studentId] = status;
     });
-    setSaveState(null);
+    setDraftAttendance(next);
+    scheduleAttendanceAutosave(next);
+  }
+
+  async function persistAttendanceSnapshot(snapshot: Record<string, AttendanceStatus>) {
+    const records = Object.entries(snapshot)
+      .filter(([studentId, status]) => persistedAttendanceRef.current[studentId] !== status)
+      .map(([studentId, status]) => ({ studentId, status }));
+
+    if (!records.length) {
+      return true;
+    }
+
+    try {
+      const response = await fetch("/api/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blockId, date: dateKey, records })
+      });
+      if (!response.ok) throw new Error("attendance");
+
+      const persisted = cloneRecordMap(snapshot);
+      persistedAttendanceRef.current = persisted;
+      setSavedAttendance(persisted);
+      return true;
+    } catch {
+      setError("Attendance auto-save failed. Your changes remain on screen and will be retried before leaving.");
+      return false;
+    }
+  }
+
+  function scheduleAttendanceAutosave(snapshot: Record<string, AttendanceStatus>) {
+    latestAttendanceRef.current = snapshot;
+    if (attendanceAutosaveTimerRef.current) clearTimeout(attendanceAutosaveTimerRef.current);
+    setError(null);
+
+    attendanceAutosaveTimerRef.current = setTimeout(() => {
+      attendanceAutosaveTimerRef.current = null;
+      const queuedSnapshot = cloneRecordMap(latestAttendanceRef.current);
+      attendanceSaveQueueRef.current = attendanceSaveQueueRef.current.then(() =>
+        persistAttendanceSnapshot(queuedSnapshot)
+      );
+    }, 300);
+  }
+
+  async function flushAttendanceAutosave() {
+    if (attendanceAutosaveTimerRef.current) {
+      clearTimeout(attendanceAutosaveTimerRef.current);
+      attendanceAutosaveTimerRef.current = null;
+    }
+    const snapshot = cloneRecordMap(latestAttendanceRef.current);
+    attendanceSaveQueueRef.current = attendanceSaveQueueRef.current.then(() =>
+      persistAttendanceSnapshot(snapshot)
+    );
+    return attendanceSaveQueueRef.current;
   }
 
   async function persistPerformanceSnapshot(snapshot: Record<string, PerformanceColor>) {
     const updates = performanceUpdatesBetween(persistedPerformanceRef.current, snapshot);
     if (!updates.length) {
-      if (recordMapsEqual(latestPerformanceRef.current, snapshot)) {
-        setSaving(false);
-        setSaveState("Saved automatically.");
-      }
       return true;
     }
 
-    setSaving(true);
     try {
       const response = await fetch("/api/performance", {
         method: "POST",
@@ -431,14 +445,9 @@ function MonitorPageInner() {
       persistedPerformanceRef.current = persisted;
       setSavedPerformance(persisted);
 
-      if (recordMapsEqual(latestPerformanceRef.current, persisted)) {
-        setSaving(false);
-        setSaveState("Saved automatically.");
-      }
       return true;
     } catch {
-      setSaving(false);
-      setSaveState("Auto-save failed. Command Center will retry before leaving.");
+      setError("Monitoring auto-save failed. Your changes remain on screen and will be retried before leaving.");
       return false;
     }
   }
@@ -448,8 +457,7 @@ function MonitorPageInner() {
     if (performanceAutosaveTimerRef.current) {
       clearTimeout(performanceAutosaveTimerRef.current);
     }
-    setSaving(true);
-    setSaveState("Saving automatically...");
+    setError(null);
 
     performanceAutosaveTimerRef.current = setTimeout(() => {
       performanceAutosaveTimerRef.current = null;
@@ -495,122 +503,54 @@ function MonitorPageInner() {
     const confirmed = await ask({
       eyebrow: "Lap setup needed",
       title: `Lap ${lapNumber} is not named`,
-      description: <>There is no name for Lap {lapNumber} on <strong>{format(dateToUse, "EEEE, MMMM d")}</strong>. Name it now, save the week, and you will return directly to this monitoring date.</>,
+      description: <>There is no name for Lap {lapNumber} on <strong>{format(dateToUse, "EEEE, MMMM d")}</strong>. Name it now, and you will return directly to this monitoring date after it saves automatically.</>,
       confirmLabel: "Name This Lap",
       cancelLabel: "Not Now",
       tone: "info",
       size: "large"
     });
     if (!confirmed) return;
-    requestNavigation(() => router.push(lapsSetupHref(true, lapNumber)));
+    const saved = activeMode === "performance"
+      ? await flushPerformanceAutosave()
+      : await flushAttendanceAutosave();
+    if (saved) router.push(lapsSetupHref(true, lapNumber));
   }
 
   async function changeMonitorDate(nextDate: string) {
     if (!nextDate || nextDate < schoolYearStart || nextDate > schoolToday || nextDate === dateKey) return;
     const changeDate = () => setDateKey(nextDate);
-    if (activeMode === "performance") {
-      const saved = await flushPerformanceAutosave();
-      if (saved) changeDate();
-      return;
-    }
-    requestNavigation(changeDate);
-  }
-
-  async function saveChanges(options: { nextUrl?: string } = {}) {
-    const { nextUrl } = options;
-    if (!blockId) {
-      if (nextUrl) router.push(nextUrl);
-      return;
-    }
-
-    if (!hasUnsavedChanges) {
-      setSaveState("No unsaved changes.");
-      if (nextUrl) {
-        if (nextUrl === "/dashboard") {
-          window.location.assign(nextUrl);
-        } else {
-          router.push(nextUrl);
-        }
-      }
-      return;
-    }
-
-    setSaving(true);
-    setSaveState(null);
-
-    const attendanceUpdates = Object.entries(draftAttendance)
-      .filter(([studentId, status]) => savedAttendance[studentId] !== status)
-      .map(([studentId, status]) => ({ studentId, status }));
-
-    const performanceUpdates = performanceUpdatesBetween(savedPerformance, draftPerformance);
-
-    try {
-      if (attendanceUpdates.length) {
-        const attendanceRes = await fetch("/api/attendance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            blockId,
-            date: dateKey,
-            records: attendanceUpdates
-          })
-        });
-        if (!attendanceRes.ok) {
-          throw new Error("attendance");
-        }
-      }
-
-      if (performanceUpdates.length) {
-        const performanceRes = await fetch("/api/performance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            blockId,
-            date: dateKey,
-            records: performanceUpdates
-          })
-        });
-        if (!performanceRes.ok) {
-          throw new Error("performance");
-        }
-      }
-
-      setSavedAttendance(cloneRecordMap(draftAttendance));
-      setSavedPerformance(cloneRecordMap(draftPerformance));
-      persistedPerformanceRef.current = cloneRecordMap(draftPerformance);
-      latestPerformanceRef.current = cloneRecordMap(draftPerformance);
-      setSaveState("Saved.");
-
-      if (nextUrl) {
-        if (nextUrl === "/dashboard") window.location.assign(nextUrl);
-        else router.push(nextUrl);
-      }
-    } catch {
-      setSaveState("Unable to save changes.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleAttendanceCompletionAction(action: "stay" | "dashboard") {
-    if (action === "stay") {
-      setAttendanceCompletionPromptOpen(false);
-      return;
-    }
-
-    setAttendanceCompletionPromptOpen(false);
-    await saveChanges({ nextUrl: "/dashboard" });
+    const saved = activeMode === "performance"
+      ? await flushPerformanceAutosave()
+      : await flushAttendanceAutosave();
+    if (saved) changeDate();
   }
 
   async function handleCommandCenter() {
-    if (activeMode === "performance") {
-      const saved = await flushPerformanceAutosave();
-      if (saved && recordMapsEqual(persistedPerformanceRef.current, latestPerformanceRef.current)) {
-        window.location.assign("/dashboard");
-      }
-      return;
+    const saved = activeMode === "performance"
+      ? await flushPerformanceAutosave()
+      : await flushAttendanceAutosave();
+    if (saved) window.location.assign("/dashboard");
+  }
+
+  async function authorizeHistoricalEditing() {
+    const explanation = historicalExplanation.replace(/\s+/g, " ").trim();
+    if (explanation.length < 3 || historicalSubmitting) return;
+    setHistoricalSubmitting(true);
+    try {
+      const response = await fetch("/api/historical-edit-reasons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blockId, date: dateKey, mode: activeMode, explanation })
+      });
+      if (!response.ok) throw new Error("historical-edit-reason");
+      historicalVisitKeyRef.current = `${blockId}:${dateKey}:${activeMode}`;
+      setHistoricalWarningOpen(false);
+      setHistoricalExplanation("");
+    } catch {
+      setError("Unable to record the required explanation. Prior-day editing remains locked.");
+    } finally {
+      setHistoricalSubmitting(false);
     }
-    await saveChanges({ nextUrl: "/dashboard" });
   }
 
   const monitoringLaps = lapNumbers.map((lapNumber) => {
@@ -626,41 +566,8 @@ function MonitorPageInner() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 px-4 py-4 sm:px-6 sm:py-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div>
         <ReturnToDashboardButton onClick={handleCommandCenter} />
-        <div className="grid w-full grid-cols-[40px_minmax(150px,1fr)_40px_auto] items-center gap-1.5 sm:w-auto">
-          <button className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold" type="button" aria-label="Previous monitoring date" onClick={() => void changeMonitorDate(format(addDays(dateToUse, -1), "yyyy-MM-dd"))} disabled={Boolean(schoolYearStart && dateKey <= schoolYearStart)}>←</button>
-          <input className="h-10 min-w-0 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium" type="date" value={dateKey} min={schoolYearStart || undefined} max={schoolToday} onChange={(event) => void changeMonitorDate(event.target.value)} aria-label="Monitoring date" />
-          <button className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold" type="button" aria-label="Next monitoring date" onClick={() => void changeMonitorDate(format(addDays(dateToUse, 1), "yyyy-MM-dd"))} disabled={dateKey >= schoolToday}>→</button>
-          <button className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold" type="button" onClick={() => void changeMonitorDate(schoolToday)} disabled={dateKey === schoolToday}>Today</button>
-        </div>
-        {activeMode === "attendance" ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="text-sm text-black/60" aria-live="polite">
-              {saveState || (hasUnsavedChanges ? "Unsaved changes" : "No unsaved changes")}
-            </div>
-            <button
-              className="btn btn-primary"
-              type="button"
-              onClick={() => saveChanges()}
-              disabled={!blockId || saving || !hasUnsavedChanges}
-            >
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button
-              className="btn btn-ghost"
-              type="button"
-              onClick={() => saveChanges({ nextUrl: "/dashboard" })}
-              disabled={!blockId || saving}
-            >
-              {saving ? "Saving..." : "Save & Command Center"}
-            </button>
-          </div>
-        ) : (
-          <div className="text-sm font-medium text-black/65" aria-live="polite">
-            {saveState || "Monitoring changes save automatically."}
-          </div>
-        )}
       </div>
 
       {error && (
@@ -690,8 +597,8 @@ function MonitorPageInner() {
 
       {blocks.length > 0 && (
         <div className="hero-card p-6 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
               {activeMode === "attendance" && (
                 <button
                   className="btn btn-ghost px-4 py-2"
@@ -703,8 +610,16 @@ function MonitorPageInner() {
               )}
             </div>
 
-            <div
-              className={`text-sm ${
+            <div className="grid w-full grid-cols-[40px_minmax(0,1fr)_40px_auto] items-center gap-1.5 sm:w-auto sm:grid-cols-[40px_156px_40px_auto]">
+              <button className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold" type="button" aria-label="Previous monitoring date" onClick={() => void changeMonitorDate(format(addDays(dateToUse, -1), "yyyy-MM-dd"))} disabled={Boolean(schoolYearStart && dateKey <= schoolYearStart)}>←</button>
+              <input className="h-10 min-w-0 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium sm:w-[156px]" type="date" value={dateKey} min={schoolYearStart || undefined} max={schoolToday} onChange={(event) => void changeMonitorDate(event.target.value)} aria-label="Monitoring date" />
+              <button className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold" type="button" aria-label="Next monitoring date" onClick={() => void changeMonitorDate(format(addDays(dateToUse, 1), "yyyy-MM-dd"))} disabled={dateKey >= schoolToday}>→</button>
+              <button className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold" type="button" onClick={() => void changeMonitorDate(schoolToday)} disabled={dateKey === schoolToday}>Today</button>
+            </div>
+
+            {activeMode === "performance" && (
+              <div
+              className={`w-full text-center text-sm ${
                 activeMode === "performance" && namedLapCount > 0 && selectedMonitoringLaps.length === 0
                   ? "font-bold text-black"
                   : "text-black/60"
@@ -713,17 +628,12 @@ function MonitorPageInner() {
               {loading
                 ? "Loading..."
                 : !canUseSeatMap
-                ? activeMode === "attendance"
-                  ? "Attendance List is ready now. Assign every student to unlock seat-map attendance."
-                  : "Assign every active student before monitoring from the seat map."
-                : activeMode === "attendance"
-                ? "Take attendance and save whenever you're ready."
-                : namedLapCount === 0
-                ? "Name at least one lap to begin monitoring."
+                ? "Assign every active student before monitoring from the seat map."
                 : selectedMonitoringLaps.length === 0
-                ? "Select one or more named laps to begin monitoring."
+                ? "Select one or more Laps"
                 : "You may select more than one lap to monitor at the same time."}
-            </div>
+              </div>
+            )}
           </div>
 
           {!loading && activeMode === "performance" && !attendanceComplete && canUseSeatMap && (
@@ -805,7 +715,7 @@ function MonitorPageInner() {
                     <button
                       className="btn btn-ghost"
                       type="button"
-                      onClick={() => requestNavigation(() => window.location.assign("/dashboard"))}
+                      onClick={() => void handleCommandCenter()}
                     >
                       Command Center
                     </button>
@@ -816,8 +726,8 @@ function MonitorPageInner() {
 
             <ClassroomCanvas
               className={`h-full border-0 bg-transparent shadow-none transition duration-200 ${
-                activeMode === "performance" && namedLapCount > 0 && selectedMonitoringLaps.length === 0
-                  ? "pointer-events-none grayscale opacity-40"
+                activeMode === "performance" && selectedMonitoringLaps.length === 0
+                  ? "pointer-events-none grayscale opacity-35"
                   : ""
               }`}
               maxScale={2}
@@ -884,7 +794,7 @@ function MonitorPageInner() {
                   )}
 
                   {activeMode === "performance" && !isAbsent && selectedMonitoringLaps.length > 0 && (
-                    <div className="absolute inset-0 z-0 flex">
+                    <div className="absolute inset-0 z-0 flex overflow-hidden rounded-2xl">
                       {selectedMonitoringLaps.map((lap, index) => {
                         const currentColor = desk.studentId
                           ? performanceMap[performanceKey(desk.studentId, lap.lapNumber)]
@@ -933,10 +843,7 @@ function MonitorPageInner() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
           <div className="hero-card w-full max-w-3xl p-6 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="small-header text-black/60">Attendance</div>
-                <h2 className="section-title">Mark attendance</h2>
-              </div>
+              <h2 className="section-title">Mark attendance</h2>
               <div className="flex flex-wrap gap-2">
                 <button className="btn btn-ghost" type="button" onClick={() => void bulkAttendance("PRESENT")}>
                   All Present
@@ -988,30 +895,48 @@ function MonitorPageInner() {
         </div>
       )}
 
-      {attendanceCompletionPromptOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
-          <div className="hero-card w-full max-w-3xl p-8 text-center">
-            <div className="small-header text-black/55">Attendance Complete</div>
-            <h2 className="section-title mt-2">What should happen next?</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-sm text-black/65">
-              Every active student now has an attendance record. You can keep working in attendance without saving yet, or
-              save the record and return to Command Center.
-            </p>
-            <div className="mt-8 grid gap-3 md:grid-cols-2">
+      {historicalWarningOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4">
+          <div className="hero-card w-full max-w-2xl space-y-5 p-6 sm:p-8" role="dialog" aria-modal="true" aria-labelledby="historical-edit-heading">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Prior-day warning</div>
+              <h2 className="mt-2 text-2xl font-bold" id="historical-edit-heading">You are entering data for a prior day</h2>
+              <p className="mt-3 text-sm leading-relaxed text-black/65">
+                You are about to edit {activeMode === "attendance" ? "attendance" : "monitoring"} records for <strong>{format(dateToUse, "EEEE, MMMM d, yyyy")}</strong>. Changes will be saved to that date, not today. Explain why this prior-day record is being changed before continuing.
+              </p>
+            </div>
+            <label className="block">
+              <span className="text-sm font-bold">Explanation Required</span>
+              <textarea
+                autoFocus
+                className="form-control mt-2 min-h-[110px] resize-y"
+                maxLength={500}
+                placeholder="Enter the reason for editing this prior-day record."
+                value={historicalExplanation}
+                onChange={(event) => setHistoricalExplanation(event.target.value)}
+              />
+              <span className="mt-1 block text-right text-xs text-black/40">{historicalExplanation.length}/500</span>
+            </label>
+            <div className="flex flex-wrap justify-end gap-2">
               <button
-                className="btn btn-ghost min-h-[88px] justify-center text-center"
+                className="btn btn-ghost px-4 py-2"
                 type="button"
-                onClick={() => handleAttendanceCompletionAction("stay")}
+                disabled={historicalSubmitting}
+                onClick={() => {
+                  setHistoricalWarningOpen(false);
+                  setHistoricalExplanation("");
+                  setDateKey(schoolToday);
+                }}
               >
-                Return to Attendance
+                Return to Today
               </button>
               <button
-                className="btn btn-primary min-h-[88px] justify-center text-center"
+                className="btn btn-primary px-4 py-2"
                 type="button"
-                onClick={() => handleAttendanceCompletionAction("dashboard")}
-                disabled={saving}
+                disabled={historicalExplanation.trim().length < 3 || historicalSubmitting}
+                onClick={() => void authorizeHistoricalEditing()}
               >
-                {saving ? "Saving..." : "Save Attendance and Return to Command Center"}
+                {historicalSubmitting ? "Recording…" : "Continue to Prior Day"}
               </button>
             </div>
           </div>
