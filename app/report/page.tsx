@@ -266,7 +266,46 @@ function emptyAttendanceTotals() {
 }
 
 function emptyPerformanceTotals() {
-  return { GREEN: 0, YELLOW: 0, RED: 0, UNRECORDED: 0 };
+  return { GREEN: 0, YELLOW: 0, RED: 0 };
+}
+
+function AttendanceTotals({ totals, compact = false }: { totals: ReturnType<typeof emptyAttendanceTotals>; compact?: boolean }) {
+  const items = [
+    { key: "PRESENT", label: "Present", value: totals.PRESENT, classes: attendanceStatusClasses("PRESENT") },
+    { key: "ABSENT", label: "Absent", value: totals.ABSENT, classes: attendanceStatusClasses("ABSENT") },
+    { key: "TARDY", label: "Tardy", value: totals.TARDY, classes: attendanceStatusClasses("TARDY") },
+    { key: "LEFT_EARLY", label: "Left early", value: totals.LEFT_EARLY, classes: attendanceStatusClasses("LEFT_EARLY") }
+  ];
+  const sizeClasses = compact ? "h-6 min-w-6 text-[9px]" : "h-7 min-w-7 text-[10px]";
+
+  return (
+    <div className="mx-auto grid w-fit grid-cols-4 gap-1" aria-label="Attendance totals">
+      {items.map((item) => item.value > 0 ? (
+        <span key={item.key} title={`${item.label}: ${item.value}`} className={`inline-flex items-center justify-center rounded-full px-1 font-bold ${sizeClasses} ${item.classes}`}>
+          {item.value}
+        </span>
+      ) : <span key={item.key} className={sizeClasses} aria-hidden="true" />)}
+    </div>
+  );
+}
+
+function PerformanceTotals({ totals, compact = false }: { totals: ReturnType<typeof emptyPerformanceTotals>; compact?: boolean }) {
+  const items = [
+    { key: "GREEN", label: "Green", value: totals.GREEN, classes: performanceClasses("GREEN") },
+    { key: "YELLOW", label: "Yellow", value: totals.YELLOW, classes: performanceClasses("YELLOW") },
+    { key: "RED", label: "Red", value: totals.RED, classes: performanceClasses("RED") }
+  ];
+  const sizeClasses = compact ? "h-6 min-w-6 text-[9px]" : "h-7 min-w-7 text-[10px]";
+
+  return (
+    <div className="mx-auto grid w-fit grid-cols-3 gap-1" aria-label="Monitoring totals">
+      {items.map((item) => item.value > 0 ? (
+        <span key={item.key} title={`${item.label}: ${item.value}`} className={`inline-flex items-center justify-center rounded-full px-1 font-bold ${sizeClasses} ${item.classes}`}>
+          {item.value}
+        </span>
+      ) : <span key={item.key} className={sizeClasses} aria-hidden="true" />)}
+    </div>
+  );
 }
 
 function buildCalendarDays(monthIso: string) {
@@ -764,10 +803,12 @@ function ReportPageInner() {
 
   useEffect(() => {
     const namedLapNumbers = monitoringReport?.laps.map((lap) => lap.lapNumber) || [];
-    setSelectedMonitoringLapNumbers((current) => {
-      const filtered = current.filter((lapNumber) => namedLapNumbers.includes(lapNumber));
-      return filtered.length > 0 ? filtered : namedLapNumbers.slice(0, 1);
-    });
+    const recordedLapNumbers = new Set(
+      monitoringReport?.performance.map((record) => record.lapNumber) || []
+    );
+    setSelectedMonitoringLapNumbers(
+      namedLapNumbers.filter((lapNumber) => recordedLapNumbers.has(lapNumber))
+    );
   }, [monitoringReport]);
 
   useEffect(() => {
@@ -780,14 +821,18 @@ function ReportPageInner() {
     monitoringRangeReport.laps.forEach((lap) => {
       lapNumbersByDate.set(lap.date, [...(lapNumbersByDate.get(lap.date) || []), lap.lapNumber]);
     });
-    setSelectedRangeLaps((current) => {
-      const next: Record<string, number[]> = {};
-      lapNumbersByDate.forEach((lapNumbers, date) => {
-        const valid = (current[date] || []).filter((lapNumber) => lapNumbers.includes(lapNumber));
-        next[date] = valid.length > 0 ? valid : lapNumbers.slice(0, 1);
-      });
-      return next;
+    const recordedLapNumbersByDate = new Map<string, Set<number>>();
+    monitoringRangeReport.performance.forEach((record) => {
+      const recorded = recordedLapNumbersByDate.get(record.date) || new Set<number>();
+      recorded.add(record.lapNumber);
+      recordedLapNumbersByDate.set(record.date, recorded);
     });
+    const next: Record<string, number[]> = {};
+    lapNumbersByDate.forEach((lapNumbers, date) => {
+      const recorded = recordedLapNumbersByDate.get(date) || new Set<number>();
+      next[date] = lapNumbers.filter((lapNumber) => recorded.has(lapNumber));
+    });
+    setSelectedRangeLaps(next);
   }, [monitoringRangeReport]);
 
   const attendanceStudentMonthRecords = useMemo(() => {
@@ -889,7 +934,6 @@ function ReportPageInner() {
         (selectedRangeLaps[date] || []).forEach((lapNumber) => {
           const color = monitoringRangePerformanceByCell.get(`${student.id}-${date}-${lapNumber}`);
           if (color) entry[color] += 1;
-          else entry.UNRECORDED += 1;
         });
       });
       totals.set(student.id, entry);
@@ -905,7 +949,6 @@ function ReportPageInner() {
         (selectedRangeLaps[date] || []).forEach((lapNumber) => {
           const color = monitoringRangePerformanceByCell.get(`${student.id}-${date}-${lapNumber}`);
           if (color) entry[color] += 1;
-          else entry.UNRECORDED += 1;
         });
       });
       totals.set(date, entry);
@@ -1082,186 +1125,91 @@ function ReportPageInner() {
 
             {reportType && (
               <>
-                {reportType === "monitoring" && (
-                  <>
-                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white/70 p-3 2xl:flex-nowrap">
-                      <select className="h-10 min-w-[210px] rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold" aria-label="Class" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
-                        {blocks.map((block) => <option key={block.id} value={block.id}>Block {block.blockNumber} · {block.blockName}</option>)}
-                      </select>
-                      <div className="flex shrink-0 rounded-xl bg-black/5 p-1" aria-label="Monitoring report scope">
-                        <button type="button" className={`rounded-lg px-3 py-2 text-sm font-semibold ${scope === "class" ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => setScope("class")}>Entire Class</button>
-                        <button type="button" className={`rounded-lg px-3 py-2 text-sm font-semibold ${scope === "student" ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => { setScope("student"); setMonitoringView("day"); }}>Individual Student</button>
-                      </div>
-                      {scope === "class" && (
-                        <div className="flex shrink-0 rounded-xl bg-black/5 p-1" aria-label="Monitoring date range">
-                          {(["day", "week", "month", "custom"] as MonitoringView[]).map((view) => (
-                            <button key={view} type="button" className={`rounded-lg px-3 py-2 text-sm font-semibold capitalize ${monitoringView === view ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => setMonitoringView(view)}>{view}</button>
-                          ))}
-                        </div>
-                      )}
-                      {scope === "class" && monitoringView === "custom" ? (
-                        <div className="grid w-full shrink-0 gap-2 sm:w-[360px] sm:grid-cols-2">
-                          <label className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-black/55"><span>Start</span><input className="h-10 min-w-0 flex-1 rounded-lg border border-black/15 bg-white px-2 text-sm" type="date" value={customRangeStart} onChange={(event) => setCustomRangeStart(event.target.value)} /></label>
-                          <label className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-black/55"><span>End</span><input className="h-10 min-w-0 flex-1 rounded-lg border border-black/15 bg-white px-2 text-sm" type="date" value={customRangeEnd} onChange={(event) => setCustomRangeEnd(event.target.value)} /></label>
-                        </div>
-                      ) : (
-                        <div className="grid w-[240px] shrink-0 grid-cols-[40px_148px_40px] gap-1.5">
-                          <button type="button" className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold" onClick={() => setSelectedDate((current) => monitoringView === "month" ? shiftMonthIso(current, -1) : shiftIsoDate(current, monitoringView === "week" ? -7 : -1))} aria-label="Previous monitoring date">←</button>
-                          <input className="h-10 min-w-0 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} aria-label="Monitoring date" />
-                          <button type="button" className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold" onClick={() => setSelectedDate((current) => monitoringView === "month" ? shiftMonthIso(current, 1) : shiftIsoDate(current, monitoringView === "week" ? 7 : 1))} aria-label="Next monitoring date">→</button>
-                        </div>
-                      )}
-                      {scope === "class" && (
-                        <div className="flex shrink-0 gap-1.5">
-                          <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadMonitoringClassXlsx} disabled={monitoringClassRows().length === 0}>Export XLSX</button>
-                          <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`monitoring-class-${selectedDate}.csv`, monitoringClassRows())} disabled={monitoringClassRows().length === 0}>Export CSV</button>
-                        </div>
-                      )}
-                    </div>
-                    {customRangeError && monitoringView === "custom" && scope === "class" && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{customRangeError}</div>}
-                  </>
-                )}
+                <div className="grid gap-2 rounded-2xl border border-black/10 bg-white/70 p-3 lg:grid-cols-[minmax(210px,1fr)_minmax(360px,440px)_minmax(210px,1fr)]">
+                  <select
+                    className="h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold lg:col-start-1 lg:row-start-1"
+                    aria-label="Class"
+                    value={selectedBlockId}
+                    onChange={(event) => setSelectedBlockId(event.target.value)}
+                  >
+                    {blocks.map((block) => <option key={block.id} value={block.id}>Block {block.blockNumber} · {block.blockName}</option>)}
+                  </select>
 
-                {reportType === "attendance" && (
-                  <>
-                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white/70 p-3 2xl:flex-nowrap">
-                      <select className="h-10 min-w-[210px] rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold" aria-label="Class" value={selectedBlockId} onChange={(event) => setSelectedBlockId(event.target.value)}>
-                        {blocks.map((block) => <option key={block.id} value={block.id}>Block {block.blockNumber} · {block.blockName}</option>)}
-                      </select>
-                      <div className="flex shrink-0 rounded-xl bg-black/5 p-1" aria-label="Attendance report scope">
-                        <button
-                          type="button"
-                          className={`rounded-lg px-3 py-2 text-sm font-semibold ${scope === "class" ? "bg-white text-black shadow-sm" : "text-black/55"}`}
-                          onClick={() => setScope("class")}
-                        >
-                          Entire Class
-                        </button>
-                        <button
-                          type="button"
-                          className={`rounded-lg px-3 py-2 text-sm font-semibold ${scope === "student" ? "bg-white text-black shadow-sm" : "text-black/55"}`}
-                          onClick={() => setScope("student")}
-                        >
-                          Individual Student
-                        </button>
-                      </div>
+                  <div className="flex w-full rounded-xl bg-black/5 p-1 lg:col-start-1 lg:row-start-2" aria-label={`${reportType} report scope`}>
+                    <button type="button" className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${scope === "class" ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => setScope("class")}>Entire Class</button>
+                    <button type="button" className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${scope === "student" ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => { setScope("student"); if (reportType === "monitoring") setMonitoringView("day"); }}>Individual Student</button>
+                  </div>
 
-                      {scope === "class" && (
-                        <>
-                          <div className="flex shrink-0 rounded-xl bg-black/5 p-1" aria-label="Attendance date range">
-                            {(["day", "week", "month", "custom"] as ClassAttendanceView[]).map((view) => (
-                              <button
-                                key={view}
-                                type="button"
-                                className={`rounded-lg px-3 py-2 text-sm font-semibold capitalize ${classAttendanceView === view ? "bg-white text-black shadow-sm" : "text-black/55"}`}
-                                onClick={() => setClassAttendanceView(view)}
-                              >
-                                {view}
-                              </button>
-                            ))}
-                          </div>
-
-                          {classAttendanceView === "custom" ? (
-                            <div className="grid w-full shrink-0 gap-2 sm:w-[360px] sm:grid-cols-2">
-                              <label className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-black/55">
-                                <span>Start</span>
-                                <input
-                                  className="h-10 min-w-0 flex-1 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium text-black"
-                                  type="date"
-                                  value={customRangeStart}
-                                  onChange={(event) => setCustomRangeStart(event.target.value)}
-                                />
-                              </label>
-                              <label className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-black/55">
-                                <span>End</span>
-                                <input
-                                  className="h-10 min-w-0 flex-1 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium text-black"
-                                  type="date"
-                                  value={customRangeEnd}
-                                  onChange={(event) => setCustomRangeEnd(event.target.value)}
-                                />
-                              </label>
-                            </div>
-                          ) : (
-                            <div className="grid w-[240px] shrink-0 grid-cols-[40px_148px_40px] gap-1.5">
-                              <button
-                                type="button"
-                                className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold"
-                                onClick={() => setSelectedDate((current) => classAttendanceView === "month" ? shiftMonthIso(current, -1) : shiftIsoDate(current, classAttendanceView === "week" ? -7 : -1))}
-                                aria-label="Previous attendance date"
-                              >
-                                ←
-                              </button>
-                              <input
-                                className="h-10 min-w-0 rounded-lg border border-black/15 bg-white px-2 text-sm font-medium"
-                                type="date"
-                                value={selectedDate}
-                                onChange={(event) => setSelectedDate(event.target.value)}
-                                aria-label="Attendance date"
-                              />
-                              <button
-                                type="button"
-                                className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold"
-                                onClick={() => setSelectedDate((current) => classAttendanceView === "month" ? shiftMonthIso(current, 1) : shiftIsoDate(current, classAttendanceView === "week" ? 7 : 1))}
-                                aria-label="Next attendance date"
-                              >
-                                →
-                              </button>
-                            </div>
-                          )}
-
-                          <div className="flex shrink-0 gap-1.5">
-                            <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadAttendanceClassXlsx} disabled={!hasClassAttendanceData}>Export XLSX</button>
-                            <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`attendance-class-${attendanceClassDateLabel()}.csv`, attendanceClassRows())} disabled={!hasClassAttendanceData}>Export CSV</button>
-                          </div>
-                        </>
-                      )}
-
-                      {scope === "student" && (
-                        <>
-                          <div className="grid w-[260px] shrink-0 grid-cols-[40px_168px_40px] items-center gap-1.5">
-                            <button
-                              className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold"
-                              type="button"
-                              onClick={() => setVisibleMonthIso((current) => shiftMonthIso(current, -1))}
-                              aria-label="Previous month"
-                            >
-                              ←
-                            </button>
-                            <div className="text-center text-sm font-semibold text-black">
-                              {format(startOfMonth(parseIsoDate(visibleMonthIso)), "MMMM yyyy")}
-                            </div>
-                            <button
-                              className="inline-flex h-10 items-center justify-center rounded-lg border border-black/15 bg-white text-sm font-semibold"
-                              type="button"
-                              onClick={() => setVisibleMonthIso((current) => shiftMonthIso(current, 1))}
-                              aria-label="Next month"
-                            >
-                              →
-                            </button>
-                          </div>
-                          <div className="flex shrink-0 gap-1.5">
-                            <button
-                              type="button"
-                              className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35"
-                              onClick={downloadAttendanceStudentXlsx}
-                              disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}
-                            >
-                              Export XLSX
-                            </button>
-                            <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`attendance-${attendanceStudentReport?.student.displayName || "student"}-${todayIso}.csv`, attendanceStudentRows())} disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}>
-                              Export CSV
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {customRangeError && scope === "class" && (
-                      <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {customRangeError}
+                  <div className="flex w-full rounded-xl bg-black/5 p-1 lg:col-start-2 lg:row-start-1" aria-label={`${reportType} date range`}>
+                    {scope === "class" ? (
+                      reportType === "monitoring"
+                        ? (["day", "week", "month", "custom"] as MonitoringView[]).map((view) => <button key={view} type="button" className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold capitalize ${monitoringView === view ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => setMonitoringView(view)}>{view}</button>)
+                        : (["day", "week", "month", "custom"] as ClassAttendanceView[]).map((view) => <button key={view} type="button" className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold capitalize ${classAttendanceView === view ? "bg-white text-black shadow-sm" : "text-black/55"}`} onClick={() => setClassAttendanceView(view)}>{view}</button>)
+                    ) : (
+                      <div className="flex h-9 w-full items-center justify-center text-sm font-semibold text-black/60">
+                        {reportType === "monitoring" ? "Daily monitoring" : "Monthly attendance"}
                       </div>
                     )}
-                  </>
+                  </div>
+
+                  <div className="w-full lg:col-start-2 lg:row-start-2">
+                    {scope === "student" && reportType === "attendance" ? (
+                      <div className="grid w-full grid-cols-[44px_1fr_44px] items-center gap-1.5">
+                        <button className="inline-flex h-11 items-center justify-center rounded-xl border border-black/15 bg-white text-sm font-semibold" type="button" onClick={() => setVisibleMonthIso((current) => shiftMonthIso(current, -1))} aria-label="Previous month">←</button>
+                        <div className="text-center text-sm font-semibold text-black">{format(startOfMonth(parseIsoDate(visibleMonthIso)), "MMMM yyyy")}</div>
+                        <button className="inline-flex h-11 items-center justify-center rounded-xl border border-black/15 bg-white text-sm font-semibold" type="button" onClick={() => setVisibleMonthIso((current) => shiftMonthIso(current, 1))} aria-label="Next month">→</button>
+                      </div>
+                    ) : scope === "class" && ((reportType === "monitoring" && monitoringView === "custom") || (reportType === "attendance" && classAttendanceView === "custom")) ? (
+                      <div className="grid w-full gap-2 sm:grid-cols-2">
+                        <label className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-black/55"><span>Start</span><input className="h-11 min-w-0 flex-1 rounded-xl border border-black/15 bg-white px-2 text-sm" type="date" value={customRangeStart} onChange={(event) => setCustomRangeStart(event.target.value)} /></label>
+                        <label className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-black/55"><span>End</span><input className="h-11 min-w-0 flex-1 rounded-xl border border-black/15 bg-white px-2 text-sm" type="date" value={customRangeEnd} onChange={(event) => setCustomRangeEnd(event.target.value)} /></label>
+                      </div>
+                    ) : (
+                      <div className="grid w-full grid-cols-[44px_1fr_44px] gap-1.5">
+                        <button type="button" className="inline-flex h-11 items-center justify-center rounded-xl border border-black/15 bg-white text-sm font-semibold" onClick={() => setSelectedDate((current) => {
+                          if (scope === "student") return shiftIsoDate(current, -1);
+                          const view = reportType === "monitoring" ? monitoringView : classAttendanceView;
+                          return view === "month" ? shiftMonthIso(current, -1) : shiftIsoDate(current, view === "week" ? -7 : -1);
+                        })} aria-label={`Previous ${reportType} date`}>←</button>
+                        <input className="h-11 min-w-0 rounded-xl border border-black/15 bg-white px-2 text-center text-sm font-medium" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} aria-label={`${reportType} date`} />
+                        <button type="button" className="inline-flex h-11 items-center justify-center rounded-xl border border-black/15 bg-white text-sm font-semibold" onClick={() => setSelectedDate((current) => {
+                          if (scope === "student") return shiftIsoDate(current, 1);
+                          const view = reportType === "monitoring" ? monitoringView : classAttendanceView;
+                          return view === "month" ? shiftMonthIso(current, 1) : shiftIsoDate(current, view === "week" ? 7 : 1);
+                        })} aria-label={`Next ${reportType} date`}>→</button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex w-full justify-end gap-1.5 lg:col-start-3 lg:row-start-2">
+                    {reportType === "monitoring" ? (
+                      scope === "class" ? (
+                        <>
+                          <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadMonitoringClassXlsx} disabled={monitoringClassRows().length === 0}>Export XLSX</button>
+                          <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`monitoring-class-${selectedDate}.csv`, monitoringClassRows())} disabled={monitoringClassRows().length === 0}>Export CSV</button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadWorkbook(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.xlsx`, "Monitoring", selectedStudentMonitoringRows)}>Export XLSX</button>
+                          <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadCsv(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.csv`, selectedStudentMonitoringRows)}>Export CSV</button>
+                        </>
+                      )
+                    ) : scope === "class" ? (
+                      <>
+                        <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadAttendanceClassXlsx} disabled={!hasClassAttendanceData}>Export XLSX</button>
+                        <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`attendance-class-${attendanceClassDateLabel()}.csv`, attendanceClassRows())} disabled={!hasClassAttendanceData}>Export CSV</button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={downloadAttendanceStudentXlsx} disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}>Export XLSX</button>
+                        <button type="button" className="inline-flex h-11 items-center rounded-xl border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" onClick={() => downloadCsv(`attendance-${attendanceStudentReport?.student.displayName || "student"}-${todayIso}.csv`, attendanceStudentRows())} disabled={!attendanceStudentReport || attendanceStudentReport.records.length === 0}>Export CSV</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {customRangeError && scope === "class" && ((reportType === "monitoring" && monitoringView === "custom") || (reportType === "attendance" && classAttendanceView === "custom")) && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{customRangeError}</div>
                 )}
 
                 {selectedDateIsTest && scope === "class" && ((reportType === "monitoring" && monitoringView === "day") || (reportType === "attendance" && classAttendanceView === "day")) && (
@@ -1335,14 +1283,12 @@ function ReportPageInner() {
                           <thead>
                             <tr>
                               <th className="sticky left-0 z-10 min-w-[170px] bg-white">Student</th>
-                              <th className="min-w-[180px]">Student totals</th>
+                              <th className="min-w-[180px] text-center">Student totals</th>
                               {attendanceClassRangeReport.dates.map((date) => (
                                 <th key={date} className="min-w-[94px] text-center">
                                   <div>{format(parseIsoDate(date), "EEE")}</div>
                                   <div className="font-normal text-black/45">{format(parseIsoDate(date), "M/d")}</div>
-                                  <div className="mt-1 text-[9px] font-semibold text-black/45">
-                                    {(() => { const total = rangeAttendanceDateTotals.get(date) || emptyAttendanceTotals(); return `P${total.PRESENT} A${total.ABSENT} T${total.TARDY} LE${total.LEFT_EARLY}`; })()}
-                                  </div>
+                                  <div className="mt-1"><AttendanceTotals totals={rangeAttendanceDateTotals.get(date) || emptyAttendanceTotals()} compact /></div>
                                 </th>
                               ))}
                             </tr>
@@ -1351,9 +1297,7 @@ function ReportPageInner() {
                             {attendanceClassRangeReport.students.map((student) => (
                               <tr key={`range-${student.id}`}>
                                 <td className="sticky left-0 z-[1] bg-white font-semibold">{student.displayName}</td>
-                                <td className="text-xs font-semibold text-black/55">
-                                  {(() => { const total = rangeAttendanceStudentTotals.get(student.id) || emptyAttendanceTotals(); return `P ${total.PRESENT} · A ${total.ABSENT} · T ${total.TARDY} · LE ${total.LEFT_EARLY}`; })()}
-                                </td>
+                                <td className="text-center"><AttendanceTotals totals={rangeAttendanceStudentTotals.get(student.id) || emptyAttendanceTotals()} /></td>
                                 {attendanceClassRangeReport.dates.map((date) => {
                                   const status = rangeAttendanceByCell.get(`${student.id}-${date}`);
                                   return (
@@ -1380,12 +1324,6 @@ function ReportPageInner() {
                       <select id="monitoring-student-select" className="form-control" value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)}>
                         {activeStudents.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
                       </select>
-                      <label className="small-header text-black/50" htmlFor="monitoring-student-date">Date</label>
-                      <input id="monitoring-student-date" className="form-control" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
-                      <div className="flex flex-wrap gap-1.5">
-                        <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadWorkbook(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.xlsx`, "Monitoring", selectedStudentMonitoringRows)}>Export XLSX</button>
-                        <button type="button" className="inline-flex h-10 items-center rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold disabled:opacity-35" disabled={selectedStudentMonitoringRows.length === 0} onClick={() => downloadCsv(`monitoring-${selectedStudentMonitoringRows[0]?.Name || "student"}-${selectedDate}.csv`, selectedStudentMonitoringRows)}>Export CSV</button>
-                      </div>
                     </div>
                     <div className="space-y-3">
                       {loading && <div className="h-40 animate-pulse rounded-2xl bg-black/5" />}
@@ -1453,38 +1391,29 @@ function ReportPageInner() {
                     )}
 
                     {monitoringView !== "day" && monitoringRangeReport && (
-                      <>
-                        <div className="grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
-                          {monitoringRangeReport.dates.map((date) => {
-                            const laps = monitoringRangeLapsByDate.get(date) || [];
-                            return (
-                              <div key={`lap-picker-${date}`} className="rounded-xl border border-black/10 bg-white/75 p-3">
-                                <div className="mb-2 flex items-center justify-between gap-2">
-                                  <div className="text-xs font-bold text-black">{format(parseIsoDate(date), "EEE, MMM d")}</div>
-                                  <div className="text-[10px] text-black/45">{laps.length ? "Choose laps" : "No named laps"}</div>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {laps.map((lap) => {
-                                    const isSelected = (selectedRangeLaps[date] || []).includes(lap.lapNumber);
-                                    return (
-                                      <button key={`${date}-${lap.lapNumber}`} type="button" aria-pressed={isSelected} title={`${lap.name} · ${lap.standardCode || "No standard"}`} className={`rounded-lg border px-2 py-1 text-xs font-semibold ${isSelected ? "border-sky-500 bg-sky-50 text-sky-900" : "border-black/10 bg-white text-black/55"}`} onClick={() => setSelectedRangeLaps((current) => ({ ...current, [date]: isSelected ? (current[date] || []).filter((value) => value !== lap.lapNumber) : [...(current[date] || []), lap.lapNumber].sort() }))}>Lap {lap.lapNumber}</button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
                         <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white">
                           <table className="table table-compact min-w-max">
                             <thead>
                               <tr>
                                 <th className="sticky left-0 z-10 min-w-[170px] bg-white">Student</th>
-                                <th className="min-w-[155px]">Student totals</th>
+                                <th className="min-w-[155px] text-center">Student totals</th>
                                 {monitoringRangeReport.dates.map((date) => {
                                   const total = monitoringRangeDateTotals.get(date) || emptyPerformanceTotals();
-                                  return <th key={`monitor-header-${date}`} className="min-w-[180px] text-center"><div>{format(parseIsoDate(date), "EEE, M/d")}</div><div className="mt-1 text-[9px] font-semibold text-black/45">G{total.GREEN} Y{total.YELLOW} R{total.RED} —{total.UNRECORDED}</div></th>;
+                                  const laps = monitoringRangeLapsByDate.get(date) || [];
+                                  return (
+                                    <th key={`monitor-header-${date}`} className="min-w-[150px] text-center align-top">
+                                      <div>{format(parseIsoDate(date), "EEE, M/d")}</div>
+                                      <div className="my-2 flex min-h-[28px] flex-col items-center gap-1">
+                                        {laps.map((lap) => {
+                                          const isSelected = (selectedRangeLaps[date] || []).includes(lap.lapNumber);
+                                          return (
+                                            <button key={`${date}-${lap.lapNumber}`} type="button" aria-pressed={isSelected} title={`${lap.name} · ${lap.standardCode || "No standard"}`} className={`w-16 rounded-lg border px-2 py-1 text-[10px] font-semibold ${isSelected ? "border-sky-500 bg-sky-50 text-sky-900" : "border-black/10 bg-white text-black/45"}`} onClick={() => setSelectedRangeLaps((current) => ({ ...current, [date]: isSelected ? (current[date] || []).filter((value) => value !== lap.lapNumber) : [...(current[date] || []), lap.lapNumber].sort((left, right) => left - right) }))}>Lap {lap.lapNumber}</button>
+                                          );
+                                        })}
+                                      </div>
+                                      <PerformanceTotals totals={total} compact />
+                                    </th>
+                                  );
                                 })}
                               </tr>
                             </thead>
@@ -1494,13 +1423,13 @@ function ReportPageInner() {
                                 return (
                                   <tr key={`monitor-range-${student.id}`}>
                                     <td className="sticky left-0 z-[1] bg-white font-semibold">{student.displayName}</td>
-                                    <td className="text-xs font-semibold text-black/55">G {total.GREEN} · Y {total.YELLOW} · R {total.RED} · — {total.UNRECORDED}</td>
+                                    <td className="text-center"><PerformanceTotals totals={total} /></td>
                                     {monitoringRangeReport.dates.map((date) => {
                                       const attendance = monitoringRangeAttendanceByCell.get(`${student.id}-${date}`);
                                       const selected = (monitoringRangeLapsByDate.get(date) || []).filter((lap) => (selectedRangeLaps[date] || []).includes(lap.lapNumber));
                                       return (
                                         <td key={`${student.id}-${date}`} className={attendance === "ABSENT" ? "bg-slate-200 text-center" : "text-center"}>
-                                          {attendance === "ABSENT" ? <span className="text-[10px] font-bold tracking-[0.1em] text-slate-700">ABSENT</span> : selected.length === 0 ? <span className="text-black/30">—</span> : <div className="flex flex-wrap justify-center gap-1">{selected.map((lap) => { const color = monitoringRangePerformanceByCell.get(`${student.id}-${date}-${lap.lapNumber}`); return <span key={`${student.id}-${date}-${lap.lapNumber}`} title={`${lap.name} · ${lap.standardCode || "No standard"}`} className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${performanceClasses(color)}`}>{lap.lapNumber}</span>; })}</div>}
+                                          {attendance === "ABSENT" ? <span className="text-[10px] font-bold tracking-[0.1em] text-slate-700">ABSENT</span> : <div className="flex flex-wrap justify-center gap-1">{selected.flatMap((lap) => { const color = monitoringRangePerformanceByCell.get(`${student.id}-${date}-${lap.lapNumber}`); return color ? [<span key={`${student.id}-${date}-${lap.lapNumber}`} title={`${lap.name} · ${lap.standardCode || "No standard"}`} className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${performanceClasses(color)}`}>{lap.lapNumber}</span>] : []; })}</div>}
                                         </td>
                                       );
                                     })}
@@ -1510,7 +1439,6 @@ function ReportPageInner() {
                             </tbody>
                           </table>
                         </div>
-                      </>
                     )}
                   </div>
                 )}

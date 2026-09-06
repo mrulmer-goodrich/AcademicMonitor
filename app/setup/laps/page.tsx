@@ -4,8 +4,10 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { addDays, format, startOfWeek } from "date-fns";
+import ActionDialog from "@/components/ActionDialog";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
+import useActionDialog from "@/lib/useActionDialog";
 import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
 
 type Block = { id: string; blockNumber: number; blockName: string; gradeLevels: number[] };
@@ -75,6 +77,7 @@ function LapsSetupPageInner() {
   const [copyAction, setCopyAction] = useState("");
   const appliedRequestedBlockId = useRef<string | null>(null);
   const [activeDayIndex, setActiveDayIndex] = useState(() => Math.min(Math.max((new Date().getDay() + 6) % 7, 0), 4));
+  const { ask, dialogProps: actionDialogProps } = useActionDialog();
 
   useEffect(() => {
     loadBlocks();
@@ -124,8 +127,15 @@ function LapsSetupPageInner() {
 
   useEffect(() => {
     if (notice !== "name-laps-before-monitoring") return;
-    window.alert("You have to name a lap before you can monitor it.");
-  }, [notice]);
+    void ask({
+      eyebrow: "Lap setup needed",
+      title: "Name a lap before monitoring",
+      description: "Give the lap a short instructional name, save the week, and you will return directly to the monitoring date you selected.",
+      confirmLabel: "Name This Lap",
+      tone: "info",
+      size: "large"
+    });
+  }, [ask, notice]);
 
   async function loadBlocks() {
     const res = await fetch("/api/blocks");
@@ -318,7 +328,7 @@ function LapsSetupPageInner() {
   }, [focusDate, weekStart]);
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-1 px-4 sm:px-6">
+    <div className="mx-auto max-w-[1440px] space-y-3 px-4 py-4 sm:px-6">
       <div><ReturnToDashboardButton className="w-auto px-4 py-2 text-sm" /></div>
 
       {error && (
@@ -328,7 +338,8 @@ function LapsSetupPageInner() {
       )}
 
       <div className="hero-card space-y-3 p-4">
-        <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
           <select
             aria-label="Class"
             className="form-control w-full sm:w-[210px] sm:shrink-0 xl:w-[230px]"
@@ -350,7 +361,7 @@ function LapsSetupPageInner() {
 
           {selectedBlock && <div className="whitespace-nowrap rounded-full bg-black/5 px-3 py-2 text-xs font-semibold text-black/60">Grades {selectedBlock.gradeLevels.join(" + ")} standards</div>}
 
-          <div className="flex w-full flex-wrap items-center justify-end gap-2 md:ml-auto md:w-auto md:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-2">
             {!editing && (
               <button className="btn btn-primary px-4 py-2 text-sm" type="button" onClick={startEditing} disabled={!blockId}>
                 Edit Week
@@ -392,8 +403,9 @@ function LapsSetupPageInner() {
               </>
             )}
           </div>
+          </div>
 
-          <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 whitespace-nowrap md:ml-auto md:w-auto md:shrink-0 md:gap-2">
+          <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 whitespace-nowrap xl:w-[410px] xl:shrink-0 xl:gap-2">
             <button className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm" type="button" onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, -7)))}>← Previous</button>
             <div className="text-center text-sm font-semibold sm:text-base">Week of {format(weekStart, "MM/dd/yy")}</div>
             <button className="btn btn-ghost shrink-0 whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm" type="button" onClick={() => requestNavigation(() => setWeekStart(addDays(weekStart, 7)))}>Next →</button>
@@ -482,7 +494,7 @@ function LapsSetupPageInner() {
                     const isFocusDay = focusDayIndex === null || focusDayIndex === dayIndex;
 
                     return (
-                      <td key={key} className="align-top">
+                      <td key={key} className="align-top whitespace-normal">
                     <div
                           className={`min-h-[88px] rounded-xl border p-2 transition ${
                             editing
@@ -494,7 +506,7 @@ function LapsSetupPageInner() {
                         >
                           {!editing && (
                             <div className="min-h-[76px] space-y-1.5">
-                              <div className="break-words [overflow-wrap:anywhere] text-sm font-semibold text-black">
+                              <div className="max-w-full overflow-hidden break-words whitespace-normal [overflow-wrap:anywhere] text-sm font-semibold leading-snug text-black">
                                 {lap?.name || <span className="text-black/35">No lap name</span>}
                               </div>
                               <div className="text-xs text-black/55">{lap?.standardCode || "No standard selected"}</div>
@@ -545,6 +557,7 @@ function LapsSetupPageInner() {
       </div>
 
       <UnsavedChangesDialog {...dialogProps} />
+      <ActionDialog {...actionDialogProps} />
     </div>
   );
 }

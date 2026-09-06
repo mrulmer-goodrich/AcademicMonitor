@@ -2,7 +2,7 @@
 
 ## Active work
 
-No active engineering task. The nine-day teacher feedback release was completed on 2026-09-06.
+No active engineering task. The post-release teacher polish pass was completed on 2026-09-06 and is ready for delivery.
 
 ## Known follow-up opportunities
 
@@ -14,5 +14,4 @@ No active engineering task. The nine-day teacher feedback release was completed 
 
 ## Blockers and questions
 
-- `next lint` currently stops making progress locally without returning findings. Strict TypeScript, Prisma validation, focused behavior checks, browser acceptance, and `next build --no-lint` pass; no lint result should be inferred from those successful gates.
-- Chrome breakpoint emulation was unavailable during the final pass because another extension panel held browser control. The final desktop states passed; the responsive layouts remain covered by their existing CSS contracts and the previously accepted tablet/phone suite.
+- In-app breakpoint emulation is unavailable in the current browser-control session. The affected desktop states passed at 1280 px; responsive behavior remains covered by the existing mobile/tablet layouts and prior accepted breakpoint suite.

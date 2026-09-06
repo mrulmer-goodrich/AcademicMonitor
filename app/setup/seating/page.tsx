@@ -3,9 +3,11 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import ActionDialog from "@/components/ActionDialog";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 import StudentIndicators from "@/components/StudentIndicators";
+import useActionDialog from "@/lib/useActionDialog";
 import {
   CLASSROOM_HEIGHT,
   CLASSROOM_WIDTH,
@@ -74,6 +76,7 @@ function SeatingSetupPageInner() {
     movingIds: string[];
     positions: Record<string, { x: number; y: number }>;
   } | null>(null);
+  const { ask, dialogProps: actionDialogProps } = useActionDialog();
 
   useEffect(() => {
     loadBlocks();
@@ -215,7 +218,15 @@ function SeatingSetupPageInner() {
   async function removeSelectedDesks() {
     if (selectedDeskIds.length === 0) return;
     const label = selectedDeskIds.length === 1 ? "this desk" : `${selectedDeskIds.length} desks`;
-    if (!confirm(`Remove ${label} from the seating chart? Students will return to the unassigned list.`)) return;
+    const confirmed = await ask({
+      eyebrow: "Seating chart",
+      title: `Delete ${label}?`,
+      description: "Student records will remain intact. Any students assigned to these desks will return to the unassigned list.",
+      confirmLabel: "Delete From Chart",
+      cancelLabel: "Cancel",
+      tone: "danger"
+    });
+    if (!confirmed) return;
     await Promise.all(selectedDeskIds.map((id) => fetch(`/api/desks/${id}`, { method: "DELETE" })));
     setSelectedDeskIds([]);
     await loadDesks();
@@ -292,7 +303,7 @@ function SeatingSetupPageInner() {
     dragRef.current = null;
     setSnapTargetId(null);
 
-    if (multiSelect && !moved && wasSelected) {
+    if (!moved && wasSelected) {
       setSelectedDeskIds((current) => current.filter((selectedId) => selectedId !== id));
       return;
     }
@@ -388,38 +399,32 @@ function SeatingSetupPageInner() {
 
       <div><ReturnToDashboardButton className="w-auto shrink-0 px-4 py-2 text-sm md:min-w-0" /></div>
 
-      <div className="hero-card flex flex-wrap items-center gap-2 p-3">
+      <div className="hero-card grid gap-2 p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
         {blockLocked ? (
           <div className="rounded-full border border-black/15 bg-white/85 px-3 py-2 text-sm font-semibold text-black/80 shadow-sm">
             {selectedBlock ? `Block ${selectedBlock.blockNumber} · ${selectedBlock.blockName}` : "Selected Block"}
           </div>
         ) : (
-          <select className="form-control max-w-[240px] shrink-0 py-2 text-sm" value={blockId} onChange={(event) => { setBlockId(event.target.value); setSelectedDeskIds([]); }}>
+          <select className="form-control !w-[210px] shrink-0 py-2 text-sm" value={blockId} onChange={(event) => { setBlockId(event.target.value); setSelectedDeskIds([]); }}>
             {blockOptions.map((block) => <option key={block.id} value={block.id}>{block.label}</option>)}
           </select>
         )}
 
-        <select className="form-control max-w-[200px] shrink-0 py-2 text-sm" aria-label="Unassigned student" value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} disabled={unassigned.length === 0 || Boolean(creatingDesk)}>
+        <select className="form-control !w-[160px] shrink-0 py-2 text-sm" aria-label="Unassigned student" value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} disabled={unassigned.length === 0 || Boolean(creatingDesk)}>
           {unassigned.length === 0 && <option value="">No students to add</option>}
           {unassigned.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
         </select>
         <button className="btn btn-primary shrink-0 px-3 py-2 text-sm" type="button" onClick={addStudentDesk} disabled={unassigned.length === 0 || Boolean(creatingDesk)}>{creatingDesk === "student" ? "Adding…" : "Add Student"}</button>
+        <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={addTeacherDesk} disabled={Boolean(creatingDesk)}>{creatingDesk === "teacher" ? "Adding…" : "Add Teacher Desk"}</button>
         <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={addAllStudentDesks} disabled={unassigned.length === 0 || Boolean(creatingDesk)}>{creatingDesk === "all" ? `Adding ${unassigned.length}…` : "Add All"}</button>
+        </div>
 
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={addTeacherDesk} disabled={unassigned.length > 0 || Boolean(creatingDesk)}>{creatingDesk === "teacher" ? "Adding…" : "Add Teacher Desk"}</button>
-          <button className={`btn shrink-0 px-3 py-2 text-sm ${multiSelect ? "btn-primary" : "btn-ghost"}`} type="button" aria-pressed={multiSelect} onClick={() => { setMultiSelect((current) => !current); setSelectedDeskIds([]); }} disabled={unassigned.length > 0}>Select Multiple</button>
-          <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={() => rotateSelected(-15)} disabled={unassigned.length > 0 || selectedDeskIds.length === 0}>−15°</button>
-          <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={() => rotateSelected(15)} disabled={unassigned.length > 0 || selectedDeskIds.length === 0}>+15°</button>
-          <button className="btn btn-ghost shrink-0 px-3 py-2 text-sm" type="button" onClick={() => setSelectedDeskIds([])} disabled={selectedDeskIds.length === 0}>Clear Selection</button>
-          {selectedDeskIds.length > 0 && (
-            <details className="relative">
-              <summary className="btn btn-ghost cursor-pointer list-none px-3 py-2 text-sm">More</summary>
-              <div className="absolute right-0 z-20 mt-2 w-52 rounded-xl border border-black/10 bg-white p-2 shadow-xl">
-                <button className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-50" type="button" onClick={() => void removeSelectedDesks()}>Remove selected desk{selectedDeskIds.length === 1 ? "" : "s"}</button>
-              </div>
-            </details>
-          )}
+        <div className="grid grid-cols-[132px_64px_64px_92px] items-center justify-start gap-2 lg:justify-end">
+          <button className={`btn w-[132px] justify-center px-3 py-2 text-sm ${multiSelect ? "btn-primary" : "btn-ghost"}`} type="button" aria-pressed={multiSelect} onClick={() => { setMultiSelect((current) => !current); setSelectedDeskIds([]); }} disabled={unassigned.length > 0}>Select Multiple</button>
+          <button className="btn btn-ghost w-16 justify-center px-2 py-2 text-sm" type="button" onClick={() => rotateSelected(-15)} disabled={unassigned.length > 0 || selectedDeskIds.length === 0}>−15°</button>
+          <button className="btn btn-ghost w-16 justify-center px-2 py-2 text-sm" type="button" onClick={() => rotateSelected(15)} disabled={unassigned.length > 0 || selectedDeskIds.length === 0}>+15°</button>
+          <button className="btn btn-ghost w-[92px] justify-center px-3 py-2 text-sm text-red-700" type="button" onClick={() => void removeSelectedDesks()} disabled={selectedDeskIds.length === 0}>Delete</button>
         </div>
       </div>
 
@@ -473,6 +478,7 @@ function SeatingSetupPageInner() {
           </div>
         )}
       </ClassroomCanvas>
+      <ActionDialog {...actionDialogProps} />
     </div>
   );
 }

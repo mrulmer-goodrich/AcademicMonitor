@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import ActionDialog from "@/components/ActionDialog";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
+import useActionDialog from "@/lib/useActionDialog";
 import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
 
 type Block = { id: string; blockNumber: number; blockName: string };
@@ -99,6 +101,7 @@ export default function StudentsSetupPage() {
   const [notesEditor, setNotesEditor] = useState<{ id: string; name: string; notes: string } | null>(null);
   const [savingAll, setSavingAll] = useState(false);
   const editingLocked = Boolean(editingId) || editingAll || importing || savingAll;
+  const { ask, dialogProps: actionDialogProps } = useActionDialog();
 
   useEffect(() => {
     loadBlocks();
@@ -319,14 +322,17 @@ export default function StudentsSetupPage() {
   }
 
   async function deleteStudent(student: Student) {
-    const confirmOne = confirm(`Delete ${student.displayName}? This cannot be undone.`);
-    if (!confirmOne) return;
-    const confirmTwo = confirm("This will permanently delete attendance, performance, and notes for this student.");
-    if (!confirmTwo) return;
-    const confirmThree = confirm("Consider setting the student to inactive instead. Delete anyway?");
-    if (!confirmThree) return;
-    const typed = prompt('Type "DELETE" to confirm.');
-    if (typed !== "DELETE") return;
+    const confirmed = await ask({
+      eyebrow: "Permanent action",
+      title: `Delete ${student.displayName}?`,
+      description: "This permanently removes the student, attendance, performance, and notes. Setting the student inactive is safer when you may need the history later.",
+      confirmLabel: "Delete Student",
+      cancelLabel: "Keep Student",
+      tone: "danger",
+      size: "large",
+      requireText: "DELETE"
+    });
+    if (!confirmed) return;
     const res = await fetch(`/api/students/${student.id}`, { method: "DELETE" });
     if (!res.ok) {
       setError("Unable to delete student.");
@@ -394,7 +400,7 @@ export default function StudentsSetupPage() {
           </label>
         </div>
 
-        <div className="hidden max-h-[calc(100vh-205px)] min-h-[280px] overflow-auto lg:block">
+        <div className="hidden min-h-[280px] lg:block lg:overflow-visible">
           <table className="table table-compact min-w-[900px]">
             <thead className="sticky-head">
               <tr>
@@ -673,6 +679,7 @@ export default function StudentsSetupPage() {
       )}
 
       <UnsavedChangesDialog {...dialogProps} />
+      <ActionDialog {...actionDialogProps} />
     </div>
   );
 }

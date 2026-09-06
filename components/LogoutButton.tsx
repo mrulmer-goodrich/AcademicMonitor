@@ -7,7 +7,7 @@ export default function LogoutButton() {
 
   return (
     <>
-      <button className="btn btn-ghost" type="button" onClick={() => setOpen(true)}>
+      <button className="inline-flex min-h-[38px] items-center justify-center whitespace-nowrap rounded-lg px-3 py-2 text-[12px] font-semibold leading-none text-black/65 transition hover:bg-white hover:text-black" type="button" onClick={() => setOpen(true)}>
         Log out
       </button>
       {open && (

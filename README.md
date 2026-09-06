@@ -7,7 +7,7 @@ Academic Monitor is a touch-first classroom tool for recording attendance and st
 The core teacher workflow is implemented:
 
 - Account registration, login, profile, and password changes
-- Required school-year-scoped blocks and students, with archived-year rollover and one-or-more instructional grades per block
+- Required school-year-scoped blocks and students, with clearly separated historical years, reversible class archiving, and one-or-more instructional grades per block
 - Student categories, EOG levels, and active/inactive status
 - Compact student management with complete single-student setup and Edit All attribute changes
 - Drag-and-drop seating charts with student and teacher desks
@@ -15,13 +15,13 @@ The core teacher workflow is implemented:
 - Attendance gating before monitoring begins
 - Tap-to-cycle performance capture: proficient, developing, and nothing written
 - Privacy-safe classroom indicators that preserve their established desk positions and teacher color/pattern cues without projected category labels or EOG values
-- Day, week, month, custom-range, individual, monitoring, and attendance reports with CSV/XLSX export
-- Historical monitoring entry from the active school-year start through the current school day
+- Day, week, month, custom-range, individual, monitoring, and attendance reports with consistent two-row controls, centered totals, and CSV/XLSX export
+- Historical monitoring entry from the active school-year start through the current school day, with a once-per-date-entry warning before prior-day edits
 - Responsive classroom layouts that keep seats, indicators, and lap controls together across Chromebook and tablet sizes
 - Weekend test sessions that can be used for practice without entering standard reports
 - Public landing, about, and contact pages
 
-The optimized production compile and strict TypeScript checks pass. The full local lint scan can stall after compilation in this environment. There is no automated test suite yet.
+The optimized production compile, strict TypeScript checks, and direct ESLint scan pass. There is no automated test suite yet.
 
 Known limitations:
 
@@ -69,9 +69,11 @@ The seed script creates this local demo account:
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Start the local development server |
-| `npm run build` | Compile, lint, and type-check a production build |
+| `npm run build` | Compile and type-check a production build |
 | `npm run start` | Run the compiled production build |
-| `npm run lint` | Run Next.js lint checks |
+| `npm run lint` | Run a bounded direct ESLint scan of application source |
+| `npm run typecheck` | Run strict TypeScript validation without emitting files |
+| `npm run verify` | Run lint, type-checking, and the production build in sequence |
 | `npm run db:generate` | Generate the Prisma client |
 | `npm run db:push` | Apply the Prisma schema to the configured database |
 | `npm run db:seed` | Seed local demo data |
@@ -101,10 +103,10 @@ scripts/      Database seed script
 - Saturday and Sunday monitor records are test data and are excluded from standard reports and weekly reporting totals.
 - Desk segments run left to right from Lap 1 through Lap 3.
 - Tapping a segment cycles green to yellow to red and back to green.
-- Monitoring opens with no laps selected; teachers may select one or more named laps, and performance taps save automatically in order.
+- Monitoring opens with no laps selected; teachers may select one or more named laps, and performance taps save automatically in order. Entering each prior-day editing visit requires one clear warning, without repeated prompts while remaining on that date.
 - Monitoring dates are limited to the active school year through the current school day; pending performance saves flush before changing dates.
 - Attendance remains an explicit batch-save workflow, while Command Center navigation flushes any pending monitoring save before leaving.
-- Class monitoring reports default to the first named lap for each date, support day/week/month/custom ranges, and allow an independent lap selection for every reported date.
+- Class monitoring reports preselect only named laps that contain recorded evidence for each date, support day/week/month/custom ranges, and allow an independent lap selection for every reported date. Named laps without evidence do not contribute an unrecorded total.
 - Absent students are masked and cannot be scored.
 
 ## Deployment

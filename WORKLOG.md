@@ -1,5 +1,34 @@
 # Worklog
 
+## 2026-09-06 — Post-release teacher workflow polish
+
+Completed:
+
+- Replaced native browser confirms and prompts with one reusable, accessible product overlay for grade changes, destructive actions, unnamed laps, and historical monitoring warnings
+- Added a once-per-prior-date-entry monitoring warning that stays dismissed while the teacher remains on that date and returns after navigating away and back
+- Strengthened school-year grouping, allowed individually archived current-year classes to be restored, and removed fixed-height scrolling from Classes & Years
+- Reworked Command Center shortcuts into a compact segmented navigation row that keeps the heading on one line
+- Added breathing room around Weekly Lap Plan navigation, contained edit-mode week controls, and prevented long lap names from escaping their cells
+- Put student and teacher desk creation on one stable Seating row, replaced More with Delete, removed Clear Selection, and made a second click clear a selected desk
+- Let the Students table grow with the page while retaining its sticky column header
+- Standardized attendance and monitoring report controls into the same two-row, three-position grid with aligned range and date controls and right-justified exports
+- Centered longitudinal report cells; replaced textual totals with fixed-position colored count circles; left zero slots blank; and removed unrecorded named laps from monitoring totals
+- Made monitoring lap defaults reflect actual evidence for each date, including valid zero-lap and multi-lap defaults, and stacked date-specific lap selectors inside their report headers
+- Replaced the stalling framework lint wrapper with a direct application-source ESLint command and added explicit typecheck and complete verify commands
+
+Verification:
+
+- Browser-accepted Command Center, Classes & Years, class-grade warning, Weekly Lap Plan view/edit, Seating controls, Students, historical-date warnings, unnamed-lap warning, and shared attendance/monitoring report controls at 1280 px
+- Confirmed prior-day warnings appear once while staying on a date, reappear on a different prior date, and reappear when returning to the original prior date
+- Confirmed the browser console remained free of warnings and errors across the final monitoring flow
+- Direct ESLint completed with zero errors and the nine pre-existing hook-dependency warnings; strict TypeScript, whitespace validation, and the optimized production build passed
+
+Decisions:
+
+- Restoring a class applies to a manually archived class in the current school year; historical-year classes remain historical so restoring cannot silently reactivate an old year
+- Report totals represent recorded evidence only; a named lap without a score is visually empty and does not become a fourth result category
+- Shared report controls retain the same six spatial positions for both report types, while individual reports use a fixed descriptive range slot
+
 ## 2026-09-06 — Teacher feedback, multi-grade standards, and historical evidence
 
 Completed:

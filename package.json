@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --no-lint",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "node scripts/run-eslint.mjs",
+    "typecheck": "tsc --noEmit --incremental false --pretty false",
+    "verify": "npm run lint && npm run typecheck && npm run build",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

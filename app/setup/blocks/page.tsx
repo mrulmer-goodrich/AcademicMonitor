@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import ActionDialog from "@/components/ActionDialog";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
+import useActionDialog from "@/lib/useActionDialog";
 import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
 import { currentSchoolYearLabel, normalizeSchoolYearLabel } from "@/lib/schoolYear";
 
@@ -51,6 +53,7 @@ export default function BlocksSetupPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, Block>>({});
+  const { ask, dialogProps: actionDialogProps } = useActionDialog();
 
   useEffect(() => {
     void loadData();
@@ -72,8 +75,10 @@ export default function BlocksSetupPage() {
       : allRows.filter((row) => row.schoolYearActive && !row.archived);
     const direction = sortDir === "asc" ? 1 : -1;
     return rows.slice().sort((left, right) => {
+      const yearComparison = left.schoolYearLabel.localeCompare(right.schoolYearLabel);
+      if (sortKey !== "schoolYear" && yearComparison !== 0) return yearComparison * -1;
       let comparison = 0;
-      if (sortKey === "schoolYear") comparison = left.schoolYearLabel.localeCompare(right.schoolYearLabel);
+      if (sortKey === "schoolYear") comparison = yearComparison;
       if (sortKey === "blockNumber") comparison = left.blockNumber - right.blockNumber;
       if (sortKey === "blockName") comparison = left.blockName.localeCompare(right.blockName);
       if (sortKey === "gradeLevels") comparison = gradeLabel(left.gradeLevels).localeCompare(gradeLabel(right.gradeLevels));
@@ -155,9 +160,14 @@ export default function BlocksSetupPage() {
     setError(null);
     setStatusMessage(null);
     if (data.gradeLevels !== undefined && data.gradeLevels.join(",") !== original.gradeLevels.join(",")) {
-      const confirmed = confirm(
-        `Change ${original.blockName} to ${gradeLabel(data.gradeLevels)}? Existing standard selections for this class will be cleared, but lap names and results will remain.`
-      );
+      const confirmed = await ask({
+        eyebrow: "Standards update",
+        title: `Change the grades for ${original.blockName}?`,
+        description: <>This class will use <strong>{gradeLabel(data.gradeLevels)}</strong>. Existing standard selections will be cleared so they cannot point to the wrong grade, while lap names and recorded results will remain.</>,
+        confirmLabel: "Change Grades",
+        cancelLabel: "Keep Current Grades",
+        tone: "warning"
+      });
       if (!confirmed) return false;
     }
     const res = await fetch(`/api/blocks/${original.id}`, {
@@ -175,7 +185,15 @@ export default function BlocksSetupPage() {
   }
 
   async function deleteBlock(block: BlockRow) {
-    if (!confirm(`Delete ${block.blockName} and all related class records? Archiving is safer.`)) return;
+    const confirmed = await ask({
+      eyebrow: "Permanent action",
+      title: `Delete ${block.blockName}?`,
+      description: "This permanently removes the class and its related records. Archive the class instead if you may need it again.",
+      confirmLabel: "Delete Class",
+      cancelLabel: "Cancel",
+      tone: "danger"
+    });
+    if (!confirmed) return;
     const res = await fetch(`/api/blocks/${block.id}`, { method: "DELETE" });
     if (res.ok) {
       setStatusMessage("Class deleted.");
@@ -209,7 +227,16 @@ export default function BlocksSetupPage() {
       setError("Use a consecutive school year such as 26/27.");
       return;
     }
-    if (!confirm(`Start ${normalized}? The current school year and its classes will move to the archived view.`)) return;
+    const confirmed = await ask({
+      eyebrow: "School-year rollover",
+      title: `Start ${normalized}?`,
+      description: "The current school year and its classes will move into the clearly labeled historical section. All prior records will be preserved.",
+      confirmLabel: `Start ${normalized}`,
+      cancelLabel: "Cancel",
+      tone: "warning",
+      size: "large"
+    });
+    if (!confirmed) return;
     const res = await fetch("/api/school-years", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -279,7 +306,7 @@ export default function BlocksSetupPage() {
           <span>{statusMessage}</span>
         </div>
 
-        <div className="max-h-[calc(100vh-250px)] min-h-[280px] overflow-auto">
+        <div className="min-h-[280px] overflow-x-auto md:overflow-visible">
           <table className="table table-compact min-w-[780px]">
             <thead className="sticky-head">
               <tr>
@@ -296,14 +323,28 @@ export default function BlocksSetupPage() {
                 const isEditing = editingId === block.id;
                 const draftRow = draft[block.id] || block;
                 const isArchived = block.archived || !block.schoolYearActive;
+                const isHistorical = !block.schoolYearActive;
                 const startsYearGroup = index === 0 || visibleRows[index - 1].schoolYearLabel !== block.schoolYearLabel;
                 return (
-                  <tr key={block.id} className={`${isEditing ? "bg-amber-50/70" : "bg-white/40"} ${startsYearGroup ? "border-t-2 border-[#d9ccb4]" : ""}`}>
+                  <Fragment key={block.id}>
+                  {startsYearGroup && (
+                    <tr className={block.schoolYearActive ? "bg-emerald-50" : "bg-slate-100"}>
+                      <td colSpan={6} className="!px-3 !py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-[#071c2c]">{block.schoolYearLabel}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] ${block.schoolYearActive ? "bg-emerald-200 text-emerald-900" : "bg-slate-300 text-slate-700"}`}>
+                            {block.schoolYearActive ? "Current school year" : "Historical school year"}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  <tr className={isEditing ? "bg-amber-50/70" : isHistorical ? "bg-slate-50/80 text-black/70" : "bg-white/40"}>
                     <td className="font-semibold">{block.schoolYearLabel}</td>
                     <td>{isEditing ? <input className="form-control h-8 max-w-[76px] py-1 text-sm" type="number" min={1} value={draftRow.blockNumber} onChange={(event) => setDraft((current) => ({ ...current, [block.id]: { ...draftRow, blockNumber: Number(event.target.value) } }))} /> : block.blockNumber}</td>
                     <td>{isEditing ? <input className="form-control h-8 py-1 text-sm font-semibold" value={draftRow.blockName} onChange={(event) => setDraft((current) => ({ ...current, [block.id]: { ...draftRow, blockName: event.target.value } }))} /> : <span className="font-semibold">{block.blockName}</span>}</td>
                     <td>{isEditing ? <div className="flex h-8 items-center gap-1">{[6, 7, 8].map((grade) => <button key={grade} className={`rounded-lg px-2 py-1 text-xs font-semibold ${draftRow.gradeLevels.includes(grade) ? "bg-[#0b1b2a] text-white" : "bg-black/5 text-black/55"}`} type="button" aria-pressed={draftRow.gradeLevels.includes(grade)} onClick={() => setDraft((current) => ({ ...current, [block.id]: { ...draftRow, gradeLevels: toggleGrade(draftRow.gradeLevels, grade) } }))}>{grade}</button>)}</div> : gradeLabel(block.gradeLevels)}</td>
-                    <td><span className={`inline-flex h-7 items-center rounded-full px-2 text-[11px] font-semibold ${isArchived ? "bg-slate-200 text-slate-600" : "bg-emerald-100 text-emerald-800"}`}>{isArchived ? "Archived" : "Active"}</span></td>
+                    <td><span className={`inline-flex h-7 items-center rounded-full px-2 text-[11px] font-semibold ${isArchived ? "bg-slate-200 text-slate-600" : "bg-emerald-100 text-emerald-800"}`}>{isHistorical ? "Historical" : block.archived ? "Archived" : "Active"}</span></td>
                     <td>
                       <div className="flex h-8 items-center justify-end gap-1">
                         {isEditing ? (
@@ -319,6 +360,7 @@ export default function BlocksSetupPage() {
                       </div>
                     </td>
                   </tr>
+                  </Fragment>
                 );
               })}
               {visibleRows.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-sm text-black/55">No classes to show.</td></tr>}
@@ -337,6 +379,7 @@ export default function BlocksSetupPage() {
       </details>
 
       <UnsavedChangesDialog {...dialogProps} />
+      <ActionDialog {...actionDialogProps} />
     </div>
   );
 }

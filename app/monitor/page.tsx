@@ -4,10 +4,12 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { addDays, format, parseISO, startOfWeek } from "date-fns";
+import ActionDialog from "@/components/ActionDialog";
 import ClassroomCanvas from "@/components/ClassroomCanvas";
 import ReturnToDashboardButton from "@/components/ReturnToDashboardButton";
 import StudentIndicators from "@/components/StudentIndicators";
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
+import useActionDialog from "@/lib/useActionDialog";
 import useUnsavedChangesGuard from "@/lib/useUnsavedChangesGuard";
 import { normalizeSchoolYearLabel } from "@/lib/schoolYear";
 import { normalizeDeskGeometry } from "@/lib/classroomGeometry";
@@ -157,6 +159,8 @@ function MonitorPageInner() {
   const performanceSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const latestPerformanceRef = useRef<Record<string, PerformanceColor>>({});
   const persistedPerformanceRef = useRef<Record<string, PerformanceColor>>({});
+  const historicalVisitKeyRef = useRef("");
+  const { ask, dialogProps: actionDialogProps } = useActionDialog();
 
   const dateToUse = parseISO(`${dateKey}T12:00:00`);
   const weekStart = startOfWeek(dateToUse, { weekStartsOn: 1 });
@@ -192,6 +196,26 @@ function MonitorPageInner() {
   useEffect(() => {
     setSelectedLaps([]);
   }, [laps, dayIndex, isWeekday]);
+
+  useEffect(() => {
+    if (!blockId || loading) return;
+    const visitKey = `${blockId}:${dateKey}:${activeMode}`;
+    if (historicalVisitKeyRef.current === visitKey) return;
+    historicalVisitKeyRef.current = visitKey;
+    if (activeMode !== "performance" || dateKey >= schoolToday) return;
+
+    void ask({
+      eyebrow: "Historical monitoring",
+      title: "You are entering data for a prior day",
+      description: <>You are about to edit monitoring records for <strong>{format(parseISO(`${dateKey}T12:00:00`), "EEEE, MMMM d, yyyy")}</strong>. Changes will be saved to that date, not today. This warning will stay out of your way until you leave this date.</>,
+      confirmLabel: "Edit This Prior Day",
+      cancelLabel: "Return to Today",
+      tone: "warning",
+      size: "large"
+    }).then((confirmed) => {
+      if (!confirmed) setDateKey(schoolToday);
+    });
+  }, [activeMode, ask, blockId, dateKey, loading, schoolToday]);
 
   useEffect(
     () => () => {
@@ -364,9 +388,16 @@ function MonitorPageInner() {
     setSaveState(null);
   }
 
-  function bulkAttendance(status: AttendanceStatus) {
-    const ok = confirm(`Mark all active students as ${attendanceLabel(status)}?`);
-    if (!ok) return;
+  async function bulkAttendance(status: AttendanceStatus) {
+    const confirmed = await ask({
+      eyebrow: "Attendance shortcut",
+      title: `Mark everyone ${attendanceLabel(status).toLowerCase()}?`,
+      description: `This will set all ${activeStudents.length} active students to ${attendanceLabel(status).toLowerCase()}. You can still adjust individual students before saving.`,
+      confirmLabel: `Mark All ${attendanceLabel(status)}`,
+      cancelLabel: "Cancel",
+      tone: "info"
+    });
+    if (!confirmed) return;
     setDraftAttendance((prev) => {
       const next = { ...prev };
       activeStudents.forEach((studentId) => {
@@ -460,8 +491,17 @@ function MonitorPageInner() {
     return `${base}${includeNotice ? "&notice=name-laps-before-monitoring" : ""}${targetLap ? `&targetLap=${targetLap}` : ""}`;
   }
 
-  function requestLapSetup(lapNumber: number) {
-    if (!confirm(`Lap ${lapNumber} is not named for ${format(dateToUse, "EEEE, MMMM d")}. Name it now?`)) return;
+  async function requestLapSetup(lapNumber: number) {
+    const confirmed = await ask({
+      eyebrow: "Lap setup needed",
+      title: `Lap ${lapNumber} is not named`,
+      description: <>There is no name for Lap {lapNumber} on <strong>{format(dateToUse, "EEEE, MMMM d")}</strong>. Name it now, save the week, and you will return directly to this monitoring date.</>,
+      confirmLabel: "Name This Lap",
+      cancelLabel: "Not Now",
+      tone: "info",
+      size: "large"
+    });
+    if (!confirmed) return;
     requestNavigation(() => router.push(lapsSetupHref(true, lapNumber)));
   }
 
@@ -722,7 +762,7 @@ function MonitorPageInner() {
                       key={lap.lapNumber}
                       type="button"
                       className="btn btn-ghost justify-center border-2 border-dashed border-black/20 px-3 py-3 text-center"
-                      onClick={() => requestLapSetup(lap.lapNumber)}
+                      onClick={() => void requestLapSetup(lap.lapNumber)}
                     >
                       Name Lap {lap.lapNumber}
                     </button>
@@ -758,7 +798,7 @@ function MonitorPageInner() {
                     <button
                       className="btn btn-primary"
                       type="button"
-                      onClick={() => requestLapSetup(1)}
+                      onClick={() => void requestLapSetup(1)}
                     >
                       Name Your Laps
                     </button>
@@ -898,7 +938,7 @@ function MonitorPageInner() {
                 <h2 className="section-title">Mark attendance</h2>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button className="btn btn-ghost" type="button" onClick={() => bulkAttendance("PRESENT")}>
+                <button className="btn btn-ghost" type="button" onClick={() => void bulkAttendance("PRESENT")}>
                   All Present
                 </button>
                 <button className="btn btn-ghost" type="button" onClick={() => setAttendancePanel(false)}>
@@ -979,6 +1019,7 @@ function MonitorPageInner() {
       )}
 
       <UnsavedChangesDialog {...dialogProps} />
+      <ActionDialog {...actionDialogProps} />
     </div>
   );
 }

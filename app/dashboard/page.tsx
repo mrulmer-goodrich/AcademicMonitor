@@ -164,7 +164,7 @@ function DashboardQuickAction({
   return (
     <Link
       href={href}
-      className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-[#d9ccb4] bg-[rgba(255,250,243,0.92)] px-5 py-2.5 text-center text-[14px] font-medium leading-none tracking-[0.01em] text-black/80 shadow-[0_8px_18px_rgba(11,27,42,0.07)] transition hover:-translate-y-px hover:bg-white"
+      className="inline-flex min-h-[38px] items-center justify-center whitespace-nowrap rounded-lg px-3 py-2 text-center text-[12px] font-semibold leading-none text-black/65 transition hover:bg-white hover:text-black"
     >
       <div>{label}</div>
     </Link>
@@ -558,11 +558,11 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
       {isAuthed && (
         <>
           <div className="hero-card flex flex-1 flex-col gap-3 overflow-hidden border-[#ded2bf] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,232,0.92)_100%)] p-3 lg:p-3.5">
-            <div className="flex flex-col gap-2 border-b border-black/10 pb-2.5 lg:flex-row lg:items-end lg:justify-between">
-              <h1 className="section-title relative mb-0 inline-block w-fit text-[clamp(1.85rem,2vw,2.35rem)] font-extrabold tracking-[-0.045em] text-[#071c2c] drop-shadow-[0_1px_0_rgba(255,255,255,0.8)] after:absolute after:-bottom-1 after:left-0 after:h-[3px] after:w-full after:rounded-full after:bg-[linear-gradient(90deg,#1597a5,#c2d83e)] after:content-['']">
+            <div className="flex flex-col gap-2 border-b border-black/10 pb-2.5 xl:flex-row xl:items-center xl:justify-between">
+              <h1 className="section-title relative mb-0 inline-block w-fit shrink-0 whitespace-nowrap text-[clamp(1.85rem,2vw,2.35rem)] font-extrabold tracking-[-0.045em] text-[#071c2c] drop-shadow-[0_1px_0_rgba(255,255,255,0.8)] after:absolute after:-bottom-1 after:left-0 after:h-[3px] after:w-full after:rounded-full after:bg-[linear-gradient(90deg,#1597a5,#c2d83e)] after:content-['']">
                 Command Center
               </h1>
-              <div className="flex flex-wrap items-center justify-end gap-2.5">
+              <div className="flex flex-wrap items-center gap-0.5 self-start rounded-xl bg-black/[0.035] p-1 xl:justify-end xl:self-auto">
                 <DashboardQuickAction href="/setup/blocks" label="Classes & Years" />
                 <DashboardQuickAction href="/setup/students" label="Students" />
                 <DashboardQuickAction href="/setup/seating" label="Seating" />
